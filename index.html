@@ -1061,6 +1061,30 @@
     </div>
   </div>
 
+  <!-- 非 LINE 環境檢查：按「送回聊天室」但不是從 LINE 聊天室開啟本頁
+       （例如直接用瀏覽器打開、或從主畫面圖示開啟）時跳出，跟「未加
+       好友」是不同情境、原因也不同，因此獨立成另一個彈窗，避免文案
+       混在一起讓使用者誤會成好友問題。 -->
+  <div class="modal-overlay hidden" id="notInLiffModal"
+       role="dialog" aria-modal="true" aria-labelledby="notInLiffTitle">
+    <div class="modal-box" style="max-width:380px;">
+      <div class="modal-tabs">
+        <button id="notInLiffTitle" class="active" style="cursor:default;">📱 這個功能需要從 LINE 聊天室開啟</button>
+      </div>
+      <div class="modal-body">
+        「送回聊天室」只能在<b>從官方帳號的聊天室裡開啟這個頁面</b>時使用，因為要靠 LINE 提供的環境（LIFF）才知道該把內容送去哪個聊天室，一般瀏覽器沒有這個資訊。<br><br>
+        請先加官方帳號好友，並從聊天室裡的選單或連結打開這個頁面，就能使用這個功能。<br><br>
+        如果只是想把整理好的內容傳出去，不一定要送回聊天室——下方「🔗 分享出去」不需要在 LINE 環境內也能用。
+      </div>
+      <div class="modal-footer">
+        <div class="chat-preview-actions">
+          <button class="btn-cancel" onclick="NotInLiffGate.close()">取消</button>
+          <button class="btn-confirm" onclick="NotInLiffGate.goToOfficialAccount()">前往官方帳號</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="app" id="mainApp" style="display:flex;">
     <div class="storage-toast" id="storageToast">
       <span class="toast-icon">💾</span>
@@ -4257,15 +4281,15 @@
       }
     };
 
-    // 非 LINE 環境下 sendMessages 永遠不會成功，直接停用按鈕並說明原因，
-    // 比讓使用者按下去才看到失敗訊息好
+    // 按鈕本身維持可點擊（不 disabled）：非 LINE 環境時，點下去會由
+    // ensureCanSendToRoom() 跳出 NotInLiffGate 說明「為什麼」與「該
+    // 怎麼做」，這比直接鎖灰按鈕、讓使用者自己猜原因更清楚。這裡只
+    // 負責視覺提示（title 提示文字），不做任何攔截。
     function updateLineFeatureAvailability() {
       const btn = document.getElementById('sendToRoomBtn');
       if (!btn) return;
       const inClient = liffReady && typeof liff.isInClient === 'function' && liff.isInClient();
-      btn.disabled = !inClient;
-      btn.title = inClient ? '' : '此功能僅在從 LINE 聊天室開啟本頁時可用，請改用「分享出去」';
-      btn.style.opacity = inClient ? '' : '0.45';
+      btn.title = inClient ? '' : '此功能需要從官方帳號的聊天室開啟本頁才能使用，點擊查看說明';
     }
 
     const FriendGate = {
@@ -4287,15 +4311,37 @@
       }
     };
 
+    // 非 LINE 環境（一般瀏覽器、或已加到主畫面的 PWA）按下「送回聊天室」
+    // 時的提示。跟 FriendGate 分開是因為原因不同：這裡是環境問題
+    // （沒有 LIFF context），不是好友關係問題，共用同一個彈窗會讓使用者
+    // 誤以為自己還沒加好友，反而搞不清楚真正該做的事（開啟正確入口）。
+    const NotInLiffGate = {
+      close() {
+        ModalUtil.hide('notInLiffModal');
+      },
+      show() {
+        ModalUtil.show('notInLiffModal');
+      },
+      goToOfficialAccount() {
+        this.close();
+        const officialAccountUrl = 'https://line.me/R/ti/p/@165tgzzz';
+        // 這裡一定不在 LIFF 環境內（否則不會走到這個分支），直接開新分頁即可，
+        // 不需要判斷 liff.openWindow
+        window.open(officialAccountUrl, '_blank', 'noopener');
+      }
+    };
+
     // 回傳 true 才可繼續送出。所有回傳 false 的路徑都已自行提示過使用者，
     // 呼叫端只需要直接 return，不用再補訊息
     async function ensureCanSendToRoom() {
-      if (!liffReady) {
-        alert('LINE 功能尚未就緒（可能是初始化失敗或網路問題）。請改用「分享出去」。');
-        return false;
-      }
-      if (typeof liff.isInClient !== 'function' || !liff.isInClient()) {
-        alert('「送回聊天室」只能在從 LINE 聊天室開啟這個頁面時使用。請改用「分享出去」，或回到跟機器人的聊天室重新點一次連結。');
+      // typeof liff === 'undefined' 涵蓋 LIFF SDK 腳本本身載入失敗的
+      // 極端狀況（網路問題、CDN 掛掉等），此時連 liff 物件都不存在，
+      // 直接存取 liff.isInClient 會拋出 ReferenceError
+      if (typeof liff === 'undefined' || typeof liff.isInClient !== 'function' || !liff.isInClient()) {
+        // liffReady 為 false（初始化失敗）時 isInClient 判斷不可靠，
+        // 一律視為非 LINE 環境處理，指向同一個「請從官方帳號開啟」提示，
+        // 對使用者來說這兩種情況要做的事其實一樣
+        NotInLiffGate.show();
         return false;
       }
       if (typeof liff.isLoggedIn === 'function' && !liff.isLoggedIn()) {
