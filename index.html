@@ -1069,17 +1069,13 @@
        role="dialog" aria-modal="true" aria-labelledby="notInLiffTitle">
     <div class="modal-box" style="max-width:380px;">
       <div class="modal-tabs">
-        <button id="notInLiffTitle" class="active" style="cursor:default;">📱 這個功能需要從 LINE 聊天室開啟</button>
+        <button id="notInLiffTitle" class="active" style="cursor:default;">📱 這個功能僅限手機 LINE App 內使用</button>
       </div>
-      <div class="modal-body">
-        「送回聊天室」只能在<b>從官方帳號的聊天室裡開啟這個頁面</b>時使用，因為要靠 LINE 提供的環境（LIFF）才知道該把內容送去哪個聊天室，一般瀏覽器沒有這個資訊。<br><br>
-        請先加官方帳號好友，並從聊天室裡的選單或連結打開這個頁面，就能使用這個功能。<br><br>
-        如果只是想把整理好的內容傳出去，不一定要送回聊天室——下方「🔗 分享出去」不需要在 LINE 環境內也能用。
-      </div>
+      <div class="modal-body" id="notInLiffBody"></div>
       <div class="modal-footer">
         <div class="chat-preview-actions">
           <button class="btn-cancel" onclick="NotInLiffGate.close()">取消</button>
-          <button class="btn-confirm" onclick="NotInLiffGate.goToOfficialAccount()">前往官方帳號</button>
+          <button class="btn-confirm" id="notInLiffConfirmBtn">前往官方帳號</button>
         </div>
       </div>
     </div>
@@ -1388,18 +1384,26 @@
   </div>
 
 
-  <!-- 分享出去的子選單彈窗：兩個選項，各自附上限制與建議說明 -->
+  <!-- 分享出去的子選單彈窗：三個選項，各自附上限制與建議說明。
+       「複製全文」是給桌機瀏覽器使用者的直接路徑——navigator.share()
+       在桌機瀏覽器普遍不支援，若沒有這個選項，桌機使用者得先點「分享
+       至其他應用程式」看一次失敗訊息，才會被動導向複製剪貼簿，體驗
+       繞遠路。這裡讓複製成為一個可以直接選的動作，不必等失敗才觸發。 -->
   <div class="modal-overlay hidden" id="shareMenuModal">
     <div class="modal-box" style="max-width:380px;">
       <div class="modal-tabs"><button class="active" style="cursor:default;">🔗 分享出去</button></div>
       <div class="modal-body" style="padding:12px;">
+        <div class="share-option" onclick="ShareMenu.selectCopy()">
+          <div class="share-option-title">📋 複製全文</div>
+          <div class="share-option-desc">複製到剪貼簿，可貼到任何地方（LINE、Email、筆記軟體等）。<b>電腦版瀏覽器建議用這個</b>，不需要登入或加好友。</div>
+        </div>
         <div class="share-option" onclick="ShareMenu.selectLineFriend()">
           <div class="share-option-title">📤 LINE 好友分享</div>
           <div class="share-option-desc">跳出 LINE 好友／群組清單，挑一個對象發送。<b>需要先登入 LINE</b>，且對方要在你的好友清單裡才選得到。</div>
         </div>
         <div class="share-option" onclick="ShareMenu.selectOtherApp()">
           <div class="share-option-title">📲 分享至其他應用程式</div>
-          <div class="share-option-desc">跳出手機系統的分享選單（LINE、簡訊、Email 等）。<b>在 LINE 內開啟此頁面時無法使用</b>（LINE 內建瀏覽器限制），會自動改用「LINE 好友分享」；在一般瀏覽器（如 Chrome、Safari）開啟時才能正常跳出系統選單。</div>
+          <div class="share-option-desc">跳出手機系統的分享選單（LINE、簡訊、Email 等）。<b>僅支援手機瀏覽器</b>，電腦版瀏覽器與 LINE 內建瀏覽器都不支援，會自動改用「複製全文」。</div>
         </div>
       </div>
       <div class="modal-footer">
@@ -2037,6 +2041,10 @@
       },
       close() {
         ModalUtil.hide('shareMenuModal');
+      },
+      selectCopy() {
+        this.close();
+        handleCopyToClipboard();
       },
       selectLineFriend() {
         this.close();
@@ -4245,6 +4253,11 @@
     const LIFF_ID = '2011273067-abYzT84Y';
     let liffReady = false;
 
+    // 官方帳號加好友連結：抽成共用常數，避免多處寫死同一個網址，
+    // 之後若換帳號只需要改這一處。桌機瀏覽器打開這個網址時，LINE
+    // 官方頁面本身就會顯示 QR code 供手機掃描，不需要額外產生 QR code。
+    const OFFICIAL_ACCOUNT_URL = 'https://line.me/R/ti/p/@165tgzzz';
+
     const CONSENT_VERSION = '2026-08-v2';
 
     const AppBootstrap = {
@@ -4302,11 +4315,10 @@
       },
       goAddFriend() {
         this.close();
-        const addFriendUrl = 'https://line.me/R/ti/p/@165tgzzz';
         if (liffReady && typeof liff.openWindow === 'function') {
-          liff.openWindow({ url: addFriendUrl, external: true });
+          liff.openWindow({ url: OFFICIAL_ACCOUNT_URL, external: true });
         } else {
-          window.open(addFriendUrl, '_blank', 'noopener');
+          window.open(OFFICIAL_ACCOUNT_URL, '_blank', 'noopener');
         }
       }
     };
@@ -4314,20 +4326,56 @@
     // 非 LINE 環境（一般瀏覽器、或已加到主畫面的 PWA）按下「送回聊天室」
     // 時的提示。跟 FriendGate 分開是因為原因不同：這裡是環境問題
     // （沒有 LIFF context），不是好友關係問題，共用同一個彈窗會讓使用者
-    // 誤以為自己還沒加好友，反而搞不清楚真正該做的事（開啟正確入口）。
+    // 誤以為自己還沒加好友，反而搞不清楚真正該做的事。
+    //
+    // 桌機版 LINE 點連結一律開外部瀏覽器，liff.isInClient() 永遠是
+    // false——這是 LINE 平台本身的限制，不是可以繞過的問題，因此
+    // 桌機使用者不管有沒有加好友都無法使用「送回聊天室」。用
+    // userAgent 概略判斷裝置類型，讓彈窗內容和按鈕分流：桌機版直接
+    // 引導去用「分享出去」，不要給一個對他們來說是死路的「前往加
+    // 好友」按鈕。userAgent 判斷不追求 100% 精準，這裡只是決定
+    // 「顯示哪種說明文字」，不影響任何功能性邏輯或安全判斷。
     const NotInLiffGate = {
+      _isLikelyMobile() {
+        return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+      },
+
       close() {
         ModalUtil.hide('notInLiffModal');
       },
+
       show() {
+        const isMobile = this._isLikelyMobile();
+        document.getElementById('notInLiffTitle').textContent = isMobile
+          ? '📱 這個功能需要從 LINE App 內建瀏覽器開啟'
+          : '💻 這個功能僅限手機 LINE App 內使用';
+
+        document.getElementById('notInLiffBody').innerHTML = isMobile
+          ? '「送回聊天室」只能在<b>手機 LINE App 內建的瀏覽器</b>裡開啟這個頁面時才能用。<br><br>' +
+            '請先加官方帳號好友，並從聊天室裡的選單或連結重新打開這個頁面，就能使用這個功能。<br><br>' +
+            '如果只是想把整理好的內容傳出去，不一定要送回聊天室——下方「🔗 分享出去」不需要在 LINE 環境內也能用。'
+          : '「送回聊天室」只能在<b>手機 LINE App 內建的瀏覽器</b>裡開啟這個頁面時才能用，這是 LINE 官方技術限制，不是這個工具能調整的部分。<br><br>' +
+            '<b>桌機版 LINE（Windows／Mac）點連結會用外部瀏覽器開啟，一律無法使用這個功能</b>，就算加了好友、從聊天室裡的連結點進來也一樣。<br><br>' +
+            '請改用下方「🔗 分享出去」，一樣可以把整理好的內容送出去（複製、系統分享皆可），不需要在 LINE 環境內。<br><br>' +
+            '<span style="font-size:12px; color:var(--ink-faint);">以後想在手機上用「送回聊天室」？<a href="' + OFFICIAL_ACCOUNT_URL + '" target="_blank" rel="noopener">點這裡加官方帳號好友</a>（電腦瀏覽器打開會顯示 QR code，用手機 LINE 掃描即可）。</span>';
+
+        const confirmBtn = document.getElementById('notInLiffConfirmBtn');
+        if (isMobile) {
+          confirmBtn.textContent = '前往官方帳號';
+          confirmBtn.onclick = () => this.goToOfficialAccount();
+        } else {
+          confirmBtn.textContent = '我知道了';
+          confirmBtn.onclick = () => this.close();
+        }
+
         ModalUtil.show('notInLiffModal');
       },
+
       goToOfficialAccount() {
         this.close();
-        const officialAccountUrl = 'https://line.me/R/ti/p/@165tgzzz';
         // 這裡一定不在 LIFF 環境內（否則不會走到這個分支），直接開新分頁即可，
         // 不需要判斷 liff.openWindow
-        window.open(officialAccountUrl, '_blank', 'noopener');
+        window.open(OFFICIAL_ACCOUNT_URL, '_blank', 'noopener');
       }
     };
 
@@ -4696,7 +4744,7 @@
     function copyToClipboardFallback(text) {
       copyTextRobust(text).then(success => {
         if (success) {
-          alert('已複製全文到剪貼簿，請手動貼到 LINE 聊天室。\n\n提醒：內容會留在系統剪貼簿裡，若這是共用裝置，貼上後建議複製一段無關的文字覆蓋掉，避免下一位使用者貼上時看到你的筆記內容。');
+          alert('已複製全文到剪貼簿，可以貼到任何地方（LINE、Email、筆記軟體等）。\n\n提醒：內容會留在系統剪貼簿裡，若這是共用裝置，貼上後建議複製一段無關的文字覆蓋掉，避免下一位使用者貼上時看到你的筆記內容。');
         } else {
           alert('複製失敗，請手動選取以下內容複製：\n\n' + text);
         }
@@ -4718,7 +4766,29 @@
         return;
       }
 
+      if (!navigator.share) {
+        // 桌機瀏覽器普遍不支援 navigator.share()，與其讓使用者點下去
+        // 才看到失敗訊息，這裡直接改走複製，行為與 ShareMenu.selectCopy
+        // 一致
+        ChatPreview.show(fullText, '複製全文（此環境不支援系統分享，改用複製）', () => copyToClipboardFallback(fullText));
+        return;
+      }
+
       ChatPreview.show(fullText, '手機系統分享', () => doWebShare(fullText));
+    }
+
+    // 複製全文：桌機瀏覽器的主要分享路徑，不依賴任何 LINE 或系統
+    // 分享 API，只需要剪貼簿權限即可運作
+    function handleCopyToClipboard() {
+      const fullText = CardSandbox.cards
+        .map(c => c.text)
+        .join('\n');
+      if (!fullText.trim()) {
+        alert('目前沒有任何卡片內容可以複製。');
+        return;
+      }
+
+      ChatPreview.show(fullText, '複製全文', () => copyToClipboardFallback(fullText));
     }
 
     async function doWebShare(fullText) {
