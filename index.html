@@ -185,6 +185,12 @@
     }
     .lang-select-row select:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    .translation-cost-hint {
+      font-size: 11.5px; color: #a06800; background: var(--warn-bg);
+      border: 1px solid var(--warn-border); border-radius: 8px;
+      padding: 7px 10px; margin-bottom: 12px; line-height: 1.5;
+    }
+
     .lang-detect-hint {
       font-size: 11.5px; color: rgba(255,255,255,0.6); margin-bottom: 14px;
       display: flex; align-items: center; justify-content: center; gap: 4px;
@@ -204,6 +210,10 @@
     }
     .live-preview-item:last-child { border-bottom: none; }
     .live-preview-item .idx { color: rgba(255,255,255,0.45); margin-right: 4px; }
+    .live-preview-translation {
+      margin-top: 4px; font-size: 12px; color: rgba(255,255,255,0.65);
+      font-style: italic;
+    }
     @keyframes fadeInCard { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
     .btn-record-toggle { width: 100%; padding: 15px; font-size: 15px; font-weight: 700; border: none; border-radius: 14px; cursor: pointer; }
     .btn-record-toggle.start { background: var(--line-green); color: #fff; }
@@ -338,6 +348,15 @@
     .cards { display: flex; flex-direction: column; gap: 8px; }
     .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; justify-content: space-between; align-items: center; }
     .card-text { font-size: 14.5px; line-height: 1.5; color: var(--ink); word-break: break-word; }
+    /* 卡片原本是 .card > .card-text（單一文字節點）+ .card-actions-inline
+       橫向並排。加翻譯行後，原文與翻譯需要垂直堆疊，因此用
+       .card-text-group 包住兩者，讓它取代原本 .card-text 在 flex 排列
+       中的位置，不影響旁邊的操作按鈕（合併/排序/刪除等）版面 */
+    .card-text-group { flex: 1; min-width: 0; }
+    .card-translation {
+      margin-top: 4px; font-size: 12.5px; color: var(--ink-soft);
+      font-style: italic; word-break: break-word;
+    }
     .action-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: linear-gradient(to top, var(--bg) 60%, transparent); padding: 20px 16px 16px; }
     .share-option {
       padding: 12px; border: 1px solid var(--border); border-radius: 10px;
@@ -1041,6 +1060,32 @@
     </div>
   </div>
 
+  <!-- 辨識語言的翻譯用法說明：選跟講話不同的語言，常會直接得到翻譯 -->
+  <div class="modal-overlay hidden" id="langTranslationGuideModal">
+    <div class="modal-box" style="max-width:340px;">
+      <div class="modal-tabs"><button class="active" style="cursor:default;">🌐 辨識語言小技巧</button></div>
+      <div class="modal-body" style="padding:16px; line-height:1.7;">
+        選一個和實際講話不同的語言，常會直接得到該語言的翻譯結果，但只有翻譯、沒有原文，且非官方保證行為。
+      </div>
+      <div class="modal-footer">
+        <button onclick="LangTranslationGuide.close()">我知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 即時翻譯開關的說明：雙倍呼叫量提醒 -->
+  <div class="modal-overlay hidden" id="liveTranslationGuideModal">
+    <div class="modal-box" style="max-width:340px;">
+      <div class="modal-tabs"><button class="active" style="cursor:default;">🌏 即時翻譯小提醒</button></div>
+      <div class="modal-body" style="padding:16px; line-height:1.7;">
+        每段錄音會多打一次 API 拿翻譯，額度消耗約為平常的 2 倍，換來原文＋翻譯同時保留。
+      </div>
+      <div class="modal-footer">
+        <button onclick="LiveTranslationGuide.close()">我知道了</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 好友檢查：只有按「送回聊天室」時才會跳，其他功能一律不需要加好友 -->
   <div class="modal-overlay hidden" id="friendGateModal"
        role="dialog" aria-modal="true" aria-labelledby="friendGateTitle">
@@ -1116,7 +1161,10 @@
         </div>
 
         <div class="lang-select-row">
-          <label for="langSelect" class="lang-select-label">🌐 辨識語言</label>
+          <label for="langSelect" class="lang-select-label" style="display:flex; align-items:center; gap:4px;">
+            🌐 辨識語言
+            <button class="btn-help-icon" onclick="LangTranslationGuide.open()" title="選一個跟實際講話不同的語言，也能拿到單軌翻譯？點這裡看說明">❓</button>
+          </label>
           <select id="langSelect" onchange="LanguageManager.onUserSelect(this.value)">
             <option value="zh" selected>中文</option>
             <option value="en">英文</option>
@@ -1124,6 +1172,27 @@
             <option value="ko">韓文</option>
             <option value="auto">自動（中英日韓混雜）</option>
           </select>
+        </div>
+
+        <!-- 即時翻譯：預設關閉，因為每段錄音會多打一次 Groq，成本
+             double。開啟後每段轉寫完成會額外呼叫一次 Groq 轉寫端點，
+             用目標語言當 language 參數，讓 Whisper 順便把內容譯成該
+             語言（詳見 TranslationManager 註解）。 -->
+        <div class="lang-select-row">
+          <label class="lang-select-label" style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+            <input type="checkbox" id="translationEnabledCheckbox" onchange="TranslationManager.onToggle(this.checked)">
+            🌏 即時翻譯
+            <button class="btn-help-icon" onclick="LiveTranslationGuide.open()" title="這個功能會讓 API 呼叫量變兩倍，點這裡看說明" style="margin-left:-2px;">❓</button>
+          </label>
+          <select id="translationTargetSelect" disabled onchange="TranslationManager.onTargetChange(this.value)">
+            <option value="zh">中文</option>
+            <option value="en">英文</option>
+            <option value="ja">日文</option>
+            <option value="ko">韓文</option>
+          </select>
+        </div>
+        <div class="translation-cost-hint" id="translationCostHint" style="display:none;">
+          ⚠️ 已開啟，每段錄音會多打一次 API，額度消耗約為平常的 2 倍
         </div>
 
         <div class="meeting-mode" id="meetingCard">
@@ -2320,7 +2389,7 @@
         catch (e) { /* 忽略 */ }
       },
 
-      add(text) {
+      add(text, translation, translationLangCode) {
         if (!text.trim()) return;
         let finalText = text.trim();
         const converter = this.getS2TConverter();
@@ -2331,7 +2400,28 @@
             console.warn('簡繁轉換執行失敗，使用原始文字：', e);
           }
         }
-        this.cards.push({ id: this.nextId++, text: finalText });
+
+        // 翻譯內容同樣跑一次簡繁轉換，避免目標語言是中文時輸出簡體字。
+        // translation 為 undefined／空字串／純空白時，一律不存這個欄位，
+        // 讓「沒有翻譯」與「翻譯是空字串」在資料上有明確區別
+        let finalTranslation = null;
+        if (translation && translation.trim()) {
+          finalTranslation = translation.trim();
+          if (converter) {
+            try {
+              finalTranslation = converter(finalTranslation);
+            } catch (e) {
+              console.warn('翻譯內容簡繁轉換執行失敗，使用原始文字：', e);
+            }
+          }
+        }
+
+        const card = { id: this.nextId++, text: finalText };
+        if (finalTranslation) {
+          card.translation = finalTranslation;
+          card.translationLangCode = translationLangCode || '';
+        }
+        this.cards.push(card);
         this.persist();
         this.render();
         this.renderLivePreview();
@@ -2350,7 +2440,10 @@
           return;
         }
         container.innerHTML = this.cards.map(c => `
-          <div class="live-preview-item">${Utils.escapeHtml(c.text)}</div>
+          <div class="live-preview-item">
+            ${Utils.escapeHtml(c.text)}
+            ${c.translation ? `<div class="live-preview-translation">${Utils.escapeHtml(c.translationLangCode)}: ${Utils.escapeHtml(c.translation)}</div>` : ''}
+          </div>
         `).join('');
         container.scrollTop = container.scrollHeight;
       },
@@ -2398,9 +2491,12 @@
           return `
             <div class="card ${modeClass} ${isSelected ? 'card-selected' : ''}" data-id="${card.id}" ${cardOnClick}>
               ${selectBadgeHtml}
-              <span class="card-text"
-                    ${isEditable ? 'contenteditable="true"' : ''}
-                    ${isEditable ? `onblur="CardSandbox.update(${card.id}, this.innerText)"` : ''}>${Utils.escapeHtml(card.text)}</span>
+              <div class="card-text-group">
+                <span class="card-text"
+                      ${isEditable ? 'contenteditable="true"' : ''}
+                      ${isEditable ? `onblur="CardSandbox.update(${card.id}, this.innerText)"` : ''}>${Utils.escapeHtml(card.text)}</span>
+                ${card.translation ? `<div class="card-translation">${Utils.escapeHtml(card.translationLangCode)}: ${Utils.escapeHtml(card.translation)}</div>` : ''}
+              </div>
               ${actionsHtml ? `<div class="card-actions-inline">${actionsHtml}</div>` : ''}
             </div>
           `;
@@ -2411,6 +2507,10 @@
         const card = this.cards.find(c => c.id === id);
         if (card) {
           card.text = newText.trim();
+          // 原文被手動編輯後，舊翻譯不再對應這句話的實際內容，
+          // 清掉比留著顯示過時/誤導的翻譯更安全
+          delete card.translation;
+          delete card.translationLangCode;
         }
         this.persist();
         this.render();
@@ -2428,6 +2528,10 @@
         const idx = this.cards.findIndex(c => c.id === id);
         if (idx === -1 || idx === this.cards.length - 1) return;
         this.cards[idx].text = this.cards[idx].text.replace(/[。！？]$/, '') + '，' + this.cards[idx + 1].text;
+        // 合併後的原文是兩句話拼接而成，任一邊原本的翻譯都不再對應
+        // 合併後的完整內容，一併清掉
+        delete this.cards[idx].translation;
+        delete this.cards[idx].translationLangCode;
         this.cards.splice(idx + 1, 1);
         this.persist();
         this.render();
@@ -2529,6 +2633,26 @@
 
       close() {
         ModalUtil.hide('sharedSheetGuideModal');
+      }
+    };
+
+    // 辨識語言旁的翻譯用法說明彈窗
+    const LangTranslationGuide = {
+      open() {
+        ModalUtil.show('langTranslationGuideModal');
+      },
+      close() {
+        ModalUtil.hide('langTranslationGuideModal');
+      }
+    };
+
+    // 即時翻譯開關旁的雙倍消耗說明彈窗
+    const LiveTranslationGuide = {
+      open() {
+        ModalUtil.show('liveTranslationGuideModal');
+      },
+      close() {
+        ModalUtil.hide('liveTranslationGuideModal');
       }
     };
 
@@ -4005,6 +4129,111 @@
       }
     };
 
+    // ---------- 即時翻譯管理 ----------
+    // 原理：Groq／OpenAI 的 Whisper 轉寫端點官方定義 language 參數是
+    // 「輸入音訊的語言」，正常應該是原音重現（轉寫語言＝音訊語言）。
+    // 但實測發現 Whisper 系列模型在這個端點上有個穩定可重現的怪癖：
+    // 當 language 參數與音訊實際語言不同時，模型常會把內容直接譯成
+    // language 參數指定的語言，而不是單純轉寫失敗或亂碼。這不是官方
+    // 承諾的功能，是模型行為的已知不穩定現象（社群多次回報），但本
+    // 專案用戶已實測確認在中⇄日語音上穩定發生，因此拿來做翻譯用。
+    //
+    // 作法：同一段錄音音檔打兩次 Groq 轉寫端點——一次用「辨識語言」
+    // 的設定拿原文（沿用 LanguageManager 既有邏輯），一次用「翻譯
+    // 目標語言」當 language 參數拿翻譯版本。兩次呼叫互相獨立，翻譯
+    // 那次失敗不影響原文那次。
+    //
+    // 因為不是官方保證的行為，這裡刻意不做「翻譯失敗自動重試」或
+    // 「換其他翻譯服務補救」——這是使用者明確選擇的簡化方案，翻譯
+    // 失敗時単純不顯示那一行，只保留原文，不影響核心可用性。
+    const TranslationManager = {
+      TARGET_LANG_PROMPTS: {
+        zh: '這是一段會議錄音，內容關於工作討論與進度回報。',
+        en: 'This is a recording of a business meeting discussing work updates and progress.',
+        ja: 'これは仕事の進捗報告や打ち合わせに関する会議の録音です。',
+        ko: '이것은 업무 논의와 진행 상황 보고에 관한 회의 녹음입니다.'
+      },
+
+      enabled: false,
+      targetLang: 'zh',
+      _hasShownCostConfirm: false,
+
+      onToggle(checked) {
+        // 首次開啟時跳一次性確認，講清楚成本代價；使用者取消的話
+        // 整個開關要復原成未勾選狀態，不能已經生效卻沒告知
+        if (checked && !this._hasShownCostConfirm) {
+          const proceed = confirm(
+            '開啟即時翻譯後，每段錄音會多打一次 API（原文一次、翻譯一次），額度消耗大約是平常的 2 倍。\n\n' +
+            '確定要開啟嗎？'
+          );
+          if (!proceed) {
+            const checkbox = document.getElementById('translationEnabledCheckbox');
+            if (checkbox) checkbox.checked = false;
+            return;
+          }
+          this._hasShownCostConfirm = true;
+        }
+
+        this.enabled = checked;
+        const select = document.getElementById('translationTargetSelect');
+        if (select) select.disabled = !checked;
+
+        const hint = document.getElementById('translationCostHint');
+        if (hint) hint.style.display = checked ? 'block' : 'none';
+      },
+
+      onTargetChange(value) {
+        this.targetLang = value;
+      },
+
+      /**
+       * 呼叫 Groq 轉寫端點，用目標語言當 language 參數。
+       * 回傳翻譯文字字串，失敗或判定無效時回傳 null——呼叫端不需要
+       * 分辨失敗原因，只需要知道「有沒有可用的翻譯結果」。
+       *
+       * 判定無效的情況：
+       *   - HTTP 非 200（額度用完、Key 失效等，但這裡不重複呼叫
+       *     KeyPoolPanel.notifyFailure，避免同一把 Key 失效時原文和
+       *     翻譯兩個呼叫都各自跳一次失效提示，交由原文那次負責提示）
+       *   - 回傳空字串
+       *   - 回傳內容跟原文完全相同（代表這次沒有真的翻譯到，例如
+       *     使用者曾實測到的「選英文、講英文」這種目標語言與原音相同
+       *     的情況）
+       */
+      async translateSegment(audioBlob, apiKey, originalText) {
+        const prompt = this.TARGET_LANG_PROMPTS[this.targetLang] || '';
+
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'recording.webm');
+        formData.append('model', 'whisper-large-v3-turbo');
+        formData.append('language', this.targetLang);
+        if (prompt) formData.append('prompt', prompt);
+        formData.append('response_format', 'verbose_json');
+
+        try {
+          const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+            body: formData
+          });
+
+          if (!res.ok) return null;
+
+          const data = await res.json();
+          const translated = (data.text || '').trim();
+          if (!translated) return null;
+
+          // 跟原文完全相同（去除前後空白後比較），視為沒有真的翻譯到
+          if (originalText && translated === originalText.trim()) return null;
+
+          return translated;
+        } catch (err) {
+          console.warn('翻譯呼叫失敗（不影響原文轉寫）：', err);
+          return null;
+        }
+      }
+    };
+
     const DictationEngine = {
       mediaRecorder: null,
       audioChunks: [],
@@ -4122,7 +4351,8 @@
         const apiKey = KeyPoolManager.getActiveKeyValue('groq');
         this._pendingCount = (this._pendingCount || 0) + 1;
         if (this.isRecording) {
-          statusText.textContent = `⏳ 背景轉寫中（${this._pendingCount} 段處理中）...`;
+          const translatingHint = TranslationManager.enabled ? '＋翻譯中' : '';
+          statusText.textContent = `⏳ 背景轉寫中${translatingHint}（${this._pendingCount} 段處理中）...`;
         }
 
         const formData = new FormData();
@@ -4149,7 +4379,6 @@
           });
 
           const data = await res.json();
-          this._pendingCount = Math.max(0, this._pendingCount - 1);
 
           // Groq 錯誤回應仍是合法 JSON，res.json() 不會拋例外，
           // 必須明確檢查 res.ok，否則 401/429 會被誤判成功
@@ -4165,12 +4394,26 @@
 
           LanguageManager.onDetectedLanguage(data.language);
 
-          if (data.text && data.text.trim()) {
-            CardSandbox.add(data.text.trim());
+          const originalText = (data.text || '').trim();
+
+          if (originalText) {
+            // 翻譯與原文轉寫互相獨立：翻譯呼叫失敗（額度用完、網路
+            // 問題等）只會讓 translateSegment 回傳 null，不會拋出例外
+            // 中斷這裡的流程，原文一定會照常顯示。等翻譯結果（無論
+            // 成功或 null）回來才一起呼叫 CardSandbox.add，避免卡片
+            // 內容先出現、翻譯行才補上去的閃爍感。
+            let translation = null;
+            if (TranslationManager.enabled) {
+              translation = await TranslationManager.translateSegment(audioBlob, apiKey, originalText);
+            }
+            CardSandbox.add(originalText, translation, TranslationManager.targetLang);
           }
+
+          this._pendingCount = Math.max(0, this._pendingCount - 1);
           if (this.isRecording) {
+            const translatingHint = TranslationManager.enabled ? '＋翻譯中' : '';
             statusText.textContent = this._pendingCount > 0
-              ? `⏳ 背景轉寫中（${this._pendingCount} 段處理中）...`
+              ? `⏳ 背景轉寫中${translatingHint}（${this._pendingCount} 段處理中）...`
               : '錄音中，卡片會陸續出現。';
           } else if (this._pendingCount === 0) {
             statusText.textContent = '全部轉寫完成。';
