@@ -17,6 +17,8 @@
     script-src 'self' https://cdn.jsdelivr.net https://static.line-scdn.net 'unsafe-inline';
     style-src 'self' 'unsafe-inline';
     img-src 'self' data:;
+    manifest-src 'self';
+    worker-src 'self';
     connect-src 'self' https://api.groq.com https://api.line.me https://access.line.me https://generativelanguage.googleapis.com https://docs.google.com https://*.googleusercontent.com https://liffsdk.line-scdn.net;
     frame-src https://access.line.me;
     base-uri 'self';
@@ -34,6 +36,14 @@
   <meta property="og:title" content="語音卡片筆記-語音轉文字Linebot">
   <meta property="og:description" content="用 LINE 就能錄音、記筆記、AI 摘要，一鍵完成，不用安裝其他 App。">
   <meta property="og:url" content="https://kenyuiyui.github.io/voice-to-text-line-bot-LIFF/">
+  <!-- PWA：讓網頁可「加到主畫面」獨立於 LINE 內建瀏覽器執行。
+       iOS Safari 不讀 manifest 的 display／icons，需另外給私有標籤。 -->
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#06c755">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="語音卡片">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <style>
     :root {
       --line-green: #06c755;
@@ -154,54 +164,7 @@
     .key-panel .guide-body { margin-top: 8px; font-size: 12px; line-height: 1.7; color: var(--ink-soft); }
     .key-panel .guide-note { margin-top: 6px; color: var(--ink-faint); font-size: 11.5px; }
 
-    .access-gate {
-      position: fixed; inset: 0; background: var(--bg); z-index: 2000;
-      display: flex; align-items: flex-start; justify-content: center;
-      padding: 20px; overflow-y: auto;
-      min-height: 100vh; min-height: 100dvh;
-    }
-    .gate-panel {
-      max-width: 420px; width: 100%; background: var(--card-bg); border-radius: 18px;
-      padding: 28px 22px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-      margin: auto;
-    }
-    .gate-spinner {
-      width: 36px; height: 36px; border-radius: 50%; margin: 0 auto 16px;
-      border: 3px solid var(--line-green-tint); border-top-color: var(--line-green);
-      animation: gateSpin 0.8s linear infinite;
-    }
     @keyframes gateSpin { to { transform: rotate(360deg); } }
-    .gate-icon { font-size: 40px; margin-bottom: 12px; }
-    .gate-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
-    .gate-desc { font-size: 13px; color: var(--ink-soft); line-height: 1.6; margin-bottom: 20px; }
-    .btn-gate-primary {
-      width: 100%; padding: 13px; font-size: 14px; font-weight: 700; border: none;
-      border-radius: 12px; background: var(--line-green); color: #fff; cursor: pointer; margin-bottom: 8px;
-    }
-    .btn-gate-primary:disabled { background: var(--border); color: var(--ink-faint); cursor: not-allowed; }
-    .btn-gate-secondary {
-      width: 100%; padding: 13px; font-size: 13.5px; font-weight: 600; border: 1px solid var(--border);
-      border-radius: 12px; background: var(--card-bg); color: var(--ink-soft); cursor: pointer;
-    }
-    .gate-panel-consent {
-      max-width: 440px; text-align: left; display: flex; flex-direction: column;
-      max-height: none;
-    }
-    .gate-panel-consent .gate-title { text-align: center; flex-shrink: 0; }
-    .gate-consent-body {
-      font-size: 12.5px; line-height: 1.75; color: var(--ink);
-      background: var(--bg); border-radius: 10px; padding: 14px 14px 4px; margin-bottom: 14px;
-      max-height: 45vh; overflow-y: auto; flex-shrink: 0;
-      -webkit-overflow-scrolling: touch;
-    }
-    .gate-consent-body p { margin: 0 0 10px; }
-    .gate-consent-body ul { margin: 0 0 10px; padding-left: 18px; }
-    .gate-consent-body li { margin-bottom: 6px; }
-    .gate-consent-checkbox {
-      display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-soft);
-      margin-bottom: 14px; cursor: pointer; flex-shrink: 0;
-    }
-    .gate-consent-actions { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
     .meeting-mode { background: var(--card-bg); border-radius: 18px; padding: 32px 20px; text-align: center; border: 1px solid var(--border); }
     .meeting-mode.recording { background: linear-gradient(160deg, #0d1f14, #14291c); color: #fff; border: none; }
     .rec-orb { width: 88px; height: 88px; border-radius: 50%; margin: 0 auto 18px; display: flex; align-items: center; justify-content: center; background: #f0f1f3; font-size: 34px; transition: all 0.3s ease; }
@@ -790,6 +753,15 @@
         <div id="modalChangelogContent" style="display:none;">
           <div class="version-entry">
             <span class="version-tag">最新</span>
+            <h4>不用加好友也能直接使用，並支援「加到主畫面」</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>打開網頁<b>直接就能用</b>：不再於進站時強制檢查官方帳號好友關係、也不再擋一頁同意書。錄音、轉寫、AI 摘要、分享出去等功能，用一般瀏覽器（Chrome／Safari）開啟即可使用</li>
+              <li>使用須知改到<b>第一次按「開始錄音」時</b>才顯示，內容不變，同意過一次就不會再跳（條款版本更新時會重新徵詢一次）</li>
+              <li>「📥 送回聊天室」<b>仍然需要加好友</b>，因為那是由官方帳號把內容送進你的聊天室；改成按下按鈕時才檢查，不是好友才會提示前往加好友。非 LINE 環境下這個按鈕會直接停用並說明原因</li>
+              <li>新增 PWA 支援：可用瀏覽器的「加到主畫面」把這個工具當成獨立 App 開啟，不必每次都從 LINE 進入。<b>注意</b>：iOS 的主畫面版本與 Safari <b>不共用瀏覽器儲存空間</b>，第一次從主畫面開啟需要重新填一次 API Key</li>
+            </ul>
+          </div>
+          <div class="version-entry">
             <h4>AI 摘要新增待辦事項、來源核對、簡易心智圖；API Key 改為多把管理</h4>
             <ul style="padding-left:18px; margin:4px 0 0;">
               <li>AI 摘要現在會額外整理出<b>待辦事項清單</b>（誰要做什麼、期限），逐字稿沒有明確提到的負責人或期限會顯示空白，不會自己亂猜</li>
@@ -952,17 +924,34 @@
     </div>
   </div>
 
-  <!-- 產品定位提醒彈窗：改為第一次點「開始錄音」時才跳出，而不是常駐佔版面。
-       確認過一次後記住，之後點開始錄音不會再打斷。 -->
-  <div class="modal-overlay hidden" id="recordNoticeModal">
+  <!-- 第一次按「開始錄音」時才跳：錄音行為說明＋使用須知同意。
+       同意版本記錄在 localStorage，CONSENT_VERSION 變動時會重新徵詢。 -->
+  <div class="modal-overlay hidden" id="recordNoticeModal"
+       role="dialog" aria-modal="true" aria-labelledby="recordNoticeTitle">
     <div class="modal-box" style="max-width:380px;">
-      <div class="modal-tabs"><button class="active" style="cursor:default;">ℹ️ 開始錄音前，先知道這件事</button></div>
+      <div class="modal-tabs">
+        <button id="recordNoticeTitle" class="active" style="cursor:default;">ℹ️ 開始錄音前，請先確認</button>
+      </div>
       <div class="modal-body">
-        這個工具只做「即時音轉文字」，錄音轉成文字後<b>原始音檔就會被丟棄</b>，不會留存也不會上傳保存，但轉寫過程<b>會把這段語音上傳到 Groq 雲端伺服器處理</b>。如果你需要留一份原始錄音備份，請另外用手機內建的錄音 App（語音備忘錄/錄音機）同時錄一份，兩者互相獨立。
+        <p style="margin:0 0 8px;">這個工具只做「即時語音轉文字」，轉寫完成後<b>原始音檔就會被丟棄</b>，不會留存。如果你需要留一份原始錄音備份，請另外用手機內建的錄音 App 同時錄一份，兩者互相獨立。</p>
+        <ul style="padding-left:18px; margin:8px 0;">
+          <li>你錄製的語音內容<b>會上傳到 Groq 雲端伺服器</b>進行轉寫處理，僅保留轉寫後的文字</li>
+          <li>需自行申請並填入 Groq API Key；<b>Key 會存在你這個裝置的瀏覽器裡</b>，若為共用裝置請於使用後清除本機資料</li>
+          <li>整理好的<b>語音卡片同樣存在這個裝置的瀏覽器裡</b>，方便誤觸返回或切出頁面時找回，共用裝置也請一併清除</li>
+          <li>本工具<b>不建議</b>用於處理真正機密或高度敏感的內容（例如商業機密、他人個資、密碼、身分證字號等）</li>
+          <li>這是個人維護的小工具，<b>沒有正式的客服或服務保證</b>，可能因故調整或中止服務</li>
+          <li>若你發現安全性問題或有濫用情形，歡迎透過官方帳號回報</li>
+        </ul>
       </div>
       <div class="modal-footer">
-        <label><input type="checkbox" id="dontShowRecordNoticeCheckbox" checked> 下次不用再提醒我</label>
-        <button onclick="RecordNotice.confirm()">知道了，開始錄音</button>
+        <label>
+          <input type="checkbox" id="recordConsentCheckbox" onchange="RecordNotice.onConsentChange(this.checked)">
+          我已閱讀並同意以上內容
+        </label>
+        <div class="chat-preview-actions">
+          <button class="btn-cancel" onclick="RecordNotice.cancel()">取消</button>
+          <button class="btn-confirm" id="recordConsentConfirmBtn" disabled onclick="RecordNotice.confirm()">同意，開始錄音</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1052,49 +1041,27 @@
     </div>
   </div>
 
-  <div class="access-gate" id="accessGate">
-    <!-- 1. 驗證中 -->
-    <div class="gate-panel" id="gateLoading">
-      <div class="gate-spinner"></div>
-      <div class="gate-title">正在確認身份...</div>
-      <div class="gate-desc">請稍候，正在確認登入與好友狀態</div>
-    </div>
-
-    <!-- 2. 不是好友 -->
-    <div class="gate-panel" id="gateNotFriend" style="display:none;">
-      <div class="gate-icon">🤖</div>
-      <div class="gate-title">請先加官方帳號好友</div>
-      <div class="gate-desc">這個工具僅開放給已加好友的使用者。請先加好友，完成後回來這個頁面重新整理即可繼續。</div>
-      <button class="btn-gate-primary" onclick="AccessGate.goAddFriend()">前往加好友</button>
-      <button class="btn-gate-secondary" onclick="AccessGate.recheck()">我已經加了，重新檢查</button>
-    </div>
-
-    <!-- 3. 使用須知同意書 -->
-    <div class="gate-panel gate-panel-consent" id="gateConsent" style="display:none;">
-      <div class="gate-title">使用前，請詳閱以下說明</div>
-      <div class="gate-consent-body">
-        <p>這是一個由官方帳號提供的<b>個人開發小工具</b>，用來把語音整理成文字卡片。使用前請確認你已了解以下事項：</p>
-        <ul>
-          <li>需要自行申請並填入 Groq API Key 才能使用；<b>Key 會存在你這個裝置的瀏覽器裡</b>，若為共用裝置請於使用後清除本機資料</li>
-          <li>你錄製的語音內容<b>會上傳到 Groq 雲端伺服器</b>進行轉寫處理，原始音檔不會被保留，僅保留轉寫後的文字</li>
-          <li>整理好的<b>語音卡片內容同樣會存在這個裝置的瀏覽器裡</b>，方便誤觸返回或切出頁面時找回，若為共用裝置也請於使用後一併清除</li>
-          <li>本工具<b>不建議</b>用於處理真正機密或高度敏感的內容（例如商業機密、他人個資、密碼、身分證字號等）</li>
-          <li>這是個人維護的小工具，<b>沒有正式的客服或服務保證</b>，可能因故調整或中止服務</li>
-          <li>若你發現安全性問題或有濫用情形，歡迎透過官方帳號回報</li>
-        </ul>
-        <p>點選「我已閱讀並同意」代表你已了解並願意自行承擔上述使用情境下的風險；若不同意，請關閉此頁面。</p>
+  <!-- 好友檢查：只有按「送回聊天室」時才會跳，其他功能一律不需要加好友 -->
+  <div class="modal-overlay hidden" id="friendGateModal"
+       role="dialog" aria-modal="true" aria-labelledby="friendGateTitle">
+    <div class="modal-box" style="max-width:380px;">
+      <div class="modal-tabs">
+        <button id="friendGateTitle" class="active" style="cursor:default;">🤖 需要先加官方帳號好友</button>
       </div>
-      <label class="gate-consent-checkbox">
-        <input type="checkbox" id="consentCheckbox" onchange="AccessGate.onConsentCheckboxChange(this.checked)">
-        我已閱讀並了解以上內容
-      </label>
-      <div class="gate-consent-actions">
-        <button class="btn-gate-secondary" onclick="AccessGate.declineAndLeave()">不同意，離開頁面</button>
-        <button class="btn-gate-primary" id="consentAgreeBtn" disabled onclick="AccessGate.agreeAndEnter()">我已閱讀並同意</button>
+      <div class="modal-body" id="friendGateBody">
+        「送回聊天室」是由官方帳號把內容送進你目前所在的聊天室，因此需要先加好友。<br><br>
+        錄音、轉寫、AI 摘要、分享出去等其他功能<b>都不需要</b>加好友，可以直接使用。
+      </div>
+      <div class="modal-footer">
+        <div class="chat-preview-actions">
+          <button class="btn-cancel" onclick="FriendGate.close()">取消</button>
+          <button class="btn-confirm" onclick="FriendGate.goAddFriend()">前往加好友</button>
+        </div>
       </div>
     </div>
   </div>
-  <div class="app" id="mainApp" style="display:none;">
+
+  <div class="app" id="mainApp" style="display:flex;">
     <div class="storage-toast" id="storageToast">
       <span class="toast-icon">💾</span>
       <span class="toast-text" id="storageToastText"></span>
@@ -1481,7 +1448,7 @@
     // ---------- 首次進站提示彈窗 ----------
     // APP_VERSION 每次有值得使用者知道的重大變更時手動更新，
     // 版本號一變，之前勾選過「不用再提醒」的使用者會重新看到彈窗。
-    const APP_VERSION = '2026-09-keypool-mindmap';
+    const APP_VERSION = '2026-09-open-web-pwa';
 
     const IntroModal = {
       switchTab(tab) {
@@ -1873,7 +1840,7 @@
           localStorage.removeItem('whisper_api_key');
           localStorage.removeItem('gemini_api_key');
           localStorage.removeItem('intro_modal_seen_version');
-          localStorage.removeItem('record_notice_acknowledged');
+          localStorage.removeItem('consent_agreed_version');
           localStorage.removeItem(SUMMARY_STORAGE_KEY);
           // 分享斷點依附於卡片內容，卡片清空後這筆記錄會變孤兒資料，一併清除
           localStorage.removeItem(SHARE_RESUME_STORAGE_KEY);
@@ -1963,7 +1930,7 @@
           name: '已讀提示記錄',
           hasData: () => {
             try {
-              return !!localStorage.getItem('intro_modal_seen_version') || !!localStorage.getItem('record_notice_acknowledged');
+              return !!localStorage.getItem('intro_modal_seen_version') || !!localStorage.getItem('consent_agreed_version');
             } catch (e) { return false; }
           },
           statusText: () => SettingsPanel.items.find(i => i.id === 'readNotices').hasData()
@@ -1971,7 +1938,7 @@
           del: () => {
             try {
               localStorage.removeItem('intro_modal_seen_version');
-              localStorage.removeItem('record_notice_acknowledged');
+              localStorage.removeItem('consent_agreed_version');
             } catch (e) { /* 忽略 */ }
             SettingsPanel.render();
           }
@@ -4219,133 +4186,56 @@
     }
 
     const RecordNotice = {
+      // 同意書版本一變動就重新徵詢，因此不再另設「不用再提醒」勾選框
       shouldShow() {
-        try {
-          return localStorage.getItem('record_notice_acknowledged') !== 'true';
-        } catch (e) {
-          return true;
-        }
+        try { return localStorage.getItem('consent_agreed_version') !== CONSENT_VERSION; }
+        catch (e) { return true; } // localStorage 不可用時保守起見每次都問
       },
       show() {
+        const cb = document.getElementById('recordConsentCheckbox');
+        cb.checked = false;
+        document.getElementById('recordConsentConfirmBtn').disabled = true;
         ModalUtil.show('recordNoticeModal');
+        cb.focus();
+      },
+      onConsentChange(checked) {
+        document.getElementById('recordConsentConfirmBtn').disabled = !checked;
+      },
+      cancel() {
+        ModalUtil.hide('recordNoticeModal');
       },
       confirm() {
-        const dontShowAgain = document.getElementById('dontShowRecordNoticeCheckbox').checked;
-        if (dontShowAgain) {
-          try { localStorage.setItem('record_notice_acknowledged', 'true'); }
-          catch (e) { /* 忽略，下次仍會提醒 */ }
-        }
+        // 防呆：即使按鈕的 disabled 被繞過，未勾選一律不放行
+        if (!document.getElementById('recordConsentCheckbox').checked) return;
+        try { localStorage.setItem('consent_agreed_version', CONSENT_VERSION); }
+        catch (e) { /* 忽略，下次仍會再問一次，不影響核心功能 */ }
         ModalUtil.hide('recordNoticeModal');
         DictationEngine.start();
       }
     };
 
-    // ---------- 存取閘門（Access Gate）----------
+    // ---------- 啟動流程 ----------
+    // LIFF 不再是進入頁面的關卡：網頁本身可獨立使用，liff.init() 只在
+    // 背景跑，用來判斷是否在 LINE 環境內、以及之後 sendMessages 需要，
+    // 初始化失敗只會讓 LINE 相關功能停用，不影響錄音與轉寫。
     const LIFF_ID = '2011273067-abYzT84Y';
     let liffReady = false;
 
     const CONSENT_VERSION = '2026-08-v2';
 
-    const AccessGate = {
-      _friendCheckInProgress: false,
-
-      showPanel(panelId) {
-        ['gateLoading', 'gateNotFriend', 'gateConsent'].forEach(id => {
-          document.getElementById(id).style.display = (id === panelId) ? 'block' : 'none';
-        });
-      },
-
-      async run() {
-        this.showPanel('gateLoading');
+    const AppBootstrap = {
+      async start() {
+        this.enterApp();
         try {
           await liff.init({ liffId: LIFF_ID });
           liffReady = true;
         } catch (err) {
-          console.error('LIFF 初始化失敗：', err);
-          document.getElementById('gateLoading').innerHTML =
-            '<div class="gate-title">無法載入</div><div class="gate-desc">初始化失敗，請確認網路連線後重新整理頁面。若持續發生，請透過官方帳號回報。</div>';
-          return;
+          console.warn('LIFF 初始化失敗，LINE 相關功能將不可用（其他功能不受影響）：', err);
         }
-
-        if (!liff.isLoggedIn()) {
-          liff.login({ redirectUri: window.location.href });
-          return;
-        }
-
-        await this.checkFriendshipAndProceed();
-      },
-
-      async checkFriendshipAndProceed() {
-        if (this._friendCheckInProgress) return;
-        this._friendCheckInProgress = true;
-        this.showPanel('gateLoading');
-
-        try {
-          const { friendFlag } = await liff.getFriendship();
-          if (!friendFlag) {
-            this.showPanel('gateNotFriend');
-            return;
-          }
-          this.checkConsentAndProceed();
-        } catch (err) {
-          console.error('好友狀態查詢失敗：', err);
-          document.getElementById('gateNotFriend').querySelector('.gate-desc').textContent =
-            '無法確認好友狀態，請確認已加好友並允許權限後，點下方按鈕重新檢查。';
-          this.showPanel('gateNotFriend');
-        } finally {
-          this._friendCheckInProgress = false;
-        }
-      },
-
-      goAddFriend() {
-        const addFriendUrl = 'https://line.me/R/ti/p/@165tgzzz';
-        if (typeof liff.openWindow === 'function') {
-          liff.openWindow({ url: addFriendUrl, external: true });
-        } else {
-          window.open(addFriendUrl, '_blank');
-        }
-      },
-
-      recheck() {
-        this.checkFriendshipAndProceed();
-      },
-
-      checkConsentAndProceed() {
-        let agreedVersion = null;
-        try { agreedVersion = localStorage.getItem('consent_agreed_version'); }
-        catch (e) { /* localStorage 不可用時，保守起見每次都要求同意 */ }
-
-        if (agreedVersion === CONSENT_VERSION) {
-          this.enterApp();
-        } else {
-          this.showPanel('gateConsent');
-        }
-      },
-
-      onConsentCheckboxChange(checked) {
-        document.getElementById('consentAgreeBtn').disabled = !checked;
-      },
-
-      agreeAndEnter() {
-        try { localStorage.setItem('consent_agreed_version', CONSENT_VERSION); }
-        catch (e) { /* 忽略，下次仍會顯示同意書，不影響核心功能 */ }
-        this.enterApp();
-      },
-
-      declineAndLeave() {
-        if (liffReady && liff.isInClient() && typeof liff.closeWindow === 'function') {
-          liff.closeWindow();
-        }
-        try { window.close(); } catch (e) { /* 忽略 */ }
-
-        document.getElementById('gateConsent').innerHTML =
-          '<div class="gate-title">已結束使用</div><div class="gate-desc" style="margin-bottom:0;">你已選擇不同意使用須知，此工具的功能已停用。請關閉此分頁或視窗。</div>';
+        updateLineFeatureAvailability();
       },
 
       enterApp() {
-        document.getElementById('accessGate').style.display = 'none';
-        document.getElementById('mainApp').style.display = 'flex';
-
         CardSandbox.restore();
         CardSandbox.render();
         CardSandbox.renderLivePreview();
@@ -4358,7 +4248,6 @@
         SettingsPanel.render();
         updateKeyMissingHints();
 
-        // key 池清單屬於「進入 App 後」才需要準備好的畫面內容
         KeyPoolPanel.render('groq');
         KeyPoolPanel.render('gemini');
 
@@ -4368,8 +4257,66 @@
       }
     };
 
-    // ---------- LIFF 發送邏輯 ----------
-    AccessGate.run();
+    // 非 LINE 環境下 sendMessages 永遠不會成功，直接停用按鈕並說明原因，
+    // 比讓使用者按下去才看到失敗訊息好
+    function updateLineFeatureAvailability() {
+      const btn = document.getElementById('sendToRoomBtn');
+      if (!btn) return;
+      const inClient = liffReady && typeof liff.isInClient === 'function' && liff.isInClient();
+      btn.disabled = !inClient;
+      btn.title = inClient ? '' : '此功能僅在從 LINE 聊天室開啟本頁時可用，請改用「分享出去」';
+      btn.style.opacity = inClient ? '' : '0.45';
+    }
+
+    const FriendGate = {
+      close() {
+        ModalUtil.hide('friendGateModal');
+      },
+      show(message) {
+        if (message) document.getElementById('friendGateBody').textContent = message;
+        ModalUtil.show('friendGateModal');
+      },
+      goAddFriend() {
+        this.close();
+        const addFriendUrl = 'https://line.me/R/ti/p/@165tgzzz';
+        if (liffReady && typeof liff.openWindow === 'function') {
+          liff.openWindow({ url: addFriendUrl, external: true });
+        } else {
+          window.open(addFriendUrl, '_blank', 'noopener');
+        }
+      }
+    };
+
+    // 回傳 true 才可繼續送出。所有回傳 false 的路徑都已自行提示過使用者，
+    // 呼叫端只需要直接 return，不用再補訊息
+    async function ensureCanSendToRoom() {
+      if (!liffReady) {
+        alert('LINE 功能尚未就緒（可能是初始化失敗或網路問題）。請改用「分享出去」。');
+        return false;
+      }
+      if (typeof liff.isInClient !== 'function' || !liff.isInClient()) {
+        alert('「送回聊天室」只能在從 LINE 聊天室開啟這個頁面時使用。請改用「分享出去」，或回到跟機器人的聊天室重新點一次連結。');
+        return false;
+      }
+      if (typeof liff.isLoggedIn === 'function' && !liff.isLoggedIn()) {
+        liff.login({ redirectUri: window.location.href });
+        return false;
+      }
+      try {
+        const { friendFlag } = await liff.getFriendship();
+        if (!friendFlag) {
+          FriendGate.show();
+          return false;
+        }
+        return true;
+      } catch (err) {
+        console.error('好友狀態查詢失敗：', err);
+        FriendGate.show('無法確認好友狀態，請確認已加好友並允許權限後再試一次。其他功能不受影響。');
+        return false;
+      }
+    }
+
+    AppBootstrap.start();
 
     // ---------- 送回聊天室（sendMessages）----------
     async function handleSendToRoom() {
@@ -4381,10 +4328,9 @@
         return;
       }
 
-      if (!liffReady || typeof liff.isInClient !== 'function' || !liff.isInClient()) {
-        alert('這個功能只能在 LINE 聊天室裡開啟這個頁面時使用（目前不是這個環境），請改用下方另外兩種發送方式，或回到跟機器人的聊天室重新點開連結。');
-        return;
-      }
+      // 好友檢查只在這條路徑上做：sendMessages 需要好友關係，
+      // 其餘功能（錄音、摘要、分享出去）一律不檢查
+      if (!await ensureCanSendToRoom()) return;
 
       ChatPreview.show(fullText, '目前這個聊天室（原對話）', () => doSendToRoom(fullText));
     }
@@ -4755,6 +4701,16 @@
         alert('分享失敗，改為複製到剪貼簿：\n' + err.message);
         copyToClipboardFallback(fullText);
       }
+    }
+
+    // Service Worker 只是加分項：讓「加到主畫面」可安裝、網路不穩時
+    // 仍開得起頁面。LINE 內建瀏覽器或不支援的環境註冊失敗都不影響
+    // 任何核心功能，因此只記錄警告不打擾使用者。
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .catch(err => console.warn('Service Worker 註冊失敗（不影響使用）：', err));
+      });
     }
   </script>
 </body>
