@@ -1174,6 +1174,17 @@
           </select>
         </div>
 
+        <!-- zh 專屬詞彙表：只在中文模式顯示，存進 localStorage，
+             轉寫時由 LanguageManager.buildPrompt() 附加到 prompt。
+             沿用 Whisper prompt 欄位的原生用途（詞彙提示），而非
+             寫成指令句（指令句會被模型原樣續寫輸出）。 -->
+        <div class="lang-select-row" id="zhGlossaryRow">
+          <label for="zhGlossaryInput" class="lang-select-label">📖 專有名詞</label>
+          <input type="text" id="zhGlossaryInput" placeholder="逗號分隔，如：波壓,越波,漂沙,離岸風機"
+            maxlength="120" value=""
+            oninput="localStorage.setItem('zhGlossary', this.value)">
+        </div>
+
         <!-- 即時翻譯：預設關閉，因為每段錄音會多打一次 Groq，成本
              double。開啟後每段轉寫完成會額外呼叫一次 Groq 轉寫端點，
              用目標語言當 language 參數，讓 Whisper 順便把內容譯成該
@@ -4049,11 +4060,12 @@
         const langParams = LanguageManager.getParamsForSegment();
         if (langParams) {
           formData.append('language', langParams.languageCode);
-          formData.append('prompt', langParams.prompt);
+          formData.append('prompt', LanguageManager.buildPrompt(langParams.prompt, langParams.languageCode));
         } else {
           formData.append('prompt', 'This is a recording of a meeting.');
         }
         formData.append('response_format', 'verbose_json');
+        formData.append('temperature', '0'); // 逐字稿場景不需要隨機性，降低靜音/雜訊段的幻覺機率
 
         const endpoint = 'https://api.groq.com/openai/v1/audio/transcriptions';
 
@@ -4102,7 +4114,11 @@
       FIXED_LANG_CONFIG: {
         zh: {
           languageCode: 'zh',
-          prompt: '講者為台灣國語口音，ㄓㄔㄕ與ㄗㄘㄙ不分、ㄧ與ㄩ不分，可能誤判成同音字，例如「工業局」聽成「工業級」、「自然」聽成「已然」。請依語意選擇通順合理的字詞與專有名詞，輸出通順的書面語。'
+          // Whisper 的 prompt 是「前文續寫錨點」，不是 system instruction：
+          // 指令句會被模型當成待轉寫內容原樣輸出（實測曾出現孤立的
+          // 「請依語意選擇。」這行）。因此這裡只放一句引導語，
+          // 真正的糾錯改靠 buildPrompt() 附加的詞彙表與前段接續。
+          prompt: '以下是台灣口音逐字稿：'
         },
         en: { languageCode: 'en', prompt: 'This is a recording of a business meeting discussing work updates and progress.' },
         ja: { languageCode: 'ja', prompt: 'これは仕事の進捗報告や打ち合わせに関する会議の録音です。' },
@@ -4114,17 +4130,54 @@
       autoDetectedLang: null,
       autoLockExpiresAt: 0,
 
+      // zh 專屬：跨段接續用的前段文字尾巴，長度上限見 MAX_CARRY_CHARS
+      MAX_CARRY_CHARS: 150,
+      _lastText: '',
+
       onUserSelect(value) {
         if (DictationEngine.isRecording) return;
         this.selectedMode = value;
         this.resetAutoState();
         this.updateDetectHintVisibility();
+        this.updateGlossaryVisibility();
+      },
+
+      // 詞彙表輸入框只在固定選 zh 時顯示；auto 模式下語言未鎖定前
+      // 不確定是不是中文，先隱藏，偵測鎖定為中文後才有意義顯示，
+      // 但為避免過度複雜這裡先簡化成只認固定 zh 選項。
+      updateGlossaryVisibility() {
+        const row = document.getElementById('zhGlossaryRow');
+        if (row) row.style.display = (this.selectedMode === 'zh') ? 'flex' : 'none';
       },
 
       resetAutoState() {
         this.autoDetectedLang = null;
         this.autoLockExpiresAt = 0;
+        this._lastText = '';
         this.hideDetectHint();
+      },
+
+      /**
+       * 組出本段實際送出的 prompt：基礎引導語 + zh 專屬詞彙表
+       * （使用者透過 zhGlossaryInput 存進 localStorage）+ 前段結尾接續。
+       * 詞彙表與前段接續只在 zh 生效，避免污染其他語言的 prompt 預算，
+       * 也避免其他語言模式下 localStorage 讀取徒增無意義的字串處理。
+       * 前段接續是 Whisper prompt 欄位的原生設計用途：讓跨段的專有
+       * 名詞、斷句風格維持一致，15 秒分段時尤其有幫助。
+       */
+      buildPrompt(basePrompt, langCode) {
+        const parts = [basePrompt];
+        if (langCode === 'zh') {
+          const glossary = (localStorage.getItem('zhGlossary') || '').trim().slice(0, 120);
+          if (glossary) parts.push(glossary);
+        }
+        const carry = this._lastText.slice(-this.MAX_CARRY_CHARS);
+        if (carry) parts.push(carry);
+        return parts.filter(Boolean).join('\n');
+      },
+
+      rememberText(text) {
+        this._lastText = (text || '').trim();
       },
 
       getParamsForSegment() {
@@ -4407,12 +4460,13 @@
         const langParams = LanguageManager.getParamsForSegment();
         if (langParams) {
           formData.append('language', langParams.languageCode);
-          formData.append('prompt', langParams.prompt);
+          formData.append('prompt', LanguageManager.buildPrompt(langParams.prompt, langParams.languageCode));
         } else {
           formData.append('prompt', 'This is a recording of a meeting.');
         }
 
         formData.append('response_format', 'verbose_json');
+        formData.append('temperature', '0'); // 逐字稿場景不需要隨機性，降低靜音/雜訊段的幻覺機率
 
         const endpoint = 'https://api.groq.com/openai/v1/audio/transcriptions';
 
@@ -4439,7 +4493,23 @@
 
           LanguageManager.onDetectedLanguage(data.language);
 
-          const originalText = (data.text || '').trim();
+          let originalText = (data.text || '').trim();
+
+          // 靜音／低資訊段常直接把 prompt 內容原樣吐回（幻覺），
+          // 而非轉寫失敗或拋錯，所以 res.ok 為 true 也要過濾。
+          // 送出的 prompt 完整包含輸出內容時視為無效，直接丟棄。
+          if (originalText) {
+            const sentPrompt = langParams
+              ? LanguageManager.buildPrompt(langParams.prompt, langParams.languageCode)
+              : '';
+            if (sentPrompt && sentPrompt.includes(originalText)) {
+              originalText = '';
+            }
+          }
+
+          if (originalText && langParams && langParams.languageCode === 'zh') {
+            LanguageManager.rememberText(originalText);
+          }
 
           if (originalText) {
             // 翻譯與原文轉寫互相獨立：翻譯呼叫失敗（額度用完、網路
@@ -4983,6 +5053,13 @@
           console.log('偵測到登入前暫存的卡片內容，請重新確認卡片並再次點擊發送。');
         }
       } catch (e) { /* 忽略 */ }
+
+      // 還原上次儲存的 zh 詞彙表，並依目前預設語言（zh）顯示輸入框
+      try {
+        const glossaryInput = document.getElementById('zhGlossaryInput');
+        if (glossaryInput) glossaryInput.value = localStorage.getItem('zhGlossary') || '';
+        LanguageManager.updateGlossaryVisibility();
+      } catch (e) { /* 忽略：不影響核心轉寫功能 */ }
     });
 
     // navigator.clipboard.writeText() 在 prompt() 等阻塞對話框關閉後，
