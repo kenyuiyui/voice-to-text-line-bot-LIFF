@@ -2293,13 +2293,17 @@
             const id = parseInt(idStr, 10);
             const card = CardSandbox.cards.find(c => c.id === id);
             if (card) {
-              items.push({ source: 'card', id, label: '語音卡片', content: CardSandbox.getFullText(card), type: 'raw' });
+              items.push({
+                source: 'card', id, label: '語音卡片',
+                content: CardSandbox.getFullText(card), type: 'raw',
+                hasTranslation: !!card.translation
+              });
             }
           } else if (source === 'shared') {
             const idx = parseInt(idStr, 10);
             const row = SharedSheetNotes.rows[idx];
             if (row) {
-              items.push({ source: 'shared', id: idx, label: row.label || '（未命名）', content: row.content, type: row.type || 'raw' });
+              items.push({ source: 'shared', id: idx, label: row.label || '（未命名）', content: row.content, type: row.type || 'raw', hasTranslation: false });
             }
           }
         });
@@ -3128,16 +3132,24 @@
 
         const totalChars = items.reduce((sum, item) => sum + item.content.length, 0);
         const estTokens = Utils.estimateTokens(totalChars);
+        const hasAnyTranslation = items.some(item => item.hasTranslation);
 
-        const summaryLine = `<div class="shared-notes-total-count">已選 ${items.length} 筆　共 <b>${totalChars.toLocaleString()}</b> 字　約 <b>${estTokens.toLocaleString()}</b> tokens（估算值）</div>`;
+        // 字數統計把翻譯內容也算進去了（因為送給 Gemini 的就是這份含
+        // 翻譯的完整內容），這裡附註一句避免使用者誤以為字數異常偏高
+        const translationNote = hasAnyTranslation
+          ? '<span style="color:var(--ink-faint);">（已含翻譯內容）</span>'
+          : '';
+
+        const summaryLine = `<div class="shared-notes-total-count">已選 ${items.length} 筆　共 <b>${totalChars.toLocaleString()}</b> 字　約 <b>${estTokens.toLocaleString()}</b> tokens（估算值）${translationNote}</div>`;
 
         const itemsHtml = items.map((item, i) => {
           const sourceLabel = item.source === 'card' ? '🗂️ 卡片' : '📖 共享筆記';
           const typeTag = item.type === 'summary' ? '📝' : '';
+          const translationTag = item.hasTranslation ? '🌏' : '';
           return `
             <div class="summary-pool-item">
               <span class="pool-order">${i + 1}</span>
-              <span class="pool-label">${typeTag} ${Utils.escapeHtml(item.label)}</span>
+              <span class="pool-label">${typeTag}${translationTag} ${Utils.escapeHtml(item.label)}</span>
               <span class="pool-source">${sourceLabel}</span>
               <button class="pool-remove" title="移除" onclick="SelectionPool.remove('${item.source}', ${item.id})">✕</button>
             </div>
@@ -3200,6 +3212,15 @@
           ? '\n\n這份逐字稿是由多個段落合併而成（可能來自不同人分別整理、或同一場會議的不同時段），每個段落前面用【標籤】標示來源，已按照指定順序排列。請將其視為同一場會議或討論的完整內容，整合成單一份摘要，不需要逐段分別摘要或特別區分是誰整理的。'
           : '';
 
+        // 語音卡片若開啟即時翻譯，內容會是「原文\n語言代碼: 翻譯」的
+        // 格式（見 CardSandbox.getFullText）。這裡偵測 fullText 是否
+        // 含有這種格式的行，只有真的出現才把規則加進 prompt，避免
+        // 沒用到翻譯功能時也徒增無謂的 token 與干擾。
+        const hasTranslationLines = /^(zh|en|ja|ko): /m.test(fullText);
+        const translationNote = hasTranslationLines
+          ? '\n\n逐字稿中某些行是「語言代碼: 內容」的格式（例如 "zh: 你好"），這是上一行原文的翻譯，不是新的發言或獨立內容。請以原文為準理解語意，翻譯行只是輔助對照，不要把翻譯行當成額外的重點重複摘要一次。'
+          : '';
+
         // 結構化輸出：待辦事項、來源引用，用 responseSchema 強制
         // JSON，解析失敗時 fallback 成純摘要模式。
         //
@@ -3218,6 +3239,7 @@
                     '3. sourceRefs：列出 summary 中每一個重點對應到逐字稿的哪一個【標籤】段落（若原始逐字稿沒有分段標籤，此欄位回傳空陣列 []）。每一項包含 point（摘要中的那一點文字，簡短即可）與 label（對應的段落標籤名稱）。\n' +
                     '4. 只根據 <meeting_log> 內的實際內容作答，不可自行補充或推論未提及的資訊。\n' +
                     sourceNote +
+                    translationNote +
                     '\n</demand>\n'
             }]
           },
@@ -4078,7 +4100,10 @@
     // ---------- 辨識語言管理（固定語言 / 自動偵測）----------
     const LanguageManager = {
       FIXED_LANG_CONFIG: {
-        zh: { languageCode: 'zh', prompt: '這是一段會議錄音，內容關於工作討論與進度回報。' },
+        zh: {
+          languageCode: 'zh',
+          prompt: '這是台灣大學講座錄音，講者帶台灣國語口音，語速快、咬字不清楚。例如：「那個，我們今天要講的就是說，這個部分喔，嗯，其實跟前面有關係。」請照實際說的話逐字轉寫，保留贅字語助詞，不要整理成書面語。'
+        },
         en: { languageCode: 'en', prompt: 'This is a recording of a business meeting discussing work updates and progress.' },
         ja: { languageCode: 'ja', prompt: 'これは仕事の進捗報告や打ち合わせに関する会議の録音です。' },
         ko: { languageCode: 'ko', prompt: '이것은 업무 논의와 진행 상황 보고에 관한 회의 녹음입니다.' }
