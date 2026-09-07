@@ -400,8 +400,19 @@
     }
     .settings-section-label:first-child { margin-top: 0; }
 
-    /* 名詞問題集 */
-    .terms-hint {
+    /* 勾選模式的全選列 */
+    .select-all-row {
+      display: flex; align-items: center; gap: 10px; margin: 0 0 10px;
+    }
+    .select-all-row.hidden { display: none; }
+    .select-all-row button {
+      padding: 7px 14px; border-radius: 999px; font-size: 12px; font-weight: 700;
+      border: 1px solid var(--amber, #d99100); background: var(--card-bg);
+      color: var(--amber, #d99100); cursor: pointer;
+    }
+    .select-all-count { font-size: 11px; color: var(--ink-soft); }
+
+    /* 名詞問題集 */    .terms-hint {
       font-size: 11px; color: var(--ink-soft); line-height: 1.6; margin: 8px 0;
     }
     .terms-list { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
@@ -834,19 +845,30 @@
         <div id="modalNoticeContent">
           <h4>開始使用前，請先知道這些事</h4>
           <ul style="padding-left:18px; margin:0;">
-            <li>需要自己申請 Groq API Key 才能使用（免費，見下方輸入框旁的教學連結）</li>
-            <li><b>API Key 會存在這台裝置的瀏覽器裡</b>。如果這是公用或跟別人共用的裝置（例如公司電腦、借用的手機），請在下方「共用裝置」區塊清除資料，或使用完畢後手動清除，避免下一個使用者看到你的 Key 與筆記內容</li>
-            <li>錄音轉成文字後，<b>原始音檔不會被保留</b>，只留文字卡片。如需留底請另外用手機錄音 App 同時錄一份</li>
-            <li>轉寫過程會將這段音訊上傳到 Groq 的伺服器處理，語音內容不是完全留在你手機本機</li>
-            <li>每 15 秒會自動切一段送出轉寫，句子剛好跨越切段點時可能被拆成兩張卡片，屬已知限制</li>
-            <li><b>整理好的語音卡片會自動儲存在這台裝置的瀏覽器裡</b>，就算不小心切出去、誤觸上一頁或重新整理，回來也找得回來；但這也代表若為共用裝置，請務必在使用完畢後於 API Key 卡片內點「清除本機資料」，避免下一位使用者看到你的內容</li>
-            <li>發送功能有三種：「送回聊天室」直接存回你打開此頁面時所在的聊天室（僅限從 LINE 聊天室進入時可用，最推薦）；「LINE 好友選單」需要先登入 LINE 才能選對象發送；「手機分享」在 LINE 內開啟時會自動改走好友選單（LINE 內建瀏覽器對系統分享有限制）</li>
-            <li>「查看共享筆記」是唯讀功能，只能讀取別人貼在共用 Google Sheet 裡的內容（可勾選多筆、與自己的語音卡片混合，一起生成摘要），不會寫回 Sheet；要把自己整理好的內容或生成好的摘要加進 Sheet，需使用「複製成 Sheet 貼上格式」／「存回 Sheet」按鈕複製後自行手動貼上</li>
+            <li>需要自己申請 <b>Groq API Key</b>（免費，設定頁有教學連結）</li>
+            <li>語音會上傳到 Groq 伺服器轉寫，<b>原始音檔不保留</b>，只留文字</li>
+            <li>Key 與筆記都存在<b>這台裝置的瀏覽器</b>裡。共用裝置請於設定頁清除資料</li>
+            <li>每 15 秒切一段，句子跨越切點時可能被拆成兩張卡片</li>
           </ul>
+          <p style="margin:10px 0 0; font-size:12px; color:var(--ink-soft);">
+            其他說明（發送方式、共享筆記等）在各功能旁的 ❓ 圖示裡。
+          </p>
         </div>
         <div id="modalChangelogContent" style="display:none;">
           <div class="version-entry">
             <span class="version-tag">最新</span>
+            <h4>辨識準確度提升、翻譯改用免費服務、摘要可依場景切換</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li><b>中文辨識準確度提升</b>：修正提示詞用法（原本寫成指令句，會被當成語音內容直接寫進逐字稿，例如憑空出現「請依語意選擇。」這種句子）。改為前後段接續，並關閉隨機性，減少靜音段落產生的幻覺內容</li>
+              <li><b>即時翻譯改用 MyMemory 免費翻譯服務</b>：原本是把同一段音檔用目標語言再送一次辨識，結果經常沒翻譯、語意崩壞或跳針重複。現在改成翻譯已轉好的文字，不需申請 Key、不消耗 Groq 額度。免費額度每天 5,000 字元，可到設定頁填 email 提升到 50,000</li>
+              <li><b>AI 摘要新增場景選擇</b>：課堂／演講、會議、訪談／對談、日常對話四種。同一份逐字稿在不同場景該抽取的重點不同——課堂會著重知識脈絡與專有名詞、抓作業與考試範圍；日常對話則不會硬生出結論或待辦</li>
+              <li><b>新增「📖 名詞」分頁</b>：抽出逐字稿中的專有名詞與上下文，產生一份可直接貼到 Gemini 網頁版的提問稿，讓它幫你查證、修正辨識錯字並補充說明與公式。可自行勾選要保留哪些名詞</li>
+              <li><b>新增每日用量預覽</b>：設定頁可看 Groq／Gemini／MyMemory 三者今日用量，錄音頁也會顯示轉寫用量。數字為本裝置估算值，每日午夜歸零</li>
+              <li>勾選模式新增<b>全選／全不選</b>按鈕與已勾選張數顯示</li>
+              <li>使用注意事項大幅精簡，細節改放在各功能旁的 ❓ 圖示中</li>
+            </ul>
+          </div>
+          <div class="version-entry">
             <h4>不用加好友也能直接使用，並支援「加到主畫面」</h4>
             <ul style="padding-left:18px; margin:4px 0 0;">
               <li>打開網頁<b>直接就能用</b>：不再於進站時強制檢查官方帳號好友關係、也不再擋一頁同意書。錄音、轉寫、AI 摘要、分享出去等功能，用一般瀏覽器（Chrome／Safari）開啟即可使用</li>
@@ -1317,6 +1339,12 @@
           <button id="modeSelectBtn" onclick="EditModeManager.toggle('select')">✅ 勾選模式（納入摘要）</button>
         </div>
         <div class="edit-mode-hint" id="editModeHint"></div>
+        <!-- 全選列只在勾選模式顯示：其他模式下沒有勾選概念，
+             常駐會佔版面也造成誤解 -->
+        <div class="select-all-row hidden" id="selectAllRow">
+          <button id="selectAllBtn" onclick="CardSandbox.toggleSelectAll()">☑️ 全選</button>
+          <span class="select-all-count" id="selectAllCount"></span>
+        </div>
         <div class="cards" id="cardsList"></div>
       </div>
 
@@ -1698,7 +1726,7 @@
     // ---------- 首次進站提示彈窗 ----------
     // APP_VERSION 每次有值得使用者知道的重大變更時手動更新，
     // 版本號一變，之前勾選過「不用再提醒」的使用者會重新看到彈窗。
-    const APP_VERSION = '2026-09-open-web-pwa';
+    const APP_VERSION = '2026-09-accuracy-translate-scenes';
 
     const IntroModal = {
       switchTab(tab) {
@@ -2359,6 +2387,9 @@
         } else {
           hint.classList.remove('show');
         }
+
+        // 全選列只在勾選模式出現，切換模式時跟著更新顯示與計數
+        CardSandbox.renderSelectAllRow();
       }
     };
 
@@ -2473,7 +2504,11 @@
       // 自己記得要呼叫哪些渲染函式
       _onChange() {
         if (typeof SummaryModule !== 'undefined') SummaryModule.renderPool();
-        if (typeof CardSandbox !== 'undefined') CardSandbox.render();
+        if (typeof CardSandbox !== 'undefined') {
+          CardSandbox.render();
+          // 單張點選也要更新「已勾選 n / m」與全選↔全不選的按鈕文字
+          CardSandbox.renderSelectAllRow();
+        }
         if (typeof SharedSheetNotes !== 'undefined' && SharedSheetNotes.rows.length > 0) {
           SharedSheetNotes.renderSelect();
         }
@@ -2680,8 +2715,51 @@
         }).join('');
       },
 
-      update(id, newText) {
-        const card = this.cards.find(c => c.id === id);
+      /**
+       * 全選／全不選切換。判斷依據是「是否所有卡片都已勾選」：
+       * 只要還有未勾選的就補齊成全選，全部都勾了才變成全不選。
+       *
+       * 補齊時逐張沿用 SelectionPool.toggle，讓勾選順序照卡片由上而下
+       * 排列，且已勾選的卡片保持原本的順序編號不被打亂——摘要會依這個
+       * 順序組合逐字稿，順序錯了內容就會亂掉。
+       */
+      toggleSelectAll() {
+        if (!this.cards.length) return;
+
+        const unselected = this.cards.filter(c => !SelectionPool.isSelected('card', c.id));
+
+        if (unselected.length > 0) {
+          unselected.forEach(c => SelectionPool.toggle('card', c.id));
+        } else {
+          // 只取消卡片，共享筆記那邊的勾選不受影響
+          this.cards.forEach(c => SelectionPool.remove('card', c.id));
+        }
+
+        this.render();
+        this.renderSelectAllRow();
+      },
+
+      // 更新全選列的按鈕文字與計數；勾選模式以外一律隱藏
+      renderSelectAllRow() {
+        const row = document.getElementById('selectAllRow');
+        const btn = document.getElementById('selectAllBtn');
+        const count = document.getElementById('selectAllCount');
+        if (!row || !btn || !count) return;
+
+        const isSelectMode = EditModeManager.current === 'select';
+        row.classList.toggle('hidden', !isSelectMode);
+        if (!isSelectMode) return;
+
+        const total = this.cards.length;
+        const selected = this.cards.filter(c => SelectionPool.isSelected('card', c.id)).length;
+        const allSelected = total > 0 && selected === total;
+
+        btn.textContent = allSelected ? '⬜ 全不選' : '☑️ 全選';
+        btn.disabled = total === 0;
+        count.textContent = total === 0 ? '目前沒有卡片' : `已勾選 ${selected} / ${total} 張`;
+      },
+
+      update(id, newText) {        const card = this.cards.find(c => c.id === id);
         if (card) {
           card.text = newText.trim();
           // 原文被手動編輯後，舊翻譯不再對應這句話的實際內容，
