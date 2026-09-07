@@ -400,6 +400,42 @@
     }
     .settings-section-label:first-child { margin-top: 0; }
 
+    /* 名詞問題集 */
+    .terms-hint {
+      font-size: 11px; color: var(--ink-soft); line-height: 1.6; margin: 8px 0;
+    }
+    .terms-list { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+    .terms-item {
+      display: flex; gap: 8px; align-items: flex-start;
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px;
+    }
+    .terms-item input[type="checkbox"] {
+      flex-shrink: 0; margin-top: 2px; width: 16px; height: 16px;
+      accent-color: var(--line-green); cursor: pointer;
+    }
+    .terms-item-body { min-width: 0; flex: 1; }
+    .terms-item-term { font-size: 13px; font-weight: 700; }
+    .terms-item-context {
+      font-size: 11px; color: var(--ink-soft); line-height: 1.5; margin-top: 3px;
+      word-break: break-word;
+    }
+    .terms-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .terms-actions button { flex: 1; }
+
+    /* 摘要場景選擇 */    .summary-scene-row {
+      display: flex; align-items: center; gap: 8px; margin: 10px 0 4px;
+    }
+    .summary-scene-label { font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .summary-scene-row select {
+      flex: 1; padding: 8px 10px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--card-bg);
+      font-size: 13px; color: inherit;
+    }
+    .summary-scene-desc {
+      font-size: 11px; color: var(--ink-soft); line-height: 1.5; margin-bottom: 10px;
+    }
+
     /* 額度預覽：本地估算的用量沙漏，不是各服務的實際餘額 */
     .quota-meter {
       background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px;
@@ -1329,6 +1365,22 @@
         <div class="summary-panel" id="summaryPanel">
           <div class="summary-pool-hint" id="summaryPoolHint">尚未勾選任何資料。到「共享」分頁勾選共享筆記項目，或在「筆記」分頁切到「✅ 勾選模式」勾選卡片，即可納入摘要來源。</div>
           <div class="summary-pool-list" id="summaryPoolList"></div>
+
+          <!-- 摘要場景：同一份逐字稿在不同場景下該抽取的重點完全不同
+               （課堂要的是知識脈絡，會議要的是決議與待辦），用會議框架
+               去理解課堂內容會逼 AI 去找不存在的「負責人」「決議」。
+               這裡只切換 systemInstruction，responseSchema 不變。 -->
+          <div class="summary-scene-row">
+            <label for="summarySceneSelect" class="summary-scene-label">🎯 場景</label>
+            <select id="summarySceneSelect" onchange="SummaryModule.onSceneChange(this.value)">
+              <option value="lecture">📚 課堂／演講</option>
+              <option value="meeting">💼 會議</option>
+              <option value="interview">🎤 訪談／對談</option>
+              <option value="daily">💬 日常對話</option>
+            </select>
+          </div>
+          <div class="summary-scene-desc" id="summarySceneDesc"></div>
+
           <button class="btn-summary-generate" id="summaryGenerateBtn" onclick="SummaryModule.generate()">📝 生成 AI 摘要</button>
 
           <!-- 摘要結果的次級分頁：摘要／待辦事項／心智圖同層切換，
@@ -1338,6 +1390,7 @@
             <button class="summary-result-tab active" id="summaryTabBtn-text" onclick="SummaryModule.switchResultTab('text')">📄 摘要</button>
             <button class="summary-result-tab" id="summaryTabBtn-actions" onclick="SummaryModule.switchResultTab('actions')">✅ 待辦</button>
             <button class="summary-result-tab" id="summaryTabBtn-mindmap" onclick="SummaryModule.switchResultTab('mindmap')">🧠 心智圖</button>
+            <button class="summary-result-tab" id="summaryTabBtn-terms" onclick="SummaryModule.switchResultTab('terms')">📖 名詞</button>
           </div>
 
           <div class="summary-output empty" id="summaryOutputBox">
@@ -1376,6 +1429,31 @@
                         placeholder="# 整體主題&#10;- 子主題&#10;  - 細節"></textarea>
               <div class="mindmap-edit-hint">第一行「# 」表示根節點，其餘用縮排清單「- 」表示子項目層級。改完文字後按下方按鈕重新渲染。</div>
               <button class="btn-mindmap-rerender" onclick="SummaryModule.applyMindmapEdit()">🔄 套用並重新渲染</button>
+            </div>
+          </div>
+
+          <!-- 名詞問題集：API 只負責抽術語與擷取上下文（成本低、模型
+               自己就做得好），查證與補全交給 Gemini 網頁版——那邊有
+               搜尋能力、額度與 API 無關，等於把運算成本外部化。
+               產出的提示詞會主動聲明「抽取結果可能有錯」，請網頁版
+               依上下文修正同音錯字、補漏、剔除誤抽。 -->
+          <div class="summary-result-panel hidden" id="summaryTermsSection">
+            <div id="termsGenerateWrap" class="mindmap-generate-wrap">
+              <div class="mindmap-generate-hint" id="termsGenerateHint">
+                抽出逐字稿中的專有名詞與上下文，產生一份可以直接貼到 Gemini 網頁版的提問稿，
+                讓它幫你查證、修正辨識錯字並補充說明。需要再呼叫一次 Gemini。
+              </div>
+              <button class="btn-mindmap-rerender" id="termsGenerateBtn" onclick="SummaryModule.generateTerms()">📖 抽取專有名詞</button>
+            </div>
+
+            <div id="termsResultWrap" class="hidden">
+              <div class="terms-hint">勾選要保留的名詞，取消勾選的不會出現在提問稿中。</div>
+              <div class="terms-list" id="termsList"></div>
+              <div class="terms-actions">
+                <button class="btn-mindmap-rerender" onclick="SummaryModule.copyTermsPrompt()">📋 複製提問稿</button>
+                <button class="btn-mindmap-rerender" onclick="SummaryModule.openGeminiWeb()">🚀 開啟 Gemini 網頁版</button>
+              </div>
+              <div class="terms-hint" id="termsCopyHint">先按「複製提問稿」，再開啟 Gemini 網頁版貼上即可。</div>
             </div>
           </div>
 
@@ -3189,6 +3267,85 @@
       isGenerating: false,
       currentSummary: null,
 
+      // 摘要場景預設。responseSchema 三個欄位（summary／actionItems／
+      // sourceRefs）在所有場景都保持一致，渲染邏輯因此完全不用改；
+      // 差別只在 systemInstruction 怎麼要求 AI 理解這份逐字稿。
+      //
+      // actionItems 在不同場景有不同語意：課堂是作業與考試、會議是
+      // 待辦、訪談是後續追蹤、日常對話則多半是空的。刻意在每個場景
+      // 都明講「沒有就回空陣列」，避免 AI 為了填滿欄位而編造。
+      SCENE_PRESETS: {
+        lecture: {
+          label: '課堂／演講',
+          desc: '著重知識脈絡與專有名詞，抽取作業、考試範圍與繳交期限。',
+          actionLabel: '📌 作業/考試',
+          role: '你是一個課堂筆記整理助手。請針對使用者在下方 <meeting_log> 標籤內提供的課堂或演講逐字稿進行分析與整理。',
+          summaryRule: 'summary：第一行用 1-2 句話說明這堂課的主題，換行後每個知識重點各自獨立一行，每行開頭用「・」。請依照講述的邏輯脈絡組織重點，而不是按照時間順序流水帳。專有名詞、學術術語、人名地名一律保留原文用詞，若逐字稿中該詞明顯是同音誤植且從上下文可確定正確寫法，請直接使用正確寫法。講者特別強調「要記住」「會考」「重點」的部分，請優先納入。',
+          actionRule: 'actionItems：抽取課堂中提到的作業、報告、考試範圍、繳交期限或需要預習準備的事項。task 填事項內容，owner 通常填 null（除非明確指派給特定人或分組），deadline 填明確提到的日期或時間點。沒有提到任何這類事項時回傳空陣列 []。'
+        },
+        meeting: {
+          label: '會議',
+          desc: '著重議題與決議，抽取待辦事項、負責人與期限。',
+          actionLabel: '✅ 待辦',
+          role: '你是一個會議記錄整理助手。請針對使用者在下方 <meeting_log> 標籤內提供的會議逐字稿進行分析與整理。',
+          summaryRule: 'summary：第一行是 1-2 句話整體總結會議主題，換行後每個重點各自獨立一行，每行開頭用「・」。請著重在討論的議題、各方立場與最後達成的決議。',
+          actionRule: 'actionItems：抽取逐字稿中明確提及的待辦事項、下一步行動或需要追蹤的事情。每一項包含 task（待辦內容）、owner（負責人）、deadline（期限）。owner 與 deadline 若逐字稿沒有明確指出，一律填 null，絕對不可以自行臆測或推論負責人與期限。如果逐字稿完全沒有提到任何待辦事項，回傳空陣列 []。'
+        },
+        interview: {
+          label: '訪談／對談',
+          desc: '著重受訪者觀點與問答對應，保留原意不做過度概括。',
+          actionLabel: '🔎 追蹤事項',
+          role: '你是一個訪談記錄整理助手。請針對使用者在下方 <meeting_log> 標籤內提供的訪談或對談逐字稿進行分析與整理。',
+          summaryRule: 'summary：第一行用 1-2 句話說明這場訪談的主題與對象，換行後每個重點各自獨立一行，每行開頭用「・」。請以受訪者實際表達的觀點為主，盡量保留其原本的立場與語意細節，不要為了精簡而過度概括或替他做結論。若逐字稿中有明顯的問答結構，請讓重點反映出「問了什麼、答了什麼」的對應關係。',
+          actionRule: 'actionItems：抽取訪談中提到需要後續追蹤、補充資料或再次確認的事項。task 填事項內容，owner 與 deadline 沒有明確提到時填 null。沒有這類事項時回傳空陣列 []。'
+        },
+        daily: {
+          label: '日常對話',
+          desc: '著重講了什麼、答應了什麼，不硬找決議或待辦。',
+          actionLabel: '🤝 約定事項',
+          role: '你是一個日常對話記錄整理助手。請針對使用者在下方 <meeting_log> 標籤內提供的對話逐字稿進行分析與整理。',
+          summaryRule: 'summary：第一行用 1-2 句話說明這段對話在講什麼，換行後每個重點各自獨立一行，每行開頭用「・」。這是日常對話而不是正式會議，內容可能鬆散、跳躍或沒有明確結論，這是正常的——請如實整理實際聊到的事情，不要為了讓摘要看起來完整而硬生出主題、結論或架構。提到的人名、時間、地點、金額等具體資訊請保留。',
+          actionRule: 'actionItems：只抽取對話中明確約定或答應要做的事（例如約好見面時間、答應幫忙、要買的東西）。日常對話經常完全沒有這類事項，這很正常，沒有就回傳空陣列 []，不要把單純的閒聊內容硬套成待辦事項。'
+        }
+      },
+
+      currentScene: 'lecture',
+
+      onSceneChange(value) {
+        if (!this.SCENE_PRESETS[value]) return;
+        this.currentScene = value;
+        try {
+          localStorage.setItem('summaryScene', value);
+        } catch (e) { /* 忽略：記不住選擇不影響本次生成 */ }
+        this.renderSceneDesc();
+      },
+
+      renderSceneDesc() {
+        const preset = this.SCENE_PRESETS[this.currentScene];
+        if (!preset) return;
+
+        const el = document.getElementById('summarySceneDesc');
+        if (el) el.textContent = preset.desc;
+
+        // actionItems 分頁在不同場景代表不同東西（課堂是作業考試、
+        // 會議是待辦、日常對話是約定），標籤跟著場景走比較不會誤導
+        const tabBtn = document.getElementById('summaryTabBtn-actions');
+        if (tabBtn) tabBtn.textContent = preset.actionLabel;
+      },
+
+      // 還原上次選擇的場景；使用者多半固定用同一種
+      restoreScene() {
+        let saved = null;
+        try {
+          saved = localStorage.getItem('summaryScene');
+        } catch (e) { /* 忽略 */ }
+        if (saved && this.SCENE_PRESETS[saved]) this.currentScene = saved;
+
+        const select = document.getElementById('summarySceneSelect');
+        if (select) select.value = this.currentScene;
+        this.renderSceneDesc();
+      },
+
       // 生成前預覽 SelectionPool 目前內容，提供移除入口
       renderPool() {
         const hintEl = document.getElementById('summaryPoolHint');
@@ -3273,6 +3430,7 @@
 
       async _callGemini(items, apiKey) {
         const modelName = this.GEMINI_MODEL || 'gemini-2.5-flash';
+        const preset = this.SCENE_PRESETS[this.currentScene] || this.SCENE_PRESETS.meeting;
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
         // Gemini 免費層以每日請求數（RPD）計，一次呼叫記一次。
@@ -3310,13 +3468,14 @@
           systemInstruction: {
             parts: [{
               text: '<role>\n' +
-                    '你是一個會議記錄整理助手。請針對使用者在下方 <meeting_log> 標籤內提供的會議逐字稿進行分析與整理。\n' +
+                    preset.role + '\n' +
                     '</role>\n\n' +
                     '<demand>\n' +
-                    '1. summary：第一行是 1-2 句話整體總結會議主題，換行後每個重點各自獨立一行，每行開頭用「・」，重點之間必須用換行字元分開，不可以把多個重點寫在同一行或同一段落裡。範例格式：這場會議討論了A與B兩個議題。（換行）・重點一的內容（換行）・重點二的內容。直接輸出整理結果，不需要額外的開場白或結語。\n' +
-                    '2. actionItems：抽取逐字稿中明確提及的待辦事項、下一步行動或需要追蹤的事情。每一項包含 task（待辦內容）、owner（負責人）、deadline（期限）。owner 與 deadline 若逐字稿沒有明確指出，一律填 null，絕對不可以自行臆測或推論負責人與期限。如果逐字稿完全沒有提到任何待辦事項，回傳空陣列 []。\n' +
+                    '1. ' + preset.summaryRule + '直接輸出整理結果，不需要額外的開場白或結語。重點之間必須用換行字元分開，不可以把多個重點寫在同一行或同一段落裡。\n' +
+                    '2. ' + preset.actionRule + '\n' +
                     '3. sourceRefs：列出 summary 中每一個重點對應到逐字稿的哪一個【標籤】段落（若原始逐字稿沒有分段標籤，此欄位回傳空陣列 []）。每一項包含 point（摘要中的那一點文字，簡短即可）與 label（對應的段落標籤名稱）。\n' +
                     '4. 只根據 <meeting_log> 內的實際內容作答，不可自行補充或推論未提及的資訊。\n' +
+                    '5. 這份逐字稿由語音辨識產生，可能含有同音錯字、斷句錯誤或口語贅詞。請依上下文理解真正的語意，不要被個別錯字誤導；但也不要自行腦補逐字稿中完全沒有出現的內容。\n' +
                     sourceNote +
                     translationNote +
                     '\n</demand>\n'
@@ -3559,6 +3718,12 @@
 
       _renderSummary(data) {
         this.currentSummary = data;
+        // 新摘要對應新的逐字稿來源，舊的名詞清單不再適用，重置回未抽取狀態
+        this.currentTerms = null;
+        const termsWrap = document.getElementById('termsResultWrap');
+        const termsGenWrap = document.getElementById('termsGenerateWrap');
+        if (termsWrap) termsWrap.classList.add('hidden');
+        if (termsGenWrap) termsGenWrap.classList.remove('hidden');
         this._renderCurrentUI();
       },
 
@@ -3665,6 +3830,10 @@
         const mindmapBtn = document.getElementById('summaryTabBtn-mindmap');
         if (mindmapBtn) mindmapBtn.disabled = false;
 
+        // 名詞分頁同理，未抽取時進去會看到「抽取專有名詞」按鈕
+        const termsBtn = document.getElementById('summaryTabBtn-terms');
+        if (termsBtn) termsBtn.disabled = false;
+
         if ((this._activeResultTab === 'actions' && !hasActionItems)) {
           this.switchResultTab('text');
         } else {
@@ -3676,13 +3845,13 @@
       switchResultTab(tab) {
         this._activeResultTab = tab;
 
-        const panels = { text: 'summaryOutputBox', actions: 'summaryActionItemsSection', mindmap: 'summaryMindmapSection' };
+        const panels = { text: 'summaryOutputBox', actions: 'summaryActionItemsSection', mindmap: 'summaryMindmapSection', terms: 'summaryTermsSection' };
         Object.keys(panels).forEach(key => {
           const el = document.getElementById(panels[key]);
           if (el) el.classList.toggle('hidden', key !== tab);
         });
 
-        ['text', 'actions', 'mindmap'].forEach(key => {
+        ['text', 'actions', 'mindmap', 'terms'].forEach(key => {
           const btn = document.getElementById(`summaryTabBtn-${key}`);
           if (btn) btn.classList.toggle('active', key === tab);
         });
@@ -3819,6 +3988,226 @@
         } finally {
           this._isGeneratingMindmap = false;
           if (btn) { btn.disabled = false; btn.textContent = '🧠 產生心智圖'; }
+        }
+      },
+
+      // ---------- 名詞問題集 ----------
+      // 設計取捨：API 只做「抽術語＋擷取上下文」，不做解釋也不判斷
+      // 對錯。原因是解釋需要查證，而 Gemini API 免費層不支援 Google
+      // Search grounding（官方定價表標示 Not available，5,000 次／月
+      // 的免費配額是付費層才有），硬用模型知識解釋冷門或在地術語有
+      // 編造風險。改為產出提問稿讓使用者貼到 Gemini 網頁版——那邊有
+      // 搜尋能力、額度與 API 無關，等於把查證成本外部化。
+      MAX_TERMS: 30,
+      _isGeneratingTerms: false,
+
+      async generateTerms() {
+        if (this._isGeneratingTerms) return;
+
+        const items = SelectionPool.resolveItems();
+        if (items.length === 0) {
+          alert('目前沒有勾選任何資料，無法抽取專有名詞。');
+          return;
+        }
+
+        const apiKey = KeyPoolManager.getActiveKeyValue('gemini');
+        if (!apiKey) {
+          alert('請先到「⚙️ 設定」分頁填入 Gemini API Key，才能抽取專有名詞。');
+          return;
+        }
+
+        const btn = document.getElementById('termsGenerateBtn');
+        const hint = document.getElementById('termsGenerateHint');
+        this._isGeneratingTerms = true;
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ 抽取中...'; }
+        if (hint) { hint.textContent = '正在從逐字稿中抽取專有名詞與上下文，請稍候...'; }
+
+        try {
+          const terms = await this._callGeminiTerms(items, apiKey);
+          if (!terms.length) {
+            if (hint) { hint.textContent = '這份逐字稿中沒有抽取到明顯的專有名詞。'; }
+            return;
+          }
+          // 預設全選，使用者再自行取消不需要的
+          this.currentTerms = terms.map(t => ({ ...t, keep: true }));
+          this._renderTerms();
+        } catch (err) {
+          console.error('抽取專有名詞失敗：', err);
+          if (hint) { hint.textContent = '抽取失敗：' + err.message; }
+        } finally {
+          this._isGeneratingTerms = false;
+          if (btn) { btn.disabled = false; btn.textContent = '📖 抽取專有名詞'; }
+        }
+      },
+
+      currentTerms: null,
+
+      async _callGeminiTerms(items, apiKey) {
+        const modelName = this.GEMINI_MODEL || 'gemini-2.5-flash';
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
+
+        QuotaMeter.add('gemini', 1);
+
+        const fullText = items.map(item => item.content).join('\n\n');
+
+        const payload = {
+          systemInstruction: {
+            parts: [{
+              text: '<role>\n' +
+                    '你是一個專有名詞抽取工具。請從使用者提供的逐字稿中，找出專業術語、學術名詞、機構名稱、專有地名、法規名稱等專有名詞。\n' +
+                    '</role>\n\n' +
+                    '<demand>\n' +
+                    '1. 這份逐字稿由語音辨識產生，可能含有同音錯字。抽取時請「保留逐字稿中實際出現的原始寫法」，不要自行修正——後續會由具備搜尋能力的工具來判斷正確寫法。\n' +
+                    '2. 每個名詞附上它在逐字稿中出現的那一句或前後文（context），長度控制在 60 字以內，保留原文不要改寫。上下文是後續判斷正確寫法的唯一依據，務必忠實擷取。\n' +
+                    `3. 最多抽取 ${this.MAX_TERMS} 個。超過時，優先保留講者著墨較多、或對理解主題較關鍵的名詞。\n` +
+                    '4. 只抽真正的專有名詞。一般動詞、形容詞、常見日常詞彙不要抽。同一個名詞只出現一次，不要重複。\n' +
+                    '5. 如果逐字稿中沒有任何專有名詞，回傳空陣列 []。\n' +
+                    '</demand>\n'
+            }]
+          },
+          contents: [{
+            role: 'user',
+            parts: [{ text: `<transcript>\n${fullText}\n</transcript>` }]
+          }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'ARRAY',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  term: { type: 'STRING' },
+                  context: { type: 'STRING' }
+                },
+                required: ['term', 'context']
+              }
+            }
+          }
+        };
+
+        let res;
+        try {
+          res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+            body: JSON.stringify(payload)
+          });
+        } catch (networkErr) {
+          throw new Error('無法連線到 Gemini 伺服器，請檢查網路連線：' + networkErr.message);
+        }
+
+        let data;
+        try {
+          data = await res.json();
+        } catch (parseErr) {
+          throw new Error('Gemini 回應格式異常，無法解析（HTTP ' + res.status + '）');
+        }
+
+        if (!res.ok) {
+          const apiMessage = (data && data.error && data.error.message) || ('HTTP ' + res.status);
+          if (res.status === 400 && /API key not valid/i.test(apiMessage)) {
+            KeyPoolPanel.notifyFailure('gemini', 'invalid', 'Gemini');
+          } else if (res.status === 429) {
+            KeyPoolPanel.notifyFailure('gemini', 'quota_exceeded', 'Gemini');
+          }
+          throw new Error(apiMessage);
+        }
+
+        const candidate = data.candidates && data.candidates[0];
+        const parts = candidate && candidate.content && candidate.content.parts;
+        const text = parts ? parts.map(p => p.text).join('') : '';
+        if (!text.trim()) throw new Error('Gemini 回傳了空白結果，請稍後再試一次。');
+
+        let parsed;
+        try {
+          parsed = JSON.parse(text.trim());
+        } catch (e) {
+          throw new Error('Gemini 回傳的格式無法解析，請再試一次。');
+        }
+
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+          .filter(t => t && typeof t.term === 'string' && t.term.trim())
+          .slice(0, this.MAX_TERMS)
+          .map(t => ({ term: t.term.trim(), context: String(t.context || '').trim() }));
+      },
+
+      _renderTerms() {
+        const wrap = document.getElementById('termsResultWrap');
+        const genWrap = document.getElementById('termsGenerateWrap');
+        const list = document.getElementById('termsList');
+        if (!wrap || !list) return;
+
+        list.innerHTML = this.currentTerms.map((t, i) => `
+          <label class="terms-item">
+            <input type="checkbox" ${t.keep ? 'checked' : ''} onchange="SummaryModule.toggleTerm(${i}, this.checked)">
+            <span class="terms-item-body">
+              <span class="terms-item-term">${Utils.escapeHtml(t.term)}</span>
+              ${t.context ? `<span class="terms-item-context">${Utils.escapeHtml(t.context)}</span>` : ''}
+            </span>
+          </label>
+        `).join('');
+
+        wrap.classList.remove('hidden');
+        if (genWrap) genWrap.classList.add('hidden');
+      },
+
+      toggleTerm(index, checked) {
+        if (!this.currentTerms || !this.currentTerms[index]) return;
+        this.currentTerms[index].keep = checked;
+      },
+
+      /**
+       * 組出要貼到 Gemini 網頁版的提問稿。
+       * 刻意在開頭聲明抽取結果可能有錯，並要求對方修正同音錯字、
+       * 補上遺漏、剔除誤抽——因為來源是語音辨識，這三種問題都會發生。
+       * 不指定領域，讓網頁版自己從上下文判斷，避免我們猜錯反而誤導。
+       */
+      buildTermsPrompt() {
+        const kept = (this.currentTerms || []).filter(t => t.keep);
+        if (!kept.length) return '';
+
+        const list = kept.map((t, i) => {
+          const ctx = t.context ? `\n   上下文：「${t.context}」` : '';
+          return `${i + 1}. ${t.term}${ctx}`;
+        }).join('\n');
+
+        return [
+          '以下是一份逐字稿中出現的專有名詞清單，由語音辨識加上 AI 自動抽取，因此可能有以下問題，請你協助處理：',
+          '',
+          '1. 同音錯字：語音辨識可能把詞聽錯（例如「漁港」被寫成「宇港」）。請依照上下文判斷正確寫法，並以正確寫法作為說明對象。',
+          '2. 有所遺漏：清單可能漏掉了重要術語。請從上下文中判斷是否有遺漏，並在最後補充說明。',
+          '3. 誤抽：清單可能包含不算專有名詞的一般詞彙，請直接略過不用說明。',
+          '',
+          '請針對每個名詞提供：',
+          '・正確寫法（若與清單不同，請註明原本被辨識成什麼）',
+          '・一段簡介，說明它是什麼、用在哪裡',
+          '・若有對應的公式或計算方式，請一併列出並說明各符號代表的意義',
+          '',
+          '請先自行查證再回答，不確定的部分請明說，不要編造。',
+          '',
+          '【名詞清單】',
+          list
+        ].join('\n');
+      },
+
+      async copyTermsPrompt() {
+        const prompt = this.buildTermsPrompt();
+        if (!prompt) {
+          alert('目前沒有勾選任何名詞，請至少保留一個。');
+          return;
+        }
+        await copyTextRobust(prompt);
+        const hint = document.getElementById('termsCopyHint');
+        if (hint) hint.textContent = '✅ 已複製，接著開啟 Gemini 網頁版貼上即可。';
+      },
+
+      openGeminiWeb() {
+        // LIFF 內建瀏覽器開外部連結可能被攔，用 noopener 另開分頁；
+        // 失敗時提示使用者手動開啟，不要讓按鈕看起來沒反應
+        const win = window.open('https://gemini.google.com/app', '_blank', 'noopener');
+        if (!win) {
+          alert('無法自動開啟，請手動前往 gemini.google.com 並貼上提問稿。');
         }
       },
 
@@ -4308,8 +4697,9 @@
         // Gemini 免費層以 RPD（每日請求數）計；官方會隨模型調整，
         // 這裡取一個保守的參考值，僅用於畫進度條
         gemini: { limit: 250, unit: '次' },
-        // Groq 免費層以音訊時長計，這裡累加送出的秒數作為估算
-        groq: { limit: 7200, unit: '秒' }
+        // Groq 免費層每日 28,800 音訊秒數（另有 2,000 次請求上限，
+        // 但本工具 15 秒一段，會先撞到秒數而非次數）
+        groq: { limit: 28800, unit: '秒' }
       },
 
       _cache: null,
@@ -5342,6 +5732,9 @@
 
       // 初次畫出額度預覽（跨日時 _load 會自動歸零）
       QuotaMeter.render();
+
+      // 還原上次選擇的摘要場景
+      SummaryModule.restoreScene();
     });
 
     // navigator.clipboard.writeText() 在 prompt() 等阻塞對話框關閉後，
