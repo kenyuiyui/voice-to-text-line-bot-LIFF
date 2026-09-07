@@ -1174,17 +1174,6 @@
           </select>
         </div>
 
-        <!-- zh 專屬詞彙表：只在中文模式顯示，存進 localStorage，
-             轉寫時由 LanguageManager.buildPrompt() 附加到 prompt。
-             沿用 Whisper prompt 欄位的原生用途（詞彙提示），而非
-             寫成指令句（指令句會被模型原樣續寫輸出）。 -->
-        <div class="lang-select-row" id="zhGlossaryRow">
-          <label for="zhGlossaryInput" class="lang-select-label">📖 專有名詞</label>
-          <input type="text" id="zhGlossaryInput" placeholder="逗號分隔，如：波壓,越波,漂沙,離岸風機"
-            maxlength="120" value=""
-            oninput="localStorage.setItem('zhGlossary', this.value)">
-        </div>
-
         <!-- 即時翻譯：預設關閉，因為每段錄音會多打一次 Groq，成本
              double。開啟後每段轉寫完成會額外呼叫一次 Groq 轉寫端點，
              用目標語言當 language 參數，讓 Whisper 順便把內容譯成該
@@ -4060,7 +4049,7 @@
         const langParams = LanguageManager.getParamsForSegment();
         if (langParams) {
           formData.append('language', langParams.languageCode);
-          formData.append('prompt', LanguageManager.buildPrompt(langParams.prompt, langParams.languageCode));
+          formData.append('prompt', LanguageManager.buildPrompt(langParams.prompt));
         } else {
           formData.append('prompt', 'This is a recording of a meeting.');
         }
@@ -4139,15 +4128,6 @@
         this.selectedMode = value;
         this.resetAutoState();
         this.updateDetectHintVisibility();
-        this.updateGlossaryVisibility();
-      },
-
-      // 詞彙表輸入框只在固定選 zh 時顯示；auto 模式下語言未鎖定前
-      // 不確定是不是中文，先隱藏，偵測鎖定為中文後才有意義顯示，
-      // 但為避免過度複雜這裡先簡化成只認固定 zh 選項。
-      updateGlossaryVisibility() {
-        const row = document.getElementById('zhGlossaryRow');
-        if (row) row.style.display = (this.selectedMode === 'zh') ? 'flex' : 'none';
       },
 
       resetAutoState() {
@@ -4158,19 +4138,12 @@
       },
 
       /**
-       * 組出本段實際送出的 prompt：基礎引導語 + zh 專屬詞彙表
-       * （使用者透過 zhGlossaryInput 存進 localStorage）+ 前段結尾接續。
-       * 詞彙表與前段接續只在 zh 生效，避免污染其他語言的 prompt 預算，
-       * 也避免其他語言模式下 localStorage 讀取徒增無意義的字串處理。
+       * 組出本段實際送出的 prompt：基礎引導語 + 前段結尾接續。
        * 前段接續是 Whisper prompt 欄位的原生設計用途：讓跨段的專有
        * 名詞、斷句風格維持一致，15 秒分段時尤其有幫助。
        */
-      buildPrompt(basePrompt, langCode) {
+      buildPrompt(basePrompt) {
         const parts = [basePrompt];
-        if (langCode === 'zh') {
-          const glossary = (localStorage.getItem('zhGlossary') || '').trim().slice(0, 120);
-          if (glossary) parts.push(glossary);
-        }
         const carry = this._lastText.slice(-this.MAX_CARRY_CHARS);
         if (carry) parts.push(carry);
         return parts.filter(Boolean).join('\n');
@@ -4460,7 +4433,7 @@
         const langParams = LanguageManager.getParamsForSegment();
         if (langParams) {
           formData.append('language', langParams.languageCode);
-          formData.append('prompt', LanguageManager.buildPrompt(langParams.prompt, langParams.languageCode));
+          formData.append('prompt', LanguageManager.buildPrompt(langParams.prompt));
         } else {
           formData.append('prompt', 'This is a recording of a meeting.');
         }
@@ -4500,7 +4473,7 @@
           // 送出的 prompt 完整包含輸出內容時視為無效，直接丟棄。
           if (originalText) {
             const sentPrompt = langParams
-              ? LanguageManager.buildPrompt(langParams.prompt, langParams.languageCode)
+              ? LanguageManager.buildPrompt(langParams.prompt)
               : '';
             if (sentPrompt && sentPrompt.includes(originalText)) {
               originalText = '';
@@ -5053,13 +5026,6 @@
           console.log('偵測到登入前暫存的卡片內容，請重新確認卡片並再次點擊發送。');
         }
       } catch (e) { /* 忽略 */ }
-
-      // 還原上次儲存的 zh 詞彙表，並依目前預設語言（zh）顯示輸入框
-      try {
-        const glossaryInput = document.getElementById('zhGlossaryInput');
-        if (glossaryInput) glossaryInput.value = localStorage.getItem('zhGlossary') || '';
-        LanguageManager.updateGlossaryVisibility();
-      } catch (e) { /* 忽略：不影響核心轉寫功能 */ }
     });
 
     // navigator.clipboard.writeText() 在 prompt() 等阻塞對話框關閉後，
