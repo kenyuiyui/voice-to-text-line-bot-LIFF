@@ -4889,7 +4889,7 @@
           // 指令句會被模型當成待轉寫內容原樣輸出（實測曾出現孤立的
           // 「請依語意選擇。」這行）。因此這裡只放一句引導語，
           // 真正的糾錯改靠 buildPrompt() 附加的詞彙表與前段接續。
-          prompt: '以下是台灣口音逐字稿：'
+          prompt: '逐字稿內容，其講者具台灣口音。內容如下：'
         },
         en: { languageCode: 'en', prompt: 'This is a recording of a business meeting discussing work updates and progress.' },
         ja: { languageCode: 'ja', prompt: 'これは仕事の進捗報告や打ち合わせに関する会議の録音です。' },
