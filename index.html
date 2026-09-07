@@ -19,7 +19,7 @@
     img-src 'self' data:;
     manifest-src 'self';
     worker-src 'self';
-    connect-src 'self' https://api.groq.com https://api.line.me https://access.line.me https://generativelanguage.googleapis.com https://docs.google.com https://*.googleusercontent.com https://liffsdk.line-scdn.net;
+    connect-src 'self' https://api.groq.com https://api.line.me https://access.line.me https://generativelanguage.googleapis.com https://api.mymemory.translated.net https://docs.google.com https://*.googleusercontent.com https://liffsdk.line-scdn.net;
     frame-src https://access.line.me;
     base-uri 'self';
     form-action 'none';
@@ -399,6 +399,45 @@
       font-size: 11px; font-weight: 700; color: var(--ink-soft); margin: 18px 0 8px;
     }
     .settings-section-label:first-child { margin-top: 0; }
+
+    /* 額度預覽：本地估算的用量沙漏，不是各服務的實際餘額 */
+    .quota-meter {
+      background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px 14px; margin-bottom: 8px;
+    }
+    .quota-meter-head {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+      font-size: 12px; margin-bottom: 8px;
+    }
+    .quota-meter-name { font-weight: 700; }
+    .quota-meter-value { color: var(--ink-soft); font-size: 11px; }
+    .quota-meter-bar {
+      height: 6px; border-radius: 999px; background: var(--border); overflow: hidden;
+    }
+    .quota-meter-fill {
+      height: 100%; border-radius: 999px; background: var(--line-green);
+      width: 0%; transition: width .3s ease;
+    }
+    /* 用量偏高時轉色警示，純視覺提示，不阻擋任何操作 */
+    .quota-meter-fill.warn { background: #d99100; }
+    .quota-meter-fill.full { background: var(--danger); }
+    .quota-meter-note {
+      font-size: 10px; color: var(--ink-soft); margin-top: 8px; line-height: 1.5;
+    }
+    /* 錄音頁的精簡版：一行文字＋細條，不佔版面 */
+    .quota-mini {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: var(--ink-soft); margin: 8px 0 0;
+    }
+    .quota-mini-bar {
+      flex: 1; height: 4px; border-radius: 999px; background: var(--border); overflow: hidden;
+    }
+    .quota-mini-fill {
+      height: 100%; border-radius: 999px; background: var(--line-green);
+      width: 0%; transition: width .3s ease;
+    }
+    .quota-mini-fill.warn { background: #d99100; }
+    .quota-mini-fill.full { background: var(--danger); }
     .settings-item-row {
       display: flex; align-items: center; justify-content: space-between;
       background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px;
@@ -1073,12 +1112,14 @@
     </div>
   </div>
 
-  <!-- 即時翻譯開關的說明：雙倍呼叫量提醒 -->
+  <!-- 即時翻譯開關的說明：翻譯服務來源與免費額度 -->
   <div class="modal-overlay hidden" id="liveTranslationGuideModal">
     <div class="modal-box" style="max-width:340px;">
       <div class="modal-tabs"><button class="active" style="cursor:default;">🌏 即時翻譯小提醒</button></div>
       <div class="modal-body" style="padding:16px; line-height:1.7;">
-        每段錄音會多打一次 API 拿翻譯，額度消耗約為平常的 2 倍，換來原文＋翻譯同時保留。
+        翻譯使用 <strong>MyMemory</strong> 免費服務，不需要另外申請 API Key，也不會消耗你的 Groq／Gemini 額度。<br><br>
+        免費額度為<strong>每天 5,000 字元</strong>，依你的網路位址計算。到「⚙️ 設定」分頁填入 email 可提升到 <strong>50,000 字元／天</strong>（不需註冊，只是讓服務方在異常時能聯絡到人）。<br><br>
+        翻譯失敗或額度用完時，原文轉寫不受影響，只是該段不顯示翻譯。
       </div>
       <div class="modal-footer">
         <button onclick="LiveTranslationGuide.close()">我知道了</button>
@@ -1174,15 +1215,15 @@
           </select>
         </div>
 
-        <!-- 即時翻譯：預設關閉，因為每段錄音會多打一次 Groq，成本
-             double。開啟後每段轉寫完成會額外呼叫一次 Groq 轉寫端點，
-             用目標語言當 language 參數，讓 Whisper 順便把內容譯成該
-             語言（詳見 TranslationManager 註解）。 -->
+        <!-- 即時翻譯：改用 MyMemory 純文字翻譯端點，不再重打一次音訊
+             API，因此不再有「額度 2 倍」的成本問題。額度按使用者自身
+             網路位址計算，填入 email 可提升 10 倍（詳見
+             TranslationManager 註解）。 -->
         <div class="lang-select-row">
           <label class="lang-select-label" style="display:flex; align-items:center; gap:4px; cursor:pointer;">
             <input type="checkbox" id="translationEnabledCheckbox" onchange="TranslationManager.onToggle(this.checked)">
             🌏 即時翻譯
-            <button class="btn-help-icon" onclick="LiveTranslationGuide.open()" title="這個功能會讓 API 呼叫量變兩倍，點這裡看說明" style="margin-left:-2px;">❓</button>
+            <button class="btn-help-icon" onclick="LiveTranslationGuide.open()" title="關於翻譯服務與免費額度，點這裡看說明" style="margin-left:-2px;">❓</button>
           </label>
           <select id="translationTargetSelect" disabled onchange="TranslationManager.onTargetChange(this.value)">
             <option value="zh">中文</option>
@@ -1192,7 +1233,7 @@
           </select>
         </div>
         <div class="translation-cost-hint" id="translationCostHint" style="display:none;">
-          ⚠️ 已開啟，每段錄音會多打一次 API，額度消耗約為平常的 2 倍
+          ℹ️ 使用 MyMemory 免費翻譯，每日 5,000 字元；可到「⚙️ 設定」填 email 提升到 50,000
         </div>
 
         <div class="meeting-mode" id="meetingCard">
@@ -1204,6 +1245,12 @@
             <div class="live-preview-empty">尚未有轉寫內容</div>
           </div>
           <button class="btn-record-toggle start" id="recordToggleBtn" onclick="toggleMeetingRecording()">開始錄音</button>
+          <!-- 錄音頁只顯示轉寫用量，那是錄音當下唯一會增加的項目；
+               完整三項用量在「⚙️ 設定」分頁 -->
+          <div class="quota-mini">
+            <span id="quotaMiniText">今日轉寫約 0 分鐘</span>
+            <div class="quota-mini-bar"><div class="quota-mini-fill" id="quotaMiniFill"></div></div>
+          </div>
         </div>
 
         <div class="upload-divider">或</div>
@@ -1422,8 +1469,36 @@
           </details>
         </div>
 
-        <!-- 逐項刪除，狀態燈號（綠=已設定／灰=無資料）方便辨識 -->
-        <div class="settings-section-label">🗂️ 個別資料管理</div>
+        <!-- 即時翻譯的額度設定：MyMemory 不需要 API Key，只用 email
+             參數提升每日額度，因此與 API Key 分開成獨立區塊 -->
+        <div class="settings-section-label">🌏 翻譯額度</div>
+        <div class="keypool-block">
+          <input type="email" id="translationEmailInput" placeholder="你的 email（選填）"
+            onchange="TranslationManager.onEmailChange(this.value)">
+
+          <details>
+            <summary>這個 email 是做什麼用的？</summary>
+            <div class="guide-body">
+              <ol style="margin:0; padding-left:18px;">
+                <li>「即時翻譯」使用 <b>MyMemory</b> 免費翻譯服務，不需要申請 API Key，也不會消耗你的 Groq／Gemini 額度</li>
+                <li>不填任何東西也能直接用，免費額度是<b>每天 5,000 字元</b>，依你的網路位址計算</li>
+                <li>填入 email 後，額度會提升到<b>每天 50,000 字元</b>（約 10 倍）</li>
+                <li>這不是註冊帳號，<b>不需要驗證信箱、也不會收到任何信件</b>；服務方要求填寫只是為了在你的用量造成異常時能聯絡到人</li>
+                <li>請填真實可用的信箱，亂填雖然當下也會通，但可能被對方的防護機制判定異常而封鎖連線</li>
+              </ol>
+              <div class="guide-note">email 只存在你自己手機瀏覽器裡，不會被上傳到本工具的任何地方，僅在呼叫翻譯服務時隨請求一起送出。額度用完時原文轉寫不受影響，只是該段不顯示翻譯，等 24 小時後會自動重置。</div>
+            </div>
+          </details>
+        </div>
+
+        <div class="settings-section-label">⏳ 今日用量（估算）</div>
+        <div id="quotaMeterList"></div>
+        <div class="quota-meter-note">
+          這是<b>本裝置</b>送出的量，不是各服務回報的實際餘額（三家都沒有可查詢餘額的介面）。
+          若同一把 Key 在其他裝置或工具用過，實際用量會比這裡更高。每日午夜歸零。
+        </div>
+
+        <!-- 逐項刪除，狀態燈號（綠=已設定／灰=無資料）方便辨識 -->        <div class="settings-section-label">🗂️ 個別資料管理</div>
         <div id="settingsItemsList"></div>
 
         <div class="settings-danger-zone">
@@ -3200,6 +3275,10 @@
         const modelName = this.GEMINI_MODEL || 'gemini-2.5-flash';
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
+        // Gemini 免費層以每日請求數（RPD）計，一次呼叫記一次。
+        // 送出前記帳，失敗的請求對方通常仍會計入配額。
+        QuotaMeter.add('gemini', 1);
+
         // 多筆來源時每段前加【標籤】，幫助 Gemini 判斷段落邊界並
         // 整合成單一份摘要，而非逐段分別摘要
         const hasMultipleItems = items.length > 1;
@@ -3388,6 +3467,10 @@
       async _callGeminiMindmap(summaryText, apiKey) {
         const modelName = this.GEMINI_MODEL || 'gemini-2.5-flash';
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
+
+        // Gemini 免費層以每日請求數（RPD）計，一次呼叫記一次。
+        // 送出前記帳，失敗的請求對方通常仍會計入配額。
+        QuotaMeter.add('gemini', 1);
 
         const payload = {
           systemInstruction: {
@@ -4089,6 +4172,9 @@
 
         LanguageManager.onDetectedLanguage(data.language);
 
+        // verbose_json 會回傳音訊實際長度，比用檔案大小推估準確
+        if (data.duration) QuotaMeter.add('groq', data.duration);
+
         return data.text || '';
       },
 
@@ -4200,41 +4286,189 @@
       }
     };
 
-    // ---------- 即時翻譯管理 ----------
-    // 原理：Groq／OpenAI 的 Whisper 轉寫端點官方定義 language 參數是
-    // 「輸入音訊的語言」，正常應該是原音重現（轉寫語言＝音訊語言）。
-    // 但實測發現 Whisper 系列模型在這個端點上有個穩定可重現的怪癖：
-    // 當 language 參數與音訊實際語言不同時，模型常會把內容直接譯成
-    // language 參數指定的語言，而不是單純轉寫失敗或亂碼。這不是官方
-    // 承諾的功能，是模型行為的已知不穩定現象（社群多次回報），但本
-    // 專案用戶已實測確認在中⇄日語音上穩定發生，因此拿來做翻譯用。
+    // ---------- 額度預覽（本地估算）----------
+    // 這裡的數字是「本裝置送出的量」，不是各服務回報的實際餘額——
+    // 三家都沒有提供可從前端查詢餘額的端點，所以只能自己累加。
     //
-    // 作法：同一段錄音音檔打兩次 Groq 轉寫端點——一次用「辨識語言」
-    // 的設定拿原文（沿用 LanguageManager 既有邏輯），一次用「翻譯
-    // 目標語言」當 language 參數拿翻譯版本。兩次呼叫互相獨立，翻譯
-    // 那次失敗不影響原文那次。
+    // 因此有兩個已知的低估情況，UI 上必須標明是估算值：
+    //   - 同一把 Key／同一個 IP 在別的裝置或別的工具用過
+    //   - 使用者清除瀏覽器資料後計數歸零，但服務端額度並沒有跟著重置
     //
-    // 因為不是官方保證的行為，這裡刻意不做「翻譯失敗自動重試」或
-    // 「換其他翻譯服務補救」——這是使用者明確選擇的簡化方案，翻譯
-    // 失敗時単純不顯示那一行，只保留原文，不影響核心可用性。
-    const TranslationManager = {
-      TARGET_LANG_PROMPTS: {
-        zh: '這是一段會議錄音，內容關於工作討論與進度回報。',
-        en: 'This is a recording of a business meeting discussing work updates and progress.',
-        ja: 'これは仕事の進捗報告や打ち合わせに関する会議の録音です。',
-        ko: '이것은 업무 논의와 진행 상황 보고에 관한 회의 녹음입니다.'
+    // 重置時間：MyMemory 官方只寫「每天 5,000 字元」，未載明時區或
+    // 是否為滾動視窗；Groq 亦未明確公開。因此統一用「裝置本地午夜」
+    // 當重置點，是估算而非保證與服務端同步。
+    const QuotaMeter = {
+      STORAGE_KEY: 'quotaUsage',
+
+      // 上限僅供進度條換算，取各服務免費層的公開數值。
+      // 超過不會阻擋任何操作，純粹是視覺提示。
+      LIMITS: {
+        // MyMemory：匿名 5,000／帶 email 50,000（字元）
+        mymemory: { anonymous: 5000, identified: 50000, unit: '字元' },
+        // Gemini 免費層以 RPD（每日請求數）計；官方會隨模型調整，
+        // 這裡取一個保守的參考值，僅用於畫進度條
+        gemini: { limit: 250, unit: '次' },
+        // Groq 免費層以音訊時長計，這裡累加送出的秒數作為估算
+        groq: { limit: 7200, unit: '秒' }
       },
+
+      _cache: null,
+
+      // 本地日期字串（YYYY-MM-DD），用來判斷是否跨日重置
+      _today() {
+        const d = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      },
+
+      _load() {
+        if (this._cache && this._cache.date === this._today()) return this._cache;
+        let data = null;
+        try {
+          data = JSON.parse(localStorage.getItem(this.STORAGE_KEY) || 'null');
+        } catch (e) { /* 損毀就當作沒有，重新開始計數 */ }
+
+        // 跨日或首次使用：歸零重新計數
+        if (!data || data.date !== this._today()) {
+          data = { date: this._today(), mymemory: 0, gemini: 0, groq: 0 };
+        }
+        this._cache = data;
+        return data;
+      },
+
+      _persist(data) {
+        this._cache = data;
+        try {
+          localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+        } catch (e) { /* 忽略：額度預覽失敗不影響任何核心功能 */ }
+      },
+
+      /** 累加用量。service 為 mymemory／gemini／groq，amount 為該服務的計量單位 */
+      add(service, amount) {
+        const n = Number(amount);
+        if (!Number.isFinite(n) || n <= 0) return;
+        const data = this._load();
+        data[service] = (data[service] || 0) + n;
+        this._persist(data);
+        this.render();
+      },
+
+      getUsage(service) {
+        return this._load()[service] || 0;
+      },
+
+      // MyMemory 的上限取決於使用者有沒有填 email，其他服務為固定值
+      getLimit(service) {
+        if (service === 'mymemory') {
+          const cfg = this.LIMITS.mymemory;
+          return TranslationManager._getValidEmail() ? cfg.identified : cfg.anonymous;
+        }
+        return this.LIMITS[service].limit;
+      },
+
+      getUnit(service) {
+        return this.LIMITS[service].unit;
+      },
+
+      _fillClass(ratio) {
+        if (ratio >= 1) return 'full';
+        if (ratio >= 0.8) return 'warn';
+        return '';
+      },
+
+      render() {
+        const services = [
+          { key: 'groq', label: '🎙️ Groq 轉寫' },
+          { key: 'gemini', label: '✨ Gemini 摘要' },
+          { key: 'mymemory', label: '🌏 MyMemory 翻譯' }
+        ];
+
+        const container = document.getElementById('quotaMeterList');
+        if (container) {
+          container.innerHTML = services.map(s => {
+            const used = this.getUsage(s.key);
+            const limit = this.getLimit(s.key);
+            const ratio = limit > 0 ? used / limit : 0;
+            const pct = Math.min(100, Math.round(ratio * 100));
+            return `
+              <div class="quota-meter">
+                <div class="quota-meter-head">
+                  <span class="quota-meter-name">${Utils.escapeHtml(s.label)}</span>
+                  <span class="quota-meter-value">${used.toLocaleString()} / ${limit.toLocaleString()} ${Utils.escapeHtml(this.getUnit(s.key))}</span>
+                </div>
+                <div class="quota-meter-bar">
+                  <div class="quota-meter-fill ${this._fillClass(ratio)}" style="width:${pct}%"></div>
+                </div>
+              </div>`;
+          }).join('');
+        }
+
+        // 錄音頁精簡版只顯示轉寫用量，那是錄音當下唯一會增加的項目
+        const miniFill = document.getElementById('quotaMiniFill');
+        const miniText = document.getElementById('quotaMiniText');
+        if (miniFill && miniText) {
+          const used = this.getUsage('groq');
+          const limit = this.getLimit('groq');
+          const ratio = limit > 0 ? used / limit : 0;
+          miniFill.style.width = `${Math.min(100, Math.round(ratio * 100))}%`;
+          miniFill.className = `quota-mini-fill ${this._fillClass(ratio)}`;
+          miniText.textContent = `今日轉寫約 ${Math.round(used / 60)} 分鐘`;
+        }
+      }
+    };
+
+    // ---------- 即時翻譯管理 ----------
+    // 改用 MyMemory 翻譯 API（純文字端點），取代先前「同一段音檔用
+    // 目標語言當 language 參數再打一次 Whisper」的作法。舊作法依賴
+    // Whisper 的非官方行為，實測結果不穩定：常出現原文未翻譯、語意
+    // 崩壞的跳針重複，以及與內容無關的幻覺句，且每段要多打一次音訊
+    // API，成本是文字翻譯的數倍。
+    //
+    // 選用 MyMemory 的理由（本專案是純前端頁面，沒有後端可代理）：
+    //   - 明確支援 CORS，可從瀏覽器直接呼叫
+    //   - 免註冊、免 API Key、免綁信用卡
+    //   - 匿名額度按「使用者 IP」計算，每位使用者各自 5,000 字元／天，
+    //     不是所有人共用同一把金鑰的額度
+    //
+    // 額度與限制（依官方 usage limits 與社群實測）：
+    //   - 匿名 5,000 字元／天；帶 de=<email> 參數可提升到 50,000／天
+    //   - 單次請求文本上限 500 bytes
+    //   - 社群建議頻率上限約每分鐘 20 次；本專案 15 秒一段（每分鐘 4
+    //     段）遠低於此，但仍序列化送出避免積壓段落瞬間爆發
+    //
+    // 刻意不寫死開發者自己的 email：那會讓所有使用者共用同一包
+    // 50,000 額度，反而比各自獨立的匿名 5,000 更快耗盡。email 欄位
+    // 留給使用者自行填寫，與本專案 Groq／Gemini Key 由使用者自備的
+    // 設計一致，成本完全外部化。
+    const TranslationManager = {
+      ENDPOINT: 'https://api.mymemory.translated.net/get',
+
+      // MyMemory 使用 ISO 639-1 語言代碼，中文需區分繁簡；
+      // 本專案 UI 的 'zh' 對應繁體中文
+      LANG_CODE_MAP: { zh: 'zh-TW', en: 'en', ja: 'ja', ko: 'ko' },
+
+      // 單次請求上限 500 bytes。中文 UTF-8 每字約 3 bytes，
+      // 這裡以 bytes 實際計算截斷，不能用 length 粗估
+      MAX_QUERY_BYTES: 500,
+
+      // 社群建議約每分鐘 20 次（3 秒一次）。本專案每段間隔 15 秒，
+      // 正常不會觸及，此值僅用於段落積壓時的節流保護
+      MIN_INTERVAL_MS: 3000,
 
       enabled: false,
       targetLang: 'zh',
       _hasShownCostConfirm: false,
+      _queue: Promise.resolve(),
+      _lastCallAt: 0,
 
       onToggle(checked) {
-        // 首次開啟時跳一次性確認，講清楚成本代價；使用者取消的話
-        // 整個開關要復原成未勾選狀態，不能已經生效卻沒告知
+        // 首次開啟時說明額度來源與限制；使用者取消的話開關要復原，
+        // 不能已經生效卻沒告知
         if (checked && !this._hasShownCostConfirm) {
           const proceed = confirm(
-            '開啟即時翻譯後，每段錄音會多打一次 API（原文一次、翻譯一次），額度消耗大約是平常的 2 倍。\n\n' +
+            '即時翻譯使用 MyMemory 免費翻譯服務，不需要額外申請 API Key。\n\n' +
+            '免費額度為每天 5,000 字元（依你的網路位址計算），' +
+            '到「⚙️ 設定」分頁填入 email 可提升到 50,000 字元／天。\n\n' +
             '確定要開啟嗎？'
           );
           if (!proceed) {
@@ -4257,52 +4491,112 @@
         this.targetLang = value;
       },
 
-      /**
-       * 呼叫 Groq 轉寫端點，用目標語言當 language 參數。
-       * 回傳翻譯文字字串，失敗或判定無效時回傳 null——呼叫端不需要
-       * 分辨失敗原因，只需要知道「有沒有可用的翻譯結果」。
-       *
-       * 判定無效的情況：
-       *   - HTTP 非 200（額度用完、Key 失效等，但這裡不重複呼叫
-       *     KeyPoolPanel.notifyFailure，避免同一把 Key 失效時原文和
-       *     翻譯兩個呼叫都各自跳一次失效提示，交由原文那次負責提示）
-       *   - 回傳空字串
-       *   - 回傳內容跟原文完全相同（代表這次沒有真的翻譯到，例如
-       *     使用者曾實測到的「選英文、講英文」這種目標語言與原音相同
-       *     的情況）
-       */
-      async translateSegment(audioBlob, apiKey, originalText) {
-        const prompt = this.TARGET_LANG_PROMPTS[this.targetLang] || '';
+      onEmailChange(value) {
+        const email = (value || '').trim();
+        try {
+          if (email) localStorage.setItem('mymemoryEmail', email);
+          else localStorage.removeItem('mymemoryEmail');
+        } catch (e) { /* 忽略：額度提升失敗不影響翻譯本身 */ }
+        // 有無 email 會改變 MyMemory 的額度上限，進度條要跟著重畫
+        QuotaMeter.render();
+      },
 
-        const formData = new FormData();
-        formData.append('file', audioBlob, 'recording.webm');
-        formData.append('model', 'whisper-large-v3-turbo');
-        formData.append('language', this.targetLang);
-        if (prompt) formData.append('prompt', prompt);
-        formData.append('response_format', 'verbose_json');
+      // 只做基本格式檢查，避免把明顯無效的字串送進 de 參數。
+      // 官方不驗證信箱，但亂填可能觸發他們的防護機制導致連線被封鎖。
+      _getValidEmail() {
+        try {
+          const email = (localStorage.getItem('mymemoryEmail') || '').trim();
+          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
+        } catch (e) {
+          return '';
+        }
+      },
+
+      // 依 UTF-8 位元組長度截斷，確保不超過 API 的 500 bytes 上限，
+      // 且不會切在多位元組字元中間造成亂碼
+      _truncateToBytes(text, maxBytes) {
+        const encoder = new TextEncoder();
+        if (encoder.encode(text).length <= maxBytes) return text;
+        let result = text;
+        while (result.length > 0 && encoder.encode(result).length > maxBytes) {
+          result = result.slice(0, -1);
+        }
+        return result;
+      },
+
+      /**
+       * 翻譯一段文字。回傳翻譯字串，失敗或判定無效時回傳 null——
+       * 呼叫端不需要分辨失敗原因，只需要知道有沒有可用的翻譯結果。
+       *
+       * 所有呼叫透過 _queue 串成序列，一次只送一個請求，避免多段
+       * 同時完成時並行打爆頻率限制。
+       */
+      translateSegment(originalText, sourceLangCode) {
+        const run = () => this._doTranslate(originalText, sourceLangCode);
+        // 無論成敗都接上下一個，避免單次失敗卡住整條佇列
+        this._queue = this._queue.then(run, run);
+        return this._queue;
+      },
+
+      async _doTranslate(originalText, sourceLangCode) {
+        const text = (originalText || '').trim();
+        if (!text) return null;
+
+        const target = this.LANG_CODE_MAP[this.targetLang];
+        const source = this.LANG_CODE_MAP[sourceLangCode];
+        // 來源與目標相同就不必翻譯，省額度
+        if (!target || !source || source === target) return null;
+
+        // 節流：與上一次呼叫至少間隔 MIN_INTERVAL_MS
+        const waitMs = this.MIN_INTERVAL_MS - (Date.now() - this._lastCallAt);
+        if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
+        this._lastCallAt = Date.now();
+
+        const params = new URLSearchParams({
+          q: this._truncateToBytes(text, this.MAX_QUERY_BYTES),
+          langpair: `${source}|${target}`
+        });
+        const email = this._getValidEmail();
+        if (email) params.append('de', email);
+
+        // 送出前就記帳：MyMemory 是按送出的字元數扣額度，
+        // 即使這次請求失敗，對方仍可能已計入
+        QuotaMeter.add('mymemory', this._truncateToBytes(text, this.MAX_QUERY_BYTES).length);
 
         try {
-          const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey}` },
-            body: formData
-          });
-
+          const res = await fetch(`${this.ENDPOINT}?${params}`);
           if (!res.ok) return null;
 
           const data = await res.json();
-          const translated = (data.text || '').trim();
-          if (!translated) return null;
 
-          // 跟原文完全相同（去除前後空白後比較），視為沒有真的翻譯到
-          if (originalText && translated === originalText.trim()) return null;
+          // 額度用完時 API 回傳 403／429，或在 JSON 內帶 quota 相關訊息。
+          // 這個提示只跳一次，避免每段都彈窗打斷錄音。
+          const detail = String(data.responseDetails || '');
+          if (data.responseStatus !== 200) {
+            if (/quota|limit/i.test(detail) && !this._hasWarnedQuota) {
+              this._hasWarnedQuota = true;
+              alert(
+                'MyMemory 今日翻譯額度已用完，原文轉寫不受影響。\n\n' +
+                '到「⚙️ 設定」分頁填入 email 可將額度從 5,000 提升到 50,000 字元／天，' +
+                '或等待 24 小時後重置。'
+              );
+            }
+            return null;
+          }
+
+          const translated = (data.responseData && data.responseData.translatedText || '').trim();
+          if (!translated) return null;
+          // 與原文完全相同代表沒有真的翻譯到
+          if (translated === text) return null;
 
           return translated;
         } catch (err) {
           console.warn('翻譯呼叫失敗（不影響原文轉寫）：', err);
           return null;
         }
-      }
+      },
+
+      _hasWarnedQuota: false
     };
 
     const DictationEngine = {
@@ -4441,6 +4735,10 @@
         formData.append('response_format', 'verbose_json');
         formData.append('temperature', '0'); // 逐字稿場景不需要隨機性，降低靜音/雜訊段的幻覺機率
 
+        // Groq 免費層以音訊時長計費，這裡累加送出的秒數作為估算。
+        // 錄音分段長度固定，直接用 SEGMENT_MS 換算。
+        QuotaMeter.add('groq', this.SEGMENT_MS / 1000);
+
         const endpoint = 'https://api.groq.com/openai/v1/audio/transcriptions';
 
         try {
@@ -4492,7 +4790,16 @@
             // 內容先出現、翻譯行才補上去的閃爍感。
             let translation = null;
             if (TranslationManager.enabled) {
-              translation = await TranslationManager.translateSegment(audioBlob, apiKey, originalText);
+              // 翻譯來源語言取自這一段實際使用的辨識語言；auto 模式下
+              // 未鎖定語言時 langParams 為 null，改用 Whisper 回報的
+              // 偵測結果，兩者都拿不到就跳過翻譯（無法判斷語言對）
+              const detectedMap = { chinese: 'zh', english: 'en', japanese: 'ja', korean: 'ko' };
+              const sourceLangCode = langParams
+                ? langParams.languageCode
+                : detectedMap[String(data.language || '').toLowerCase()];
+              if (sourceLangCode) {
+                translation = await TranslationManager.translateSegment(originalText, sourceLangCode);
+              }
             }
             CardSandbox.add(originalText, translation, TranslationManager.targetLang);
           }
@@ -5026,6 +5333,15 @@
           console.log('偵測到登入前暫存的卡片內容，請重新確認卡片並再次點擊發送。');
         }
       } catch (e) { /* 忽略 */ }
+
+      // 還原上次填入的 MyMemory 額度提升 email
+      try {
+        const emailInput = document.getElementById('translationEmailInput');
+        if (emailInput) emailInput.value = localStorage.getItem('mymemoryEmail') || '';
+      } catch (e) { /* 忽略：不影響核心功能 */ }
+
+      // 初次畫出額度預覽（跨日時 _load 會自動歸零）
+      QuotaMeter.render();
     });
 
     // navigator.clipboard.writeText() 在 prompt() 等阻塞對話框關閉後，
