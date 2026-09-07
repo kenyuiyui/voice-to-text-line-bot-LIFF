@@ -400,6 +400,40 @@
     }
     .settings-section-label:first-child { margin-top: 0; }
 
+    /* 信任說明面板 */
+    .trust-panel {
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+    }
+    .trust-panel summary {
+      cursor: pointer; font-size: 13px; font-weight: 700;
+      color: var(--line-green-dark); list-style: none;
+    }
+    .trust-panel summary::-webkit-details-marker { display: none; }
+    .trust-panel summary::before { content: '❓ '; }
+    .trust-panel[open] summary { margin-bottom: 10px; }
+    .trust-body { font-size: 12px; line-height: 1.65; }
+    .trust-block { margin-bottom: 12px; }
+    .trust-block:last-child { margin-bottom: 0; }
+    .trust-head { font-weight: 700; margin-bottom: 4px; }
+    .trust-body ul { margin: 0; padding-left: 18px; }
+    .trust-body li { margin-bottom: 3px; }
+    .trust-note { color: var(--ink-soft); font-size: 11px; display: block; margin-top: 2px; }
+    .trust-svc {
+      border-left: 3px solid var(--border); padding-left: 10px; margin-bottom: 8px;
+    }
+    .trust-svc-name { font-weight: 700; font-size: 12px; }
+    .trust-svc-name span { font-weight: 400; color: var(--ink-soft); font-size: 11px; }
+    .trust-svc-desc { font-size: 11px; line-height: 1.6; margin-top: 2px; }
+    .trust-body code {
+      background: var(--border); border-radius: 4px; padding: 1px 4px; font-size: 11px;
+    }
+
+    .keypool-trust-hint {
+      font-size: 11px; color: var(--ink-soft); line-height: 1.6; margin-top: 6px;
+    }
+    .keypool-trust-hint a { color: var(--line-green-dark); }
+
     /* 勾選模式的全選列 */
     .select-all-row {
       display: flex; align-items: center; gap: 10px; margin: 0 0 10px;
@@ -542,9 +576,10 @@
     }
     .modal-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
     .modal-tabs button {
-      flex: 1; padding: 14px; font-size: 13px; font-weight: 700;
+      /* 三個分頁並排，窄螢幕下用較小的左右內距與字級避免文字被擠壓換行 */
+      flex: 1; padding: 14px 4px; font-size: 12px; font-weight: 700;
       border: none; background: none; cursor: pointer; color: var(--ink-soft);
-      border-bottom: 2px solid transparent;
+      border-bottom: 2px solid transparent; white-space: nowrap;
     }
     .modal-tabs button.active { color: var(--ink); border-bottom-color: var(--line-green); }
     .modal-body { padding: 16px; overflow-y: auto; font-size: 13px; line-height: 1.7; color: var(--ink); }
@@ -838,11 +873,84 @@
   <div class="modal-overlay" id="introModal">
     <div class="modal-box">
       <div class="modal-tabs">
-        <button id="modalTabNotice" class="active" onclick="IntroModal.switchTab('notice')">⚠️ 使用注意事項</button>
+        <button id="modalTabTrust" class="active" onclick="IntroModal.switchTab('trust')">🛡️ 安全說明</button>
+        <button id="modalTabNotice" onclick="IntroModal.switchTab('notice')">⚠️ 使用注意事項</button>
         <button id="modalTabChangelog" onclick="IntroModal.switchTab('changelog')">🆕 更新內容</button>
       </div>
       <div class="modal-body" id="modalBody">
-        <div id="modalNoticeContent">
+        <!-- 安全說明放在第一個分頁：使用者對「要貼 API Key 的無名網頁」
+             的疑慮，應該在他產生疑問之前就先回答，而不是等他自己去設定
+             頁找。內容與設定頁的信任面板一致，全部是可驗證的事實陳述。 -->
+        <div id="modalTrustContent">
+          <h4>先講清楚：這個工具怎麼處理你的資料</h4>
+          <div class="trust-body" style="margin-top:8px;">
+            <div class="trust-block">
+              <div class="trust-head">💰 不會被扣錢</div>
+              <ul>
+                <li>Groq、Gemini 都有<b>免費方案，不需綁定信用卡</b></li>
+                <li>額度用完只會暫停並顯示提示，<b>不會自動轉為付費</b></li>
+              </ul>
+            </div>
+
+            <div class="trust-block">
+              <div class="trust-head">📍 你的資料在哪裡</div>
+              <ul>
+                <li>API Key、語音卡片、摘要：<b>只存在這台裝置的瀏覽器裡</b></li>
+                <li>語音會傳送到 Groq 的伺服器辨識，辨識完不保留</li>
+                <li><b>本工具沒有自己的伺服器</b>，你的資料不會經過我這邊</li>
+              </ul>
+            </div>
+
+            <div class="trust-block">
+              <div class="trust-head">🚫 本工具不會做的事</div>
+              <ul>
+                <li><b>不需要對本工具註冊</b>、本工具<b>不蒐集 email</b> 或任何個人資料
+                  <span class="trust-note">（Groq、Gemini 等第三方服務仍需你自行前往註冊）</span>
+                </li>
+                <li>不讀取通訊錄、相簿、定位</li>
+                <li>沒有廣告，不販售任何資料</li>
+              </ul>
+            </div>
+
+            <div class="trust-block">
+              <div class="trust-head">🏢 這些服務是誰？</div>
+              <div class="trust-svc">
+                <div class="trust-svc-name">Groq　<span>語音辨識</span></div>
+                <div class="trust-svc-desc">
+                  2016 年成立於美國加州的 AI 運算公司，全球 13 個資料中心，
+                  超過 <b>600 萬名開發者</b>與多家《財星》500 大企業在使用，
+                  晶片大廠 <b>NVIDIA</b> 是其合作夥伴與投資人。
+                </div>
+              </div>
+              <div class="trust-svc">
+                <div class="trust-svc-name">Google Gemini　<span>AI 摘要</span></div>
+                <div class="trust-svc-desc">Google 官方推出的 AI 模型服務。</div>
+              </div>
+              <div class="trust-svc">
+                <div class="trust-svc-name">MyMemory　<span>即時翻譯</span></div>
+                <div class="trust-svc-desc">
+                  由義大利翻譯公司 Translated 營運，是<b>全世界最大的翻譯記憶庫</b>，
+                  語料來自<b>歐盟與聯合國</b>的官方翻譯文件。本工具只使用它的查詢功能。
+                </div>
+              </div>
+            </div>
+
+            <div class="trust-block">
+              <div class="trust-head">🔍 不用相信我，自己驗證</div>
+              <ul>
+                <li>整個工具是<b>單一 HTML 檔案</b>，按右鍵「檢視網頁原始碼」就能看到全部程式</li>
+                <li>本工具只會連線到：Groq（辨識）、Google（摘要）、MyMemory（翻譯）、
+                    Google Sheets（讀共享筆記）、LINE（登入與送回聊天室）、jsDelivr（心智圖元件）</li>
+              </ul>
+              <span class="trust-note">
+                這份清單同時寫在網頁原始碼的 CSP 安全設定裡，由<b>瀏覽器強制執行</b>——
+                就算程式想連清單以外的網址，也會被瀏覽器直接擋下。完整說明在「⚙️ 設定」分頁。
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div id="modalNoticeContent" style="display:none;">
           <h4>開始使用前，請先知道這些事</h4>
           <ul style="padding-left:18px; margin:0;">
             <li>需要自己申請 <b>Groq API Key</b>（免費，設定頁有教學連結）</li>
@@ -1499,6 +1607,103 @@
 
       <!-- ============ Tab 5／5：設定 ============ -->
       <div id="navPanelSettings" class="nav-panel hidden">
+        <!-- 信任說明放在 API Key 上方：使用者疑慮最高的時刻就是被要求
+             貼上 Key 的當下。內容全部是可驗證的事實陳述，主詞明確限定
+             在「本工具」，避免與第三方服務（Groq／Gemini 等仍需各自
+             註冊）混為一談造成不實陳述。 -->
+        <div class="settings-section-label">🛡️ 這個工具怎麼處理你的資料</div>
+        <details class="trust-panel">
+          <summary>要貼 API Key 給你，安全嗎？（點開看說明）</summary>
+          <div class="trust-body">
+            <div class="trust-block">
+              <div class="trust-head">💰 不會被扣錢</div>
+              <ul>
+                <li>Groq、Gemini 都有<b>免費方案，不需綁定信用卡</b></li>
+                <li>額度用完只會暫停服務並顯示提示，<b>不會自動轉為付費</b></li>
+              </ul>
+            </div>
+
+            <div class="trust-block">
+              <div class="trust-head">📍 你的資料在哪裡</div>
+              <ul>
+                <li>API Key、語音卡片、摘要：<b>只存在這台裝置的瀏覽器裡</b></li>
+                <li>語音會傳送到 Groq 的伺服器進行辨識，辨識完不保留</li>
+                <li><b>本工具沒有自己的伺服器</b>，你的資料不會經過我這邊</li>
+              </ul>
+            </div>
+
+            <div class="trust-block">
+              <div class="trust-head">🚫 本工具不會做的事</div>
+              <ul>
+                <li><b>不需要對本工具註冊</b>、本工具<b>不蒐集 email</b> 或任何個人資料
+                  <span class="trust-note">（Groq、Gemini 等第三方服務仍需你自行前往註冊，那是與各該服務的關係）</span>
+                </li>
+                <li>不讀取通訊錄、相簿、定位</li>
+                <li>沒有廣告，不販售任何資料</li>
+              </ul>
+            </div>
+
+            <div class="trust-block">
+              <div class="trust-head">🏢 這些服務是誰？</div>
+              <div class="trust-svc">
+                <div class="trust-svc-name">Groq　<span>語音辨識</span></div>
+                <div class="trust-svc-desc">
+                  2016 年成立於美國加州的 AI 運算公司，全球有 13 個資料中心，
+                  超過 <b>600 萬名開發者</b>與多家《財星》500 大企業在使用。
+                  晶片大廠 <b>NVIDIA</b> 是它的合作夥伴與投資人。
+                </div>
+              </div>
+              <div class="trust-svc">
+                <div class="trust-svc-name">Google Gemini　<span>AI 摘要</span></div>
+                <div class="trust-svc-desc">
+                  Google 官方推出的 AI 模型服務，就是你在手機上會看到的那個 Google。
+                </div>
+              </div>
+              <div class="trust-svc">
+                <div class="trust-svc-name">MyMemory　<span>即時翻譯</span></div>
+                <div class="trust-svc-desc">
+                  由義大利翻譯公司 Translated 營運，是<b>全世界最大的翻譯記憶庫</b>，
+                  語料來自<b>歐盟與聯合國</b>的官方翻譯文件，累積約 75 億筆專業譯者翻譯過的句子。
+                  本工具只使用它的<b>查詢功能</b>，不會把你的內容提交進它的公開資料庫。
+                </div>
+              </div>
+              <span class="trust-note">
+                這三家都是提供 API 的正規服務商，你可以自行搜尋查證。你的 Key 是向它們申請的，
+                本工具只是幫你把請求送過去。
+              </span>
+            </div>
+
+            <div class="trust-block">
+              <div class="trust-head">🎤 只要一項權限</div>
+              <ul>
+                <li>麥克風，用於錄音，僅此而已</li>
+              </ul>
+            </div>
+
+            <div class="trust-block">
+              <div class="trust-head">🔍 不用相信我，自己驗證</div>
+              <ul>
+                <li>整個工具是<b>單一 HTML 檔案</b>，在瀏覽器按右鍵「檢視網頁原始碼」就能看到全部程式</li>
+                <li>按 <code>F12</code> 打開開發者工具的 <b>Network</b> 分頁再操作一次，可以核對實際發出的請求</li>
+                <li>想完全斷開？用完到最下方「危險區域」點「刪除全部本機資料」即可清空</li>
+              </ul>
+              <div class="trust-head" style="margin-top:8px;">本工具會連線的對象，僅有這些：</div>
+              <ul>
+                <li><code>api.groq.com</code>　語音辨識</li>
+                <li><code>generativelanguage.googleapis.com</code>　AI 摘要</li>
+                <li><code>api.mymemory.translated.net</code>　即時翻譯</li>
+                <li><code>docs.google.com</code>　讀取你貼上的共用 Sheet 連結</li>
+                <li><code>*.line-scdn.net</code>、<code>api.line.me</code>、<code>access.line.me</code>　LINE 登入與送回聊天室</li>
+                <li><code>cdn.jsdelivr.net</code>　載入心智圖繪圖元件</li>
+              </ul>
+              <span class="trust-note">
+                這份清單不只是說明——它同時寫在網頁原始碼最上方的 CSP（內容安全政策）設定裡，
+                由<b>瀏覽器強制執行</b>：就算程式想連到清單以外的網址，瀏覽器也會直接擋下來。
+              </span>
+            </div>
+          </div>
+        </details>
+
         <div class="settings-section-label">🔑 API Key</div>
 
         <div class="key-panel">
@@ -1513,6 +1718,10 @@
             <button class="keypool-add-btn" onclick="KeyPoolPanel.addKey('groq')">新增</button>
           </div>
           <div class="keypool-count-hint" id="groqKeyPoolCountHint"></div>
+          <div class="keypool-trust-hint">
+            🛡️ Groq 免費方案不需綁信用卡，額度用完只會暫停、不會扣款。Key 只存在這台裝置，
+            <a href="#" onclick="openTrustPanel(event)">看完整說明</a>
+          </div>
 
           <div class="keypool-switch-mode-row">
             <div class="keypool-switch-mode-label">偵測到目前這把 Key 失效或額度用完時：</div>
@@ -1726,15 +1935,31 @@
     // ---------- 首次進站提示彈窗 ----------
     // APP_VERSION 每次有值得使用者知道的重大變更時手動更新，
     // 版本號一變，之前勾選過「不用再提醒」的使用者會重新看到彈窗。
-    const APP_VERSION = '2026-09-accuracy-translate-scenes';
+    const APP_VERSION = '2026-09-trust-first';
+
+    // 從 API Key 區塊的提示連結展開上方的信任說明並捲動過去。
+    // 使用者疑慮最高的當下就在輸入框旁，不該讓他自己往上找。
+    function openTrustPanel(event) {
+      if (event) event.preventDefault();
+      const panel = document.querySelector('.trust-panel');
+      if (!panel) return;
+      panel.open = true;
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 
     const IntroModal = {
       switchTab(tab) {
-        const isNotice = tab === 'notice';
-        document.getElementById('modalTabNotice').classList.toggle('active', isNotice);
-        document.getElementById('modalTabChangelog').classList.toggle('active', !isNotice);
-        document.getElementById('modalNoticeContent').style.display = isNotice ? 'block' : 'none';
-        document.getElementById('modalChangelogContent').style.display = isNotice ? 'none' : 'block';
+        const tabs = {
+          trust: { btn: 'modalTabTrust', content: 'modalTrustContent' },
+          notice: { btn: 'modalTabNotice', content: 'modalNoticeContent' },
+          changelog: { btn: 'modalTabChangelog', content: 'modalChangelogContent' }
+        };
+        Object.keys(tabs).forEach(key => {
+          const btn = document.getElementById(tabs[key].btn);
+          const content = document.getElementById(tabs[key].content);
+          if (btn) btn.classList.toggle('active', key === tab);
+          if (content) content.style.display = (key === tab) ? 'block' : 'none';
+        });
       },
       close() {
         const dontShowAgain = document.getElementById('dontShowAgainCheckbox').checked;
@@ -1745,6 +1970,10 @@
         ModalUtil.hide('introModal');
       },
       initOnLoad() {
+        // 一律從「安全說明」分頁開始：使用者第一眼要看到的是資料怎麼被
+        // 處理，而不是注意事項或更新內容
+        this.switchTab('trust');
+
         let seenVersion = null;
         try { seenVersion = localStorage.getItem('intro_modal_seen_version'); }
         catch (e) { /* 忽略 */ }
