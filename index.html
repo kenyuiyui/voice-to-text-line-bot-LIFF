@@ -2293,7 +2293,7 @@
             const id = parseInt(idStr, 10);
             const card = CardSandbox.cards.find(c => c.id === id);
             if (card) {
-              items.push({ source: 'card', id, label: '語音卡片', content: card.text, type: 'raw' });
+              items.push({ source: 'card', id, label: '語音卡片', content: CardSandbox.getFullText(card), type: 'raw' });
             }
           } else if (source === 'shared') {
             const idx = parseInt(idStr, 10);
@@ -2335,6 +2335,26 @@
       // 涵蓋新增/編輯/刪除/合併/排序全部情況。隨卡片內容一起持久化，
       // 讓斷點接續判斷能跨越重新整理頁面仍有效。
       changeVersion: 0,
+
+      // 單張卡片的「帶翻譯完整文字」：原文一行，若有翻譯則接下一行
+      // 「語言代碼: 翻譯內容」。所有需要把卡片內容組成文字的地方
+      // （複製、分享、送出、摘要來源）統一呼叫這裡，不要各自重寫
+      // 組字邏輯——否則以後要調整格式得同時改六七個地方，容易漏改。
+      getFullText(card) {
+        if (!card) return '';
+        let text = card.text;
+        if (card.translation) {
+          text += `\n${card.translationLangCode || ''}: ${card.translation}`;
+        }
+        return text;
+      },
+
+      // 全部卡片依序組成一份完整文字，卡片之間用換行分隔（沿用原本
+      // .map(c => c.text).join('\n') 的分隔慣例，只是每張卡片內部
+      // 可能多出翻譯那一行）
+      getAllFullText() {
+        return this.cards.map(c => this.getFullText(c)).join('\n');
+      },
 
       _s2tConverter: null,
       _s2tInitTried: false,
@@ -3076,7 +3096,7 @@
       // 卡片複製的入口，維持原本按鈕呼叫的方法名稱與呼叫方式不變，
       // 內部改為呼叫共用的 copyContent()，並固定標記 type 為 'raw'
       copy() {
-        const content = CardSandbox.cards.map(c => c.text).join('\n');
+        const content = CardSandbox.getAllFullText();
         this.copyContent(content, 'raw');
       }
     };
@@ -4657,9 +4677,7 @@
 
     // ---------- 送回聊天室（sendMessages）----------
     async function handleSendToRoom() {
-      const fullText = CardSandbox.cards
-        .map(c => c.text)
-        .join('\n');
+      const fullText = CardSandbox.getAllFullText();
       if (!fullText.trim()) {
         alert('目前沒有任何卡片內容可以發送。');
         return;
@@ -4810,9 +4828,7 @@
     }
 
     async function handleSend() {
-      const fullText = CardSandbox.cards
-        .map(c => c.text)
-        .join('\n');
+      const fullText = CardSandbox.getAllFullText();
       if (!fullText.trim()) {
         alert('目前沒有任何卡片內容可以發送。');
         return;
@@ -4996,9 +5012,7 @@
 
     // ---------- 手機系統分享 ----------
     async function handleWebShare() {
-      const fullText = CardSandbox.cards
-        .map(c => c.text)
-        .join('\n');
+      const fullText = CardSandbox.getAllFullText();
       if (!fullText.trim()) {
         alert('目前沒有任何卡片內容可以發送。');
         return;
@@ -5023,9 +5037,7 @@
     // 複製全文：桌機瀏覽器的主要分享路徑，不依賴任何 LINE 或系統
     // 分享 API，只需要剪貼簿權限即可運作
     function handleCopyToClipboard() {
-      const fullText = CardSandbox.cards
-        .map(c => c.text)
-        .join('\n');
+      const fullText = CardSandbox.getAllFullText();
       if (!fullText.trim()) {
         alert('目前沒有任何卡片內容可以複製。');
         return;
