@@ -920,17 +920,25 @@
                   2016 年成立於美國加州的 AI 運算公司，全球 13 個資料中心，
                   超過 <b>600 萬名開發者</b>與多家《財星》500 大企業在使用，
                   晶片大廠 <b>NVIDIA</b> 是其合作夥伴與投資人。
+                  依 Groq 官方條款，<b>不會將客戶資料用於訓練模型</b>，語音辨識請求預設不保留內容，
+                  僅在排除系統異常或調查濫用時暫存最長 30 天（此政策不分免費／付費層）。
                 </div>
               </div>
               <div class="trust-svc">
                 <div class="trust-svc-name">Google Gemini　<span>AI 摘要</span></div>
-                <div class="trust-svc-desc">Google 官方推出的 AI 模型服務。</div>
+                <div class="trust-svc-desc">
+                  Google 官方推出的 AI 模型服務。
+                  <b>提醒：Gemini 免費方案的內容依 Google 條款可能被用於改善 Google 產品、也可能被人工審閱</b>，
+                  付費方案才有不用於訓練的承諾。若內容涉及機密或不想外流的資訊，建議略過 AI 摘要，只使用轉寫功能。
+                </div>
               </div>
               <div class="trust-svc">
                 <div class="trust-svc-name">MyMemory　<span>即時翻譯</span></div>
                 <div class="trust-svc-desc">
                   由義大利翻譯公司 Translated 營運，是<b>全世界最大的翻譯記憶庫</b>，
-                  語料來自<b>歐盟與聯合國</b>的官方翻譯文件。本工具只使用它的查詢功能。
+                  語料來自<b>歐盟與聯合國</b>的官方翻譯文件。本工具只使用它的查詢功能，不會把你的內容送進它的公開貢獻流程。
+                  <b>但依 Translated 官方條款，凡是提交的內容（含查詢字句）都可能被長期保存並用於改善服務</b>，
+                  條款沒有為單純查詢另外訂定較短的保留期限，這點與 Groq 不同，請自行斟酌。
                 </div>
               </div>
             </div>
@@ -1138,6 +1146,9 @@
             <div class="chat-bubble" id="chatPreviewBubble"></div>
           </div>
         </div>
+        <div style="margin-top:10px; padding:8px 10px; font-size:11.5px; color:var(--ink-faint); line-height:1.6; background:var(--bg); border-radius:8px;">
+          送出前請確認內容不涉及他人隱私，且未逾越合理使用範圍（例如未經同意公開散布他人的授課或談話內容）。
+        </div>
       </div>
       <div class="modal-footer">
         <div class="chat-preview-actions">
@@ -1159,12 +1170,18 @@
       <div class="modal-body">
         <p style="margin:0 0 8px;">這個工具只做「即時語音轉文字」，轉寫完成後<b>原始音檔就會被丟棄</b>，不會留存。如果你需要留一份原始錄音備份，請另外用手機內建的錄音 App 同時錄一份，兩者互相獨立。</p>
         <ul style="padding-left:18px; margin:8px 0;">
-          <li>你錄製的語音內容<b>會上傳到 Groq 雲端伺服器</b>進行轉寫處理，僅保留轉寫後的文字</li>
+          <li>你錄製的語音內容<b>會上傳到 Groq 雲端伺服器</b>進行轉寫處理；依 Groq 官方條款，請求預設不保留、不用於訓練模型，僅在排除系統異常或調查濫用時暫存最長 30 天</li>
           <li>需自行申請並填入 Groq API Key；<b>Key 會存在你這個裝置的瀏覽器裡</b>，若為共用裝置請於使用後清除本機資料</li>
           <li>整理好的<b>語音卡片同樣存在這個裝置的瀏覽器裡</b>，方便誤觸返回或切出頁面時找回，共用裝置也請一併清除</li>
           <li>本工具<b>不建議</b>用於處理真正機密或高度敏感的內容（例如商業機密、他人個資、密碼、身分證字號等）</li>
           <li>這是個人維護的小工具，<b>沒有正式的客服或服務保證</b>，可能因故調整或中止服務</li>
           <li>若你發現安全性問題或有濫用情形，歡迎透過官方帳號回報</li>
+        </ul>
+        <p style="margin:12px 0 4px; font-weight:700;">📚 錄音前請留意</p>
+        <ul style="padding-left:18px; margin:8px 0;">
+          <li>部分課程、老師或會議主辦方<b>明訂禁止錄音</b>，開始前請先確認課程大綱或現場規定</li>
+          <li>錄音會收錄到<b>在場其他人的談話</b>，若是小組討論或會議，建議先告知在場者</li>
+          <li>個人學習、整理筆記等用途通常沒有問題，但把他人的授課內容或談話<b>公開散布、分享給非在場的第三人</b>，可能涉及著作權等法律問題，請自行斟酌</li>
         </ul>
       </div>
       <div class="modal-footer">
@@ -1651,12 +1668,16 @@
                   2016 年成立於美國加州的 AI 運算公司，全球有 13 個資料中心，
                   超過 <b>600 萬名開發者</b>與多家《財星》500 大企業在使用。
                   晶片大廠 <b>NVIDIA</b> 是它的合作夥伴與投資人。
+                  依 Groq 官方條款，<b>不會將客戶資料用於訓練模型</b>，語音辨識請求預設不保留內容，
+                  僅在排除系統異常或調查濫用時暫存最長 30 天（此政策不分免費／付費層）。
                 </div>
               </div>
               <div class="trust-svc">
                 <div class="trust-svc-name">Google Gemini　<span>AI 摘要</span></div>
                 <div class="trust-svc-desc">
                   Google 官方推出的 AI 模型服務，就是你在手機上會看到的那個 Google。
+                  <b>提醒：Gemini 免費方案的內容依 Google 條款可能被用於改善 Google 產品、也可能被人工審閱</b>，
+                  付費方案才有不用於訓練的承諾。若內容涉及機密或不想外流的資訊，建議略過 AI 摘要，只使用轉寫功能。
                 </div>
               </div>
               <div class="trust-svc">
@@ -1664,7 +1685,9 @@
                 <div class="trust-svc-desc">
                   由義大利翻譯公司 Translated 營運，是<b>全世界最大的翻譯記憶庫</b>，
                   語料來自<b>歐盟與聯合國</b>的官方翻譯文件，累積約 75 億筆專業譯者翻譯過的句子。
-                  本工具只使用它的<b>查詢功能</b>，不會把你的內容提交進它的公開資料庫。
+                  本工具只使用它的<b>查詢功能</b>，不會把你的內容提交進它的公開貢獻流程（不會變成別人查得到的公開語料）。
+                  <b>但依 Translated 官方條款，凡是提交的內容（含查詢字句）都可能被長期保存並用於改善服務</b>，
+                  條款沒有為單純查詢另外訂定較短的保留期限，這點與 Groq 明確承諾「不保留、不訓練」不同，若翻譯內容較敏感請自行斟酌是否使用。
                 </div>
               </div>
               <span class="trust-note">
@@ -1864,6 +1887,9 @@
           <div class="share-option-title">📲 分享至其他應用程式</div>
           <div class="share-option-desc">跳出手機系統的分享選單（LINE、簡訊、Email 等）。<b>僅支援手機瀏覽器</b>，電腦版瀏覽器與 LINE 內建瀏覽器都不支援，會自動改用「複製全文」。</div>
         </div>
+        <div style="margin-top:4px; padding:8px 10px; font-size:11.5px; color:var(--ink-faint); line-height:1.6; border-top:1px solid var(--border);">
+          分享前請確認內容不涉及他人隱私，且未逾越合理使用範圍（例如未經同意公開散布他人的授課或談話內容）。
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn-cancel" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card-bg); color:var(--ink-soft); cursor:pointer;" onclick="ShareMenu.close()">取消</button>
@@ -1883,6 +1909,9 @@
         <div class="share-option" onclick="SummaryModule.shareViaWebShare()">
           <div class="share-option-title">📲 分享至其他應用程式</div>
           <div class="share-option-desc">跳出手機系統的分享選單。<b>在 LINE 內開啟此頁面時無法使用</b>，會自動改用「LINE 好友分享」。</div>
+        </div>
+        <div style="margin-top:4px; padding:8px 10px; font-size:11.5px; color:var(--ink-faint); line-height:1.6; border-top:1px solid var(--border);">
+          分享前請確認內容不涉及他人隱私，且未逾越合理使用範圍（例如未經同意公開散布他人的授課或談話內容）。
         </div>
       </div>
       <div class="modal-footer">
@@ -5593,7 +5622,7 @@
     // 官方頁面本身就會顯示 QR code 供手機掃描，不需要額外產生 QR code。
     const OFFICIAL_ACCOUNT_URL = 'https://line.me/R/ti/p/@165tgzzz';
 
-    const CONSENT_VERSION = '2026-08-v2';
+    const CONSENT_VERSION = '2026-09-v3';
 
     const AppBootstrap = {
       async start() {
