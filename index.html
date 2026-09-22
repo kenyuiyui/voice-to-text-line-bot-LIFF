@@ -1248,33 +1248,41 @@
       .seg, #viewNotebook .send-btn-row { max-width: 760px; width: 100%; margin-left: auto; margin-right: auto; }
       .seg { top: 57px; }
     }
+
+    /* ---------- 心智圖畫布 ---------- */
+    .mm-stage {
+      position: relative; height: 62vh; min-height: 340px; background: #fbfcfd;
+      border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+      touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab;
+    }
+    .mm-stage:active { cursor: grabbing; }
+    .mm-stage.full {
+      position: fixed; inset: 0; z-index: 1200; height: 100dvh; border-radius: 0; border: none;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .mindmap-svg { width: 100%; height: 100%; display: block; }
+    .mm-ctrl { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .mm-ctrl button {
+      width: 46px; height: 46px; border-radius: 14px; border: 1px solid var(--border); background: #fff;
+      font-size: 20px; font-weight: 800; color: var(--ink); cursor: pointer; box-shadow: var(--shadow-soft);
+      display: flex; align-items: center; justify-content: center; padding: 0;
+    }
+    .mm-ctrl button:active { background: var(--bg); }
+    .mm-hint {
+      position: absolute; left: 10px; top: 10px; font-size: 12.5px; color: var(--ink-soft);
+      background: rgba(255,255,255,.92); padding: 5px 11px; border-radius: 999px; pointer-events: none;
+    }
+    #viewNotebook .mindmap-view-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    #viewNotebook .mindmap-view-toolbar button {
+      flex: 1 1 calc(50% - 4px); min-height: 46px; font-size: 14.5px; font-weight: 700; border-radius: 12px;
+    }
+    .mindmap-edit-textarea { font-size: 15px; line-height: 1.8; min-height: 240px; }
+    @media (min-width: 900px) { .mm-stage { height: 56vh; } }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/cn2t.js"
           integrity="sha384-9JmxkgxoKE5gP14V/eBemUAwCKh8QSb5IFEJje/JNxxh8cn9hKsIs/q5Ho+mfVau"
           crossorigin="anonymous"></script>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <!--
-    markmap（d3 + markmap-lib + markmap-view）：AI 摘要心智圖用
-    （SummaryModule._renderMindmap）。版本鎖定，避免 CDN 上游改版
-    造成行為變動。
-
-    檔名跟 .min.js 慣例不同，需注意：
-    - d3：dist/d3.min.js
-    - markmap-lib：dist/browser/index.iife.js（無 .min.js）
-    - markmap-view：dist/browser/index.js（無 .min.js）
-
-    加 defer 並排在 LIFF SDK 之後：心智圖是非核心功能，同步載入
-    會阻塞 LIFF 初始化，手機行動網路下會導致「確認身分」卡住。
-  -->
-  <script defer src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"
-          integrity="sha256-8glLv2FBs1lyLE/kVOtsSw8OQswQzHr5IfwVj864ZTk="
-          crossorigin="anonymous"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/markmap-lib@0.18.12/dist/browser/index.iife.js"
-          integrity="sha256-7f4yGj/kbpwPCvg3AUWu4YCXXyQ/IkLw+BgaxCc+COE="
-          crossorigin="anonymous"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/markmap-view@0.18.10/dist/browser/index.js"
-          integrity="sha256-ESWcb69+MMnx0DK25aF3WmF3TAQU61ZRoPtKjtObNVs="
-          crossorigin="anonymous"></script>
 </head>
 <body>
   <!-- 對話框：取代原生 alert/confirm/prompt。原生框在 LINE 內建瀏覽器
@@ -1456,7 +1464,7 @@
                 <li><code>api.mymemory.translated.net</code>　即時翻譯</li>
                 <li><code>docs.google.com</code>　讀取你貼上的共用表格連結</li>
                 <li><code>*.line-scdn.net</code>、<code>api.line.me</code>、<code>access.line.me</code>　LINE 登入與送回聊天室</li>
-                <li><code>cdn.jsdelivr.net</code>　載入心智圖繪圖元件</li>
+                <li><code>cdn.jsdelivr.net</code>　載入簡繁轉換元件</li>
               </ul>
               <span class="trust-note">
                 這份清單不只是說明——它同時寫在網頁原始碼最上方的 CSP（內容安全政策）設定裡，
@@ -1909,7 +1917,7 @@
           </div>
 
           <!-- 心智圖按需生成：根據已生成的摘要文字整理，非重讀逐字稿。
-               檢視為 markmap 唯讀渲染（不支援拖曳節點）；編輯是縮排
+               檢視是自繪 SVG（可縮放平移，不支援拖曳節點）；編輯是縮排
                大綱文字框，改完重新渲染即可調整結構。 -->
           <div class="summary-result-panel hidden" id="summaryMindmapSection">
             <div class="mindmap-edit-toggle-row hidden" id="mindmapViewToggleRow">
@@ -1923,10 +1931,18 @@
             </div>
 
             <div id="mindmapViewWrap" class="hidden">
-              <svg id="mindmapSvg" class="mindmap-svg"></svg>
+              <div class="mm-stage" id="mindmapStage">
+                <svg id="mindmapSvg" class="mindmap-svg" role="img" aria-label="心智圖"></svg>
+                <div class="mm-hint">拖曳移動・兩指縮放・⛶ 全螢幕</div>
+                <div class="mm-ctrl">
+                  <button onclick="Mindmap.zoomBy(1.25)" aria-label="放大">＋</button>
+                  <button onclick="Mindmap.zoomBy(0.8)" aria-label="縮小">－</button>
+                  <button onclick="Mindmap.fit()" aria-label="看全部">🎯</button>
+                  <button id="mmFullBtn" onclick="Mindmap.toggleFull()" aria-label="全螢幕">⛶</button>
+                </div>
+              </div>
               <div class="mindmap-view-toolbar">
-                <button onclick="SummaryModule.resetMindmapView()" title="回到中心">🎯 置中</button>
-                <button onclick="SummaryModule.downloadMindmapImage()" title="下載成 PNG 圖片">⬇️ 下載圖片</button>
+                <button onclick="SummaryModule.downloadMindmapImage()" title="下載成高解析度圖片">⬇️ 下載圖片</button>
                 <button onclick="SummaryModule.shareMindmapImage()" title="分享圖片">🔗 分享圖片</button>
                 <button onclick="SummaryModule.copyMindmapToSheet()" title="存成文字大綱到共用表格">📤 存表格</button>
               </div>
@@ -2144,6 +2160,7 @@
               <li><b>長錄音自動切段</b>：超過 25 MB 的錄音檔會在手機／電腦上自動壓縮、切成約 10 分鐘一段，同時送出，並顯示進度條與剩餘時間</li>
               <li>錄音時螢幕保持亮著；切出畫面時先保存手上那段，回來會自動接著錄</li>
               <li>電腦版改成左右兩欄，並可直接把錄音檔拖進視窗</li>
+              <li><b>心智圖重畫</b>：改成彩色節點、字變大、自動換行，加上放大縮小與全螢幕按鈕；下載的圖片改成高解析度並帶上筆記標題</li>
             </ul>
           </div>
           <div class="version-entry">
@@ -2759,12 +2776,20 @@
         const reasonText = errorType === 'quota_exceeded' ? '今天的免費額度用完了' : '已經不能用了（可能被刪除或貼錯）';
         const keyName = { groq: '語音金鑰', gemini: '摘要金鑰' }[type] || serviceLabel;
 
+        // 沒有可用金鑰還繼續錄，只會讓接下來每一段都轉寫失敗、內容全丟；
+        // 直接停止並說清楚，已轉好的部分都還在
+        let stoppedNote = '';
+        if (type === 'groq' && !result.switched && typeof DictationEngine !== 'undefined' && DictationEngine.isRecording) {
+          DictationEngine.stop();
+          stoppedNote = '\n\n錄音已自動停止（已經轉好的內容都有保留）。';
+        }
+
         if (result.switched) {
           Dialog.alert(`${keyName}「${result.failedLabel}」${reasonText}，已自動換成「${result.newActiveLabel}」。\n\n請再按一次剛才的按鈕。`);
         } else if (result.mode === 'auto') {
-          Dialog.alert(`${keyName}「${result.failedLabel}」${reasonText}，而且沒有其他可以換的金鑰。\n\n請到「⚙️ 設定」新增一組。`);
+          Dialog.alert(`${keyName}「${result.failedLabel}」${reasonText}，而且沒有其他可以換的金鑰。\n\n請到「⚙️ 設定」新增一組。${stoppedNote}`);
         } else {
-          Dialog.alert(`${keyName}「${result.failedLabel}」${reasonText}。\n\n請到「⚙️ 設定」換一組金鑰。`);
+          Dialog.alert(`${keyName}「${result.failedLabel}」${reasonText}。\n\n請到「⚙️ 設定」換一組金鑰。${stoppedNote}`);
         }
       }
     };
@@ -3187,15 +3212,16 @@
         return this._s2tConverter;
       },
 
+      // 回傳是否真的存進去了：存不進去時上層不能再說「已自動儲存」
       persist() {
         this.changeVersion++;
         const nb = NotebookStore.active();
-        if (!nb) return;
+        if (!nb) return false;
         nb.cards = this.cards;
         nb.nextId = this.nextId;
         nb.changeVersion = this.changeVersion;
         nb.updatedAt = Date.now();
-        NotebookStore.save();
+        return NotebookStore.save();
       },
 
       restore() {
@@ -3246,11 +3272,11 @@
         if (!card) return;
         this.nextId++;
         this.cards.push(card);
-        this.persist();
+        const saved = this.persist();
         this.render();
         this.renderLivePreview();
 
-        if (!this._hasShownFirstSaveToast) {
+        if (saved && !this._hasShownFirstSaveToast) {
           this._hasShownFirstSaveToast = true;
           StorageToast.show('內容會<b>自動存在這支手機</b>，關掉也不會不見。');
         }
@@ -4102,6 +4128,7 @@
 
         try {
           const summaryData = await this._callGemini(items, apiKey);
+          if (!summaryData || !summaryData.summary) throw new Error('AI 沒有回傳摘要內容');
           this._renderSummary(summaryData);
           this._persist(summaryData);
         } catch (err) {
@@ -4326,6 +4353,7 @@
                     '1. 只根據 <summary_text> 裡的內容整理，不可額外補充摘要沒有提到的資訊，也不可遺漏摘要中的重點。\n' +
                     '2. 用 Markdown 格式輸出：第一行必須是 "# " 開頭的整體主題（作為心智圖的根節點），接下來每一層子項目都用清單並以縮排表示層級（每層用兩個半形空白縮排，"- " 開頭）。\n' +
                     '3. 最多三層、最多 25 個節點，避免內容過於冗長；把摘要中相關的重點歸納到同一個子主題下。\n' +
+                    '4. 節點文字要短：主題與子主題 12 個字以內，最底層 25 個字以內。用關鍵詞或短語，不要寫成完整句子，也不要在節點裡放多個重點。\n' +
                     '4. 直接輸出心智圖大綱本身，不需要額外的開場白、結語或程式碼區塊標記。範例格式：\n# 整體主題\n- 子主題1\n  - 細節A\n  - 細節B\n- 子主題2\n  - 細節C\n' +
                     '\n</demand>\n'
             }]
@@ -4388,9 +4416,7 @@
           throw new Error('Gemini 回傳了空白結果，請稍後再試一次。');
         }
 
-        // markmap 需要 "# " 開頭的根節點才能穩定解析，模型未依格式
-        // 輸出時嘗試修正一次，修不了則交給 _doRenderMindmapSvg 的
-        // fallback（純文字顯示）處理
+        // 第一行要是 "# 主題" 才解析得出根節點，模型未依格式輸出時修正一次
         let outline = text.trim();
         outline = outline.replace(/^```[a-zA-Z]*\n?/, '').replace(/```$/, '').trim();
         if (!outline.startsWith('#')) {
@@ -4541,6 +4567,15 @@
           const btn = document.getElementById(`summaryTabBtn-${key}`);
           if (btn) btn.classList.toggle('active', key === tab);
         });
+
+        // 分頁隱藏時量不到尺寸，切過來之後才重新置中
+        if (tab === 'mindmap') {
+          setTimeout(() => {
+            Mindmap.relayout();
+            const stage = document.getElementById('mindmapStage');
+            if (stage && !stage.classList.contains('full')) stage.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          }, 0);
+        }
       },
 
       // 摘要逐行比對 sourceRefs，附加可點擊的來源標籤，方便核對 AI
@@ -4897,88 +4932,25 @@
         }
       },
 
-      // 實際呼叫 markmap 畫圖，初次生成與編輯後重新渲染共用這段邏輯。
-      // window.markmap 不可用時降級為純文字大綱顯示
       _doRenderMindmapSvg(outlineText) {
-        let svgEl = document.getElementById('mindmapSvg');
-        if (!svgEl) return;
-
-        // 只替換 SVG 內容，保留旁邊的工具列按鈕
-        const showFallback = () => {
-          svgEl.outerHTML = `<pre class="mindmap-fallback-text" id="mindmapSvg">${Utils.escapeHtml(outlineText)}</pre>`;
-        };
-
-        if (!window.markmap || !window.markmap.Transformer || !window.markmap.Markmap) {
-          showFallback();
-          return;
-        }
-
-        // 上一次是 fallback 狀態（元素是 <pre> 不是 <svg>），需先換回 <svg>
-        if (svgEl.tagName.toLowerCase() !== 'svg') {
-          svgEl.outerHTML = '<svg id="mindmapSvg" class="mindmap-svg"></svg>';
-          svgEl = document.getElementById('mindmapSvg');
-        }
-
         try {
-          while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
-
-          const transformer = new window.markmap.Transformer();
-          const { root } = transformer.transform(outlineText);
-
-          if (this._mindmapInstance && typeof this._mindmapInstance.destroy === 'function') {
-            this._mindmapInstance.destroy();
-          }
-          this._mindmapInstance = window.markmap.Markmap.create(svgEl, {
-            zoom: true,
-            pan: true
-          }, root);
+          Mindmap.render(outlineText);
         } catch (err) {
           console.error('心智圖渲染失敗：', err);
-          showFallback();
+          const svg = document.getElementById('mindmapSvg');
+          if (svg) svg.innerHTML = '';
+          Dialog.alert('心智圖畫不出來，可以到「編輯」分頁檢查大綱文字。', { icon: '🧠' });
         }
       },
 
-      // 呼叫 markmap 的 fit()，重新置中並縮放到適合畫面
       resetMindmapView() {
-        if (this._mindmapInstance && typeof this._mindmapInstance.fit === 'function') {
-          this._mindmapInstance.fit();
-        }
+        Mindmap.fit();
       },
 
-      // SVG 序列化畫到 canvas 輸出 PNG dataURL，兩倍解析度避免模糊
+      // 匯出交給 Mindmap：用整張圖的原始尺寸重畫，不受畫面縮放影響
       _mindmapSvgToPngDataUrl() {
-        return new Promise((resolve, reject) => {
-          const svgEl = document.getElementById('mindmapSvg');
-          if (!svgEl || svgEl.tagName.toLowerCase() !== 'svg') {
-            reject(new Error('目前沒有可輸出的心智圖，請先產生心智圖。'));
-            return;
-          }
-
-          const svgText = new XMLSerializer().serializeToString(svgEl);
-          const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
-          const url = URL.createObjectURL(svgBlob);
-
-          const img = new Image();
-          img.onload = () => {
-            const scale = 2;
-            const width = svgEl.clientWidth || 700;
-            const height = svgEl.clientHeight || 400;
-            const canvas = document.createElement('canvas');
-            canvas.width = width * scale;
-            canvas.height = height * scale;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            URL.revokeObjectURL(url);
-            resolve(canvas.toDataURL('image/png'));
-          };
-          img.onerror = () => {
-            URL.revokeObjectURL(url);
-            reject(new Error('圖片轉換失敗。'));
-          };
-          img.src = url;
-        });
+        const nb = NotebookStore.active();
+        return Mindmap.toPngDataUrl(nb ? nb.title : '');
       },
 
       downloadMindmapImage() {
@@ -4993,8 +4965,10 @@
       // 優先用 Web Share API 分享檔案，不支援時退回下載
       shareMindmapImage() {
         this._mindmapSvgToPngDataUrl().then(async dataUrl => {
-          const res = await fetch(dataUrl);
-          const blob = await res.blob();
+          const bin = atob(dataUrl.split(',')[1]);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          const blob = new Blob([bytes], { type: 'image/png' });
           const file = new File([blob], `心智圖_${CopyToSheetFormat.formatTimestamp(new Date())}.png`, { type: 'image/png' });
 
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -7088,6 +7062,382 @@
       }
     };
 
+    // ---------- 心智圖 ----------
+    // 自己畫，不用 markmap：字級、節點外框、分層配色、匯出解析度都要能
+    // 控制，markmap 只畫線與底線文字，改樣式等於跟它對打。順便少載入
+    // markmap 與 d3 兩個外部套件。
+    //
+    // 座標系：內容用自己的像素座標算好版面，畫面縮放平移只動最外層
+    // <g> 的 transform，不重算版面。
+    const Mindmap = {
+      // 字體名稱用單引號：這串會放進 SVG 屬性值，雙引號會把屬性切斷，
+      // 匯出時 XML 解析直接失敗
+      FONT_FAMILY: "-apple-system, BlinkMacSystemFont, 'PingFang TC', 'Noto Sans CJK TC', 'Microsoft JhengHei', sans-serif",
+      ROOT_COLOR: '#0b8f45',
+      PALETTE: ['#2f6de1', '#0d9488', '#7c3aed', '#d97706', '#db2777', '#0284c7'],
+      GAP_X: 54,
+      GAP_X_NARROW: 34,
+      MIN_READABLE: 0.75,
+      GAP_Y: 14,
+      PAD_X: 16,
+      PAD_Y: 11,
+      MARGIN: 28,
+      LINE_H: 1.45,
+
+      _root: null,
+      _size: { w: 0, h: 0 },
+      _view: { k: 1, x: 0, y: 0 },
+
+      // 手機畫面窄，節點寬度與間距一起縮，整張圖才不會寬到看不完
+      _narrow() {
+        const stage = this._stage();
+        // 分頁還沒顯示時量到 0，退回視窗寬度，才不會在電腦上誤判成手機
+        const w = stage && stage.clientWidth ? stage.clientWidth : window.innerWidth;
+        return w < 520;
+      },
+
+      _style(depth) {
+        const n = this._narrow();
+        if (depth === 0) return { size: 21, weight: 800, maxW: n ? 190 : 250 };
+        if (depth === 1) return { size: 18, weight: 700, maxW: n ? 180 : 240 };
+        if (depth === 2) return { size: 16, weight: 600, maxW: n ? 180 : 240 };
+        return { size: 15, weight: 400, maxW: n ? 220 : 300 };
+      },
+
+      _font(depth) {
+        const s = this._style(depth);
+        return `${s.weight} ${s.size}px ${this.FONT_FAMILY}`;
+      },
+
+      _measure(text, font) {
+        if (!this._ctx) this._ctx = document.createElement('canvas').getContext('2d');
+        this._ctx.font = font;
+        return this._ctx.measureText(text).width;
+      },
+
+      // 中日韓文字可以逐字斷行，英數要整個單字一起搬，否則會被切成亂碼
+      _wrap(text, font, maxW) {
+        const tokens = String(text).match(/[A-Za-z0-9_'’.%/+-]+|\s+|[^\s]/g) || [];
+        const lines = [];
+        let line = '';
+        tokens.forEach(tk => {
+          if (tk.trim() === '' && line === '') return;
+          const next = line + tk;
+          if (line && this._measure(next.trimEnd(), font) > maxW) {
+            lines.push(line.trimEnd());
+            line = tk.trim() === '' ? '' : tk;
+          } else {
+            line = next;
+          }
+        });
+        if (line.trim()) lines.push(line.trimEnd());
+        return lines.length ? lines : [''];
+      },
+
+      // 大綱格式：第一行「# 主題」，其餘用「- 」加縮排表示層級
+      parse(outline) {
+        const root = { text: '', children: [] };
+        const stack = [{ depth: -1, node: root }];
+        let headingDepth = 0;
+
+        String(outline || '').split('\n').forEach(raw => {
+          if (!raw.trim()) return;
+          let depth = null;
+          let text = '';
+          const heading = raw.match(/^\s*(#{1,6})\s+(.*)$/);
+          const bullet = raw.match(/^(\s*)(?:[-*+]|\d+\.)\s+(.*)$/);
+          if (heading) {
+            depth = heading[1].length - 1;
+            headingDepth = depth;
+            text = heading[2];
+          } else if (bullet) {
+            depth = headingDepth + 1 + Math.floor(bullet[1].replace(/\t/g, '  ').length / 2);
+            text = bullet[2];
+          } else {
+            depth = headingDepth + 1;
+            text = raw.trim();
+          }
+          text = text.replace(/\*\*/g, '').replace(/`/g, '').trim();
+          if (!text) return;
+
+          if (depth === 0 && !root.text && !root.children.length) {
+            root.text = text;
+            stack.length = 1;
+            return;
+          }
+          while (stack.length > 1 && stack[stack.length - 1].depth >= depth) stack.pop();
+          const node = { text, children: [] };
+          stack[stack.length - 1].node.children.push(node);
+          stack.push({ depth, node });
+        });
+
+        if (!root.text) root.text = root.children.length ? '心智圖' : '（沒有內容）';
+        return root;
+      },
+
+      _layout(root) {
+        const measureNode = (n, depth, colorIdx) => {
+          const st = this._style(depth);
+          const font = this._font(depth);
+          n.depth = depth;
+          n.fs = st.size;
+          n.weight = st.weight;
+          n.boxed = depth <= 2;
+          n.color = depth === 0 ? this.ROOT_COLOR : this.PALETTE[colorIdx % this.PALETTE.length];
+          n.lines = this._wrap(n.text, font, st.maxW);
+          const textW = Math.max(...n.lines.map(l => this._measure(l, font)));
+          n.w = Math.ceil(textW) + (n.boxed ? this.PAD_X * 2 : 16);
+          n.h = Math.ceil(n.lines.length * st.size * this.LINE_H) + (n.boxed ? this.PAD_Y * 2 : 8);
+          n.children.forEach((c, i) => measureNode(c, depth + 1, depth === 0 ? i : colorIdx));
+        };
+        measureNode(root, 0, 0);
+
+        // 每一層對齊同一個 x，讀起來才像參考圖那樣整齊
+        const colW = [];
+        (function scan(n) {
+          colW[n.depth] = Math.max(colW[n.depth] || 0, n.w);
+          n.children.forEach(scan);
+        })(root);
+        const colX = [];
+        const gapX = this._narrow() ? this.GAP_X_NARROW : this.GAP_X;
+        colW.reduce((acc, w, i) => { colX[i] = acc; return acc + w + gapX; }, 0);
+
+        const shift = (n, dy) => { n.y += dy; n.children.forEach(c => shift(c, dy)); };
+        let cursor = 0;
+        const place = n => {
+          n.x = colX[n.depth];
+          if (!n.children.length) {
+            n.y = cursor + n.h / 2;
+            cursor += n.h + this.GAP_Y;
+            return;
+          }
+          const start = cursor;
+          n.children.forEach(place);
+          const span = cursor - this.GAP_Y - start;
+          // 父節點比整組子節點還高時，把子節點往下推，避免壓到上一個兄弟節點
+          if (span < n.h) {
+            const extra = n.h - span;
+            n.children.forEach(c => shift(c, extra / 2));
+            cursor += extra;
+          }
+          const first = n.children[0];
+          const last = n.children[n.children.length - 1];
+          n.y = (first.y + last.y) / 2;
+        };
+        place(root);
+
+        let maxX = 0;
+        (function bounds(n) {
+          maxX = Math.max(maxX, n.x + n.w);
+          n.children.forEach(bounds);
+        })(root);
+        this._size = { w: maxX, h: Math.max(cursor - this.GAP_Y, root.h) };
+      },
+
+      _nodeMarkup(n) {
+        const st = this._style(n.depth);
+        const lh = n.fs * this.LINE_H;
+        const top = n.y - n.h / 2;
+        const textX = n.x + (n.boxed ? this.PAD_X : 12);
+        const firstBaseline = top + (n.boxed ? this.PAD_Y : 4) + n.fs * 0.95;
+        const tspans = n.lines.map((l, i) =>
+          `<tspan x="${textX}" y="${(firstBaseline + i * lh).toFixed(1)}">${Utils.escapeHtml(l)}</tspan>`).join('');
+
+        let shape = '';
+        let fill = '#1a1d1f';
+        if (n.depth === 0 || n.depth === 1) {
+          shape = `<rect x="${n.x}" y="${top.toFixed(1)}" width="${n.w}" height="${n.h}" rx="14" fill="${n.color}"/>`;
+          fill = '#ffffff';
+        } else if (n.depth === 2) {
+          shape = `<rect x="${n.x}" y="${top.toFixed(1)}" width="${n.w}" height="${n.h}" rx="12" fill="#ffffff" stroke="${n.color}" stroke-width="2"/>`;
+        } else {
+          shape = `<rect x="${n.x}" y="${(top + 2).toFixed(1)}" width="3" height="${(n.h - 4).toFixed(1)}" rx="1.5" fill="${n.color}" opacity="0.45"/>`;
+          fill = '#3f4650';
+        }
+        return `${shape}<text font-family="${this.FONT_FAMILY}" font-size="${n.fs}" font-weight="${st.weight}" fill="${fill}">${tspans}</text>`;
+      },
+
+      _contentMarkup() {
+        const links = [];
+        const nodes = [];
+        const walk = n => {
+          nodes.push(this._nodeMarkup(n));
+          n.children.forEach(c => {
+            const x1 = n.x + n.w;
+            const y1 = n.y;
+            const x2 = c.x;
+            const y2 = c.y;
+            const mid = (x1 + x2) / 2;
+            links.push(`<path d="M${x1.toFixed(1)},${y1.toFixed(1)} C${mid.toFixed(1)},${y1.toFixed(1)} ${mid.toFixed(1)},${y2.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}" fill="none" stroke="${c.color}" stroke-width="${Math.max(1.6, 3.4 - c.depth * 0.6)}" stroke-linecap="round" opacity="0.75"/>`);
+            walk(c);
+          });
+        };
+        walk(this._root);
+        return links.join('') + nodes.join('');
+      },
+
+      render(outline) {
+        const svg = document.getElementById('mindmapSvg');
+        if (!svg) return;
+        this._outline = outline;
+        this._narrowAtRender = this._narrow();
+        this._root = this.parse(outline);
+        this._layout(this._root);
+        svg.innerHTML = `<g id="mmRoot">${this._contentMarkup()}</g>`;
+        this._bindGestures();
+        this.fit();
+      },
+
+      _stage() { return document.getElementById('mindmapStage'); },
+
+      // 版面寬度會依畫面寬窄而不同（手機縮短節點寬度），跨過分界線才重算
+      relayout() {
+        if (!this._outline) return;
+        if (this._narrow() === this._narrowAtRender) { this.fit(); return; }
+        this.render(this._outline);
+      },
+
+      _apply() {
+        const g = document.getElementById('mmRoot');
+        if (!g) return;
+        const v = this._view;
+        g.setAttribute('transform', `translate(${v.x.toFixed(2)},${v.y.toFixed(2)}) scale(${v.k.toFixed(3)})`);
+      },
+
+      // 全部塞進畫面時字會小到看不清楚（手機尤其明顯）。縮不到可讀
+      // 字級時就不再縮，改成停在根節點，其餘讓使用者拖曳查看
+      fit() {
+        const stage = this._stage();
+        if (!stage || !this._root) return;
+        const w = stage.clientWidth || 360;
+        const h = stage.clientHeight || 360;
+        const kAll = Math.min((w - this.MARGIN * 2) / this._size.w, (h - this.MARGIN * 2) / this._size.h, 1.3);
+        const v = this._view;
+        if (kAll >= this.MIN_READABLE) {
+          v.k = kAll;
+          v.x = (w - this._size.w * v.k) / 2;
+          v.y = (h - this._size.h * v.k) / 2;
+        } else {
+          v.k = this.MIN_READABLE;
+          v.x = this.MARGIN;
+          v.y = h / 2 - this._root.y * v.k;
+        }
+        this._apply();
+      },
+
+      // 以畫面中心為基準縮放，手指或滑鼠位置不變才不會覺得畫面亂跑
+      zoomBy(factor, cx, cy) {
+        const stage = this._stage();
+        if (!stage) return;
+        const rect = stage.getBoundingClientRect();
+        const px = cx == null ? rect.width / 2 : cx - rect.left;
+        const py = cy == null ? rect.height / 2 : cy - rect.top;
+        const v = this._view;
+        const k = Math.min(3, Math.max(0.12, v.k * factor));
+        v.x = px - (px - v.x) * (k / v.k);
+        v.y = py - (py - v.y) * (k / v.k);
+        v.k = k;
+        this._apply();
+      },
+
+      toggleFull() {
+        const stage = this._stage();
+        if (!stage) return;
+        const full = stage.classList.toggle('full');
+        document.getElementById('mmFullBtn').textContent = full ? '✕' : '⛶';
+        document.body.style.overflow = full ? 'hidden' : '';
+        setTimeout(() => this.relayout(), 60);
+      },
+
+      _bindGestures() {
+        const stage = this._stage();
+        if (!stage || stage.dataset.bound) return;
+        stage.dataset.bound = '1';
+        const pts = new Map();
+        let last = null;
+
+        stage.addEventListener('pointerdown', e => {
+          if (e.target.closest('.mm-ctrl')) return;
+          stage.setPointerCapture(e.pointerId);
+          pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          last = null;
+        });
+        stage.addEventListener('pointermove', e => {
+          if (!pts.has(e.pointerId)) return;
+          e.preventDefault();
+          pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          const list = [...pts.values()];
+          if (list.length === 1) {
+            if (last) {
+              this._view.x += list[0].x - last.x;
+              this._view.y += list[0].y - last.y;
+              this._apply();
+            }
+            last = { x: list[0].x, y: list[0].y };
+          } else if (list.length >= 2) {
+            const dist = Math.hypot(list[0].x - list[1].x, list[0].y - list[1].y);
+            const mid = { x: (list[0].x + list[1].x) / 2, y: (list[0].y + list[1].y) / 2 };
+            if (last && last.dist) this.zoomBy(dist / last.dist, mid.x, mid.y);
+            last = { dist, x: mid.x, y: mid.y };
+          }
+        });
+        const end = e => {
+          pts.delete(e.pointerId);
+          last = null;
+        };
+        stage.addEventListener('pointerup', end);
+        stage.addEventListener('pointercancel', end);
+        stage.addEventListener('wheel', e => {
+          e.preventDefault();
+          this.zoomBy(e.deltaY < 0 ? 1.12 : 0.89, e.clientX, e.clientY);
+        }, { passive: false });
+        stage.addEventListener('dblclick', () => this.fit());
+      },
+
+      // 匯出用獨立 SVG：整張圖的原始大小加白底與標題，不受畫面縮放影響
+      toPngDataUrl(title) {
+        return new Promise((resolve, reject) => {
+          if (!this._root) { reject(new Error('目前沒有可輸出的心智圖，請先產生心智圖。')); return; }
+          const m = this.MARGIN;
+          const titleH = title ? 56 : 0;
+          const w = this._size.w + m * 2;
+          const h = this._size.h + m * 2 + titleH;
+          const titleMarkup = title
+            ? `<text x="${m}" y="${m + 24}" font-family="${this.FONT_FAMILY}" font-size="24" font-weight="800" fill="#1a1d1f">${Utils.escapeHtml(title)}</text>`
+            : '';
+          const svgText = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
+            `<rect width="${w}" height="${h}" fill="#ffffff"/>${titleMarkup}` +
+            `<g transform="translate(${m},${m + titleH})">${this._contentMarkup()}</g></svg>`;
+
+          const scale = Math.min(3, Math.max(1.5, 2400 / w));
+          const img = new Image();
+          // 用 data: 而非 blob:：本頁 CSP 的 img-src 只放行 'self' 與 data:，
+          // blob: 會被瀏覽器直接擋掉，圖片永遠載不進來
+          const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(w * scale);
+            canvas.height = Math.round(h * scale);
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/png'));
+          };
+          img.onerror = () => reject(new Error('圖片轉換失敗。'));
+          img.src = url;
+        });
+      }
+    };
+
+    // 轉向或改變視窗大小時重算心智圖版面
+    window.addEventListener('resize', () => {
+      clearTimeout(Mindmap._resizeTimer);
+      Mindmap._resizeTimer = setTimeout(() => {
+        if (Mindmap._outline && document.getElementById('mindmapStage')) Mindmap.relayout();
+      }, 250);
+    });
+
     // ---------- 啟動流程 ----------
     // LIFF 不再是進入頁面的關卡：網頁本身可獨立使用，liff.init() 只在
     // 背景跑，用來判斷是否在 LINE 環境內、以及之後 sendMessages 需要，
@@ -7475,7 +7825,7 @@
                 { okText: `傳第 ${b + 1} 批`, cancelText: '先停在這裡', icon: '📤' }
               );
               if (!proceed) {
-                Dialog.alert(`已停止發送，共送出 ${b} / ${batches.length} 批。下次點擊「分享出去 → LINE 好友分享」時，只要卡片內容沒有變動過，會詢問是否要從這裡接續；也可以改用「送回聊天室」或手動複製貼上。`);
+                Dialog.alert(`已停止，共傳出 ${b} / ${batches.length} 批。下次點「📤 傳送 → 傳給 LINE 好友」時，只要內容沒有改過，會問你要不要從這裡接著傳。`);
                 return;
               }
             }
@@ -7489,10 +7839,10 @@
               // 使用者在選擇畫面中途取消。中斷進度保留在 b（尚未送出
               // 這一批），下次接續時會從這一批重新開始，不會漏掉。
               if (b === 0) {
-                Dialog.alert('已取消發送。');
+                Dialog.alert('已取消傳送。');
                 if (!resumeFromBatch) ShareResumeManager.clear();
               } else {
-                Dialog.alert(`已取消，共送出 ${b} / ${batches.length} 批。下次點擊「分享出去 → LINE 好友分享」時，只要卡片內容沒有變動過，會詢問是否要從這裡接續。`);
+                Dialog.alert(`已取消，共傳出 ${b} / ${batches.length} 批。下次點「📤 傳送 → 傳給 LINE 好友」時，只要內容沒有改過，會問你要不要從這裡接著傳。`);
               }
               return;
             }
