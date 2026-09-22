@@ -4192,7 +4192,7 @@
         }).join('\n\n');
 
         const sourceNote = hasMultipleItems
-          ? '- 這份逐字稿由多個段落合併而成（可能來自不同人分別整理，或同一場的不同時段），每段前面用【標籤】標示來源並已排好順序。請視為同一場的完整內容整合成單一份摘要，不要逐段分別摘要，也不需區分是誰整理的\n'
+          ? '\n\n這份逐字稿是由多個段落合併而成（可能來自不同人分別整理、或同一場會議的不同時段），每個段落前面用【標籤】標示來源，已按照指定順序排列。請將其視為同一場會議或討論的完整內容，整合成單一份摘要，不需要逐段分別摘要或特別區分是誰整理的。'
           : '';
 
         // 語音卡片若開啟即時翻譯，內容會是「原文\n語言代碼: 翻譯」的
@@ -4201,7 +4201,7 @@
         // 沒用到翻譯功能時也徒增無謂的 token 與干擾。
         const hasTranslationLines = /^(zh|en|ja|ko): /m.test(fullText);
         const translationNote = hasTranslationLines
-          ? '- 「語言代碼: 內容」格式的行（例如 `zh: 你好`）是上一行原文的翻譯，不是新的發言。請以原文理解語意，不要把翻譯行當成額外的重點再摘要一次\n'
+          ? '\n\n逐字稿中某些行是「語言代碼: 內容」的格式（例如 "zh: 你好"），這是上一行原文的翻譯，不是新的發言或獨立內容。請以原文為準理解語意，翻譯行只是輔助對照，不要把翻譯行當成額外的重點重複摘要一次。'
           : '';
 
         // 結構化輸出：待辦事項、來源引用，用 responseSchema 強制
@@ -4217,22 +4217,14 @@
                     preset.role + '\n' +
                     '</role>\n\n' +
                     '<demand>\n' +
-                    '## 摘要（summary）\n\n' +
-                    '- ' + preset.summaryRule.replace(/^summary：/, '') + '\n' +
-                    '- 直接輸出整理結果，不要開場白或結語\n' +
-                    '- 每個重點各自獨立一行，不可以把多個重點寫在同一行或同一段\n\n' +
-                    '## 待辦（actionItems）\n\n' +
-                    '- ' + preset.actionRule.replace(/^actionItems：/, '') + '\n\n' +
-                    '## 來源對應（sourceRefs）\n\n' +
-                    '- 列出 `summary` 中每個重點對應到逐字稿的哪一個【標籤】段落\n' +
-                    '- 每一項包含 `point`（摘要中的那一點，簡短即可）與 `label`（段落標籤名稱）\n' +
-                    '- 原始逐字稿沒有分段標籤時，回傳空陣列 `[]`\n\n' +
-                    '## 共同規則\n\n' +
-                    '- 只根據 `<meeting_log>` 內的實際內容作答，不可自行補充或推論未提及的資訊\n' +
-                    '- 這份逐字稿由語音辨識產生，可能含有同音錯字、斷句錯誤或口語贅詞；請依上下文理解真正的語意，不要被個別錯字誤導，但也不要腦補逐字稿中完全沒有出現的內容\n' +
+                    '1. ' + preset.summaryRule + '直接輸出整理結果，不需要額外的開場白或結語。重點之間必須用換行字元分開，不可以把多個重點寫在同一行或同一段落裡。\n' +
+                    '2. ' + preset.actionRule + '\n' +
+                    '3. sourceRefs：列出 summary 中每一個重點對應到逐字稿的哪一個【標籤】段落（若原始逐字稿沒有分段標籤，此欄位回傳空陣列 []）。每一項包含 point（摘要中的那一點文字，簡短即可）與 label（對應的段落標籤名稱）。\n' +
+                    '4. 只根據 <meeting_log> 內的實際內容作答，不可自行補充或推論未提及的資訊。\n' +
+                    '5. 這份逐字稿由語音辨識產生，可能含有同音錯字、斷句錯誤或口語贅詞。請依上下文理解真正的語意，不要被個別錯字誤導；但也不要自行腦補逐字稿中完全沒有出現的內容。\n' +
                     sourceNote +
                     translationNote +
-                    '</demand>\n'
+                    '\n</demand>\n'
             }]
           },
           contents: [{
@@ -4301,7 +4293,7 @@
             throw new Error('摘要金鑰無效，請確認貼上的金鑰是否正確。');
           }
           if (res.status === 403) {
-            throw new Error('沒有權限使用這個 摘要金鑰（可能是金鑰被限制或專案未啟用），詳細訊息：' + apiMessage);
+            throw new Error('沒有權限使用這組摘要金鑰（可能是金鑰被限制或專案未啟用）：' + apiMessage);
           }
           if (res.status === 429) {
             throw new Error('已達 Gemini API 的請求額度上限，請稍後再試：' + apiMessage);
@@ -4326,27 +4318,52 @@
           throw new Error('輸入內容過長，Gemini 生成的摘要在完成前就被截斷了。可以嘗試減少勾選的資料筆數後再試一次。');
         }
 
-        const parts = candidate.content && candidate.content.parts;
-        const text = parts ? parts.map(p => p.text).join('') : '';
+        const text = SummaryModule._extractText(candidate);
 
-        if (!text || !text.trim()) {
-          throw new Error('Gemini 回傳了空白結果，請稍後再試一次。');
+        if (!text) {
+          throw new Error(candidate.finishReason
+            ? `Gemini 沒有回傳內容（狀態：${candidate.finishReason}），請稍後再試一次。`
+            : 'Gemini 回傳了空白結果，請稍後再試一次。');
         }
 
         // 預期收到結構化 JSON（summary/actionItems/sourceRefs）。
         // Gemini 若未遵守 responseSchema 吐出非 JSON，fallback 成純
         // 文字摘要，其餘欄位留空，UI 自動不顯示相關區塊。
+        const cleaned = this._stripCodeFence(text);
         try {
-          const parsed = JSON.parse(text.trim());
-          return this._normalizeSummaryData(parsed);
+          return this._normalizeSummaryData(JSON.parse(cleaned));
         } catch (parseErr) {
-          console.warn('Gemini 回傳內容不是預期的 JSON 結構，改用純文字模式顯示：', parseErr);
-          return this._normalizeSummaryData(text.trim());
+          console.warn('Gemini 回傳內容不是預期的 JSON 結構，改用純文字模式顯示：', parseErr, cleaned.slice(0, 200));
+          // 看起來是壞掉的 JSON（開頭是 { 或 [）就不要硬塞進摘要，
+          // 否則畫面會出現一整包原始 JSON
+          if (/^[[{]/.test(cleaned)) {
+            throw new Error('AI 回傳的格式不完整（可能被截斷），請再試一次；內容較長時可以分批整理。');
+          }
+          return this._normalizeSummaryData(cleaned);
         }
       },
 
       // 統一資料結構：新版 JSON、舊版純文字字串（含歷史 localStorage
       // 資料）一律轉成同一內部形狀，其他函式不用各自判斷型別
+      // 只取真正的回答文字：思考型模型可能回傳 thought 片段，
+      // 混進來會讓 JSON 解析失敗
+      _extractText(candidate) {
+        const parts = (candidate && candidate.content && candidate.content.parts) || [];
+        return parts
+          .filter(p => p && typeof p.text === 'string' && !p.thought)
+          .map(p => p.text)
+          .join('')
+          .trim();
+      },
+
+      // 模型常把 JSON 包在 ```json 區塊裡，直接 JSON.parse 會失敗
+      _stripCodeFence(text) {
+        return String(text || '')
+          .replace(/^\s*```[a-zA-Z]*\s*\n?/, '')
+          .replace(/\n?```\s*$/, '')
+          .trim();
+      },
+
       _normalizeSummaryData(raw) {
         if (typeof raw === 'string') {
           return { summary: raw, actionItems: [], mindmapOutline: '', sourceRefs: [] };
@@ -4377,20 +4394,15 @@
           systemInstruction: {
             parts: [{
               text: '<role>\n' +
-                    '你是一個心智圖整理助手。請把 `<summary_text>` 裡的摘要整理成階層式心智圖大綱。\n' +
+                    '你是一個心智圖整理助手。請針對使用者在下方 <summary_text> 標籤內提供的會議摘要文字，整理成階層式心智圖大綱。\n' +
                     '</role>\n\n' +
                     '<demand>\n' +
-                    '## 輸出格式\n\n' +
-                    '- 第一行是 `# 整體主題`，作為心智圖的根節點\n' +
-                    '- 其餘每一層都用 `- ` 清單，每深一層多兩個半形空白縮排\n' +
-                    '- 直接輸出大綱本身，不要開場白、結語或程式碼區塊標記\n\n' +
-                    '## 內容規則\n\n' +
-                    '- 只根據 `<summary_text>` 的內容整理，不補充摘要沒提到的資訊，也不遺漏摘要中的重點\n' +
-                    '- 最多三層、最多 25 個節點，把相關的重點歸納到同一個子主題下\n' +
-                    '- 節點文字要短：主題與子主題 12 個字以內，最底層 25 個字以內。用關鍵詞或短語，不要寫成完整句子，也不要在一個節點裡放多個重點\n\n' +
-                    '## 範例\n\n' +
-                    '```\n# 整體主題\n- 子主題1\n  - 細節A\n  - 細節B\n- 子主題2\n  - 細節C\n```\n' +
-                    '</demand>\n'
+                    '1. 只根據 <summary_text> 裡的內容整理，不可額外補充摘要沒有提到的資訊，也不可遺漏摘要中的重點。\n' +
+                    '2. 用 Markdown 格式輸出：第一行必須是 "# " 開頭的整體主題（作為心智圖的根節點），接下來每一層子項目都用清單並以縮排表示層級（每層用兩個半形空白縮排，"- " 開頭）。\n' +
+                    '3. 最多三層、最多 25 個節點，避免內容過於冗長；把摘要中相關的重點歸納到同一個子主題下。\n' +
+                    '4. 節點文字要短：主題與子主題 12 個字以內，最底層 25 個字以內。用關鍵詞或短語，不要寫成完整句子，也不要在節點裡放多個重點。\n' +
+                    '4. 直接輸出心智圖大綱本身，不需要額外的開場白、結語或程式碼區塊標記。範例格式：\n# 整體主題\n- 子主題1\n  - 細節A\n  - 細節B\n- 子主題2\n  - 細節C\n' +
+                    '\n</demand>\n'
             }]
           },
           contents: [{
@@ -4432,16 +4444,17 @@
           throw new Error('這段內容被 Gemini 的安全機制擋下，無法生成心智圖。');
         }
 
-        const parts = candidate.content && candidate.content.parts;
-        const text = parts ? parts.map(p => p.text).join('') : '';
+        const text = SummaryModule._extractText(candidate);
 
-        if (!text || !text.trim()) {
-          throw new Error('Gemini 回傳了空白結果，請稍後再試一次。');
+        if (!text) {
+          throw new Error(candidate.finishReason
+            ? `Gemini 沒有回傳內容（狀態：${candidate.finishReason}），請稍後再試一次。`
+            : 'Gemini 回傳了空白結果，請稍後再試一次。');
         }
 
         // 第一行要是 "# 主題" 才解析得出根節點，模型未依格式輸出時修正一次
         let outline = text.trim();
-        outline = outline.replace(/^```[a-zA-Z]*\n?/, '').replace(/```$/, '').trim();
+        outline = this._stripCodeFence(outline);
         if (!outline.startsWith('#')) {
           const firstLine = outline.split('\n')[0].replace(/^[-*]\s*/, '');
           outline = `# ${firstLine}\n` + outline;
@@ -4813,19 +4826,14 @@
           systemInstruction: {
             parts: [{
               text: '<role>\n' +
-                    '你是一個專有名詞抽取工具。請從 `<transcript>` 裡找出專業術語、學術名詞、機構名稱、專有地名、法規名稱等專有名詞。\n' +
+                    '你是一個專有名詞抽取工具。請從使用者提供的逐字稿中，找出專業術語、學術名詞、機構名稱、專有地名、法規名稱等專有名詞。\n' +
                     '</role>\n\n' +
                     '<demand>\n' +
-                    '## 抽取規則\n\n' +
-                    '- 保留逐字稿中**實際出現的原始寫法**，不要自行修正同音錯字（後續會由具備搜尋能力的工具判斷正確寫法）\n' +
-                    '- 只抽真正的專有名詞；一般動詞、形容詞、常見日常詞彙不要抽\n' +
-                    '- 同一個名詞只出現一次，不要重複\n' +
-                    `- 最多抽取 ${this.MAX_TERMS} 個；超過時優先保留講者著墨較多、或對理解主題較關鍵的名詞\n\n` +
-                    '## context 欄位\n\n' +
-                    '- 附上該名詞在逐字稿中出現的那一句或前後文\n' +
-                    '- 60 個字以內，忠實擷取原文、不要改寫（這是後續判斷正確寫法的唯一依據）\n\n' +
-                    '## 沒有結果時\n\n' +
-                    '- 逐字稿中沒有任何專有名詞就回傳空陣列 `[]`\n' +
+                    '1. 這份逐字稿由語音辨識產生，可能含有同音錯字。抽取時請「保留逐字稿中實際出現的原始寫法」，不要自行修正——後續會由具備搜尋能力的工具來判斷正確寫法。\n' +
+                    '2. 每個名詞附上它在逐字稿中出現的那一句或前後文（context），長度控制在 60 字以內，保留原文不要改寫。上下文是後續判斷正確寫法的唯一依據，務必忠實擷取。\n' +
+                    `3. 最多抽取 ${this.MAX_TERMS} 個。超過時，優先保留講者著墨較多、或對理解主題較關鍵的名詞。\n` +
+                    '4. 只抽真正的專有名詞。一般動詞、形容詞、常見日常詞彙不要抽。同一個名詞只出現一次，不要重複。\n' +
+                    '5. 如果逐字稿中沒有任何專有名詞，回傳空陣列 []。\n' +
                     '</demand>\n'
             }]
           },
@@ -4869,13 +4877,12 @@
         }
 
         const candidate = data.candidates && data.candidates[0];
-        const parts = candidate && candidate.content && candidate.content.parts;
-        const text = parts ? parts.map(p => p.text).join('') : '';
-        if (!text.trim()) throw new Error('Gemini 回傳了空白結果，請稍後再試一次。');
+        const text = this._extractText(candidate);
+        if (!text) throw new Error('Gemini 回傳了空白結果，請稍後再試一次。');
 
         let parsed;
         try {
-          parsed = JSON.parse(text.trim());
+          parsed = JSON.parse(this._stripCodeFence(text));
         } catch (e) {
           throw new Error('Gemini 回傳的格式無法解析，請再試一次。');
         }
