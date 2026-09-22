@@ -1,4 +1,9 @@
 <!DOCTYPE html>
+<!--
+  語音筆記 by kenyuiyui
+  https://github.com/kenyuiyui/voice-to-text-line-bot-LIFF
+  Released under the MIT License.
+-->
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
@@ -25,6 +30,7 @@
     form-action 'none';
   ">
   <title>語音筆記｜說話自動變文字</title>
+  <meta name="author" content="kenyuiyui">
   <meta name="description" content="語音卡片筆記：透過 LINE 官方帳號即可使用的語音轉文字筆記工具。支援錄音、共享 Google Sheet 筆記、AI 摘要（中英日韓混雜語音辨識），不用另外安裝 App，加好友就能用。">
 
   <!-- Open Graph：讓 LINE /社群分享連結時顯示正確標題與描述。
@@ -1464,7 +1470,7 @@
        role="dialog" aria-modal="true" aria-labelledby="recordNoticeTitle">
     <div class="modal-box" style="max-width:380px;">
       <div class="modal-tabs">
-        <button id="recordNoticeTitle" class="active" style="cursor:default;">ℹ️ 開始錄音前，請先確認</button>
+        <button id="recordNoticeTitle" class="active" style="cursor:default;">ℹ️ 開始前，請先確認</button>
       </div>
       <div class="modal-body">
         <p style="margin:0 0 8px;">這個工具只做「即時語音轉文字」，轉寫完成後<b>原始音檔就會被丟棄</b>，不會留存。如果你需要留一份原始錄音備份，請另外用手機內建的錄音 App 同時錄一份，兩者互相獨立。</p>
@@ -1700,7 +1706,7 @@
           <span aria-hidden="true">🎙️</span>開始錄音
         </button>
       </div>
-      <input type="file" id="audioFileInput" accept="audio/*" hidden onchange="FileUploadTranscribe.onFileSelected(this.files)">
+      <input type="file" id="audioFileInput" accept="audio/*,.m4a,.mp3,.wav,.ogg,.webm,.flac,.mp4,.mpeg,.mpga" hidden onchange="FileUploadTranscribe.onFileSelected(this.files)">
     </section>
 
     <!-- ============ 錄音畫面 ============ -->
@@ -2214,7 +2220,8 @@
         </details>
 
         <div class="settings-app-info">
-          語音筆記<br>
+          語音筆記 · 作者 <b>kenyuiyui</b><br>
+          <a href="https://github.com/kenyuiyui/voice-to-text-line-bot-LIFF" target="_blank" rel="noopener">原始碼（MIT 授權）</a><br>
           版本：<span id="settingsAppVersion"></span>
         </div>
       </main>
@@ -2279,10 +2286,11 @@
     // 共用工具，零依賴，放檔案最前面。escapeHtml 被多個模組呼叫，
     // 不屬於任何單一業務模組，避免因暫時性死區被提前呼叫而中斷 script。
     const Utils = {
+      // 輸出也會放進 HTML 屬性值，引號必須轉義，否則可被跳脫注入事件屬性
       escapeHtml(str) {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
+        return String(str == null ? '' : str)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
       },
       // token 估算僅供參考（中文約 2.5 token/字），不同模型 tokenizer 有差異
       estimateTokens(charCount) {
@@ -4473,7 +4481,7 @@
           });
           if (matchedPoint) {
             const label = Utils.escapeHtml(refMap[matchedPoint]);
-            return `<div class="summary-line">${line} <span class="summary-source-tag" onclick="SummaryModule.jumpToSource('${label.replace(/'/g, "\\'")}')" title="點擊查看來源段落">📍${label}</span></div>`;
+            return `<div class="summary-line">${line} <span class="summary-source-tag" role="button" tabindex="0" data-label="${label}" onclick="SummaryModule.jumpToSource(this.dataset.label)" title="點擊查看來源段落">📍${label}</span></div>`;
           }
           return `<div class="summary-line">${line}</div>`;
         });
@@ -5038,7 +5046,11 @@
 
     // ---------- 上傳既有語音檔案轉文字 ----------
     const FileUploadTranscribe = {
+      // Groq 官方限制：免費方案單檔 25 MB、付費 Dev 方案 100 MB
       SUGGESTED_MAX_MB: 25,
+      HARD_MAX_MB: 100,
+      ALLOWED_EXT: ['flac', 'mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'webm'],
+      TIMEOUT_MS: 5 * 60 * 1000,
       isUploading: false,
 
       async onFileSelected(fileList) {
@@ -5058,14 +5070,31 @@
           return;
         }
 
+        const ext = ((file.name || '').split('.').pop() || '').toLowerCase();
+        if (!this.ALLOWED_EXT.includes(ext)) {
+          this._resetInput();
+          Dialog.alert(`這個檔案格式（.${ext || '未知'}）沒辦法轉文字。\n\n支援：m4a、mp3、wav、ogg、webm、flac、mp4。\n\nLINE 語音訊息存下來是 m4a，可以直接上傳；手機錄音 App 的檔案多半也是 m4a。`, { icon: '📁' });
+          return;
+        }
+        if (file.size === 0) {
+          this._resetInput();
+          Dialog.alert('這個檔案是空的，請確認有沒有選錯。', { icon: '📁' });
+          return;
+        }
+
         const sizeMB = file.size / (1024 * 1024);
+        if (sizeMB > this.HARD_MAX_MB) {
+          this._resetInput();
+          Dialog.alert(`這個檔案約 ${sizeMB.toFixed(0)} MB，超過單檔上限 ${this.HARD_MAX_MB} MB，沒辦法上傳。\n\n請先把錄音剪成幾段（每段 25 MB 以內），再到筆記裡「⋯ → 📁 加入錄音檔」一段一段加進去。`, { icon: '📦' });
+          return;
+        }
         document.getElementById('uploadFileName').textContent =
           `已選擇：${file.name}（約 ${sizeMB.toFixed(1)} MB）`;
 
         if (sizeMB > this.SUGGESTED_MAX_MB) {
           const proceed = await Dialog.confirm(
-            `這個檔案約 ${sizeMB.toFixed(1)} MB，超過建議的 ${this.SUGGESTED_MAX_MB} MB，可能會轉換失敗。\n\n` +
-            `還是要試試看嗎？（失敗的話，可以先把錄音剪短再上傳）`,
+            `這個檔案約 ${sizeMB.toFixed(1)} MB。免費金鑰單檔上限是 ${this.SUGGESTED_MAX_MB} MB，超過幾乎一定會失敗（付費方案才能到 ${this.HARD_MAX_MB} MB）。\n\n` +
+            `建議先把錄音剪成幾段再上傳。還是要試試看嗎？`,
             { icon: '📦', okText: '試試看' }
           );
           if (!proceed) {
@@ -5141,10 +5170,13 @@
         try {
           res = await fetch(endpoint, {
             method: 'POST',
+            // 長檔案可能等很久；沒有逾時的話網路卡住時會永遠停在「轉換中」
+            signal: typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(this.TIMEOUT_MS) : undefined,
             headers: { 'Authorization': `Bearer ${apiKey}` },
             body: formData
           });
         } catch (networkErr) {
+          if (networkErr.name === 'TimeoutError') throw new Error('等了 5 分鐘還沒轉完，檔案可能太長，請剪短後再試');
           throw new Error('連不上語音辨識服務，請檢查網路：' + networkErr.message);
         }
 
@@ -5900,7 +5932,11 @@
         try { return localStorage.getItem('consent_agreed_version') !== CONSENT_VERSION; }
         catch (e) { return true; } // localStorage 不可用時保守起見每次都問
       },
-      show() {
+      _onConfirm: null,
+
+      show(onConfirm, confirmText) {
+        this._onConfirm = onConfirm || (() => DictationEngine.start());
+        document.getElementById('recordConsentConfirmBtn').textContent = confirmText || '同意，開始錄音';
         const cb = document.getElementById('recordConsentCheckbox');
         cb.checked = false;
         document.getElementById('recordConsentConfirmBtn').disabled = true;
@@ -5911,6 +5947,7 @@
         document.getElementById('recordConsentConfirmBtn').disabled = !checked;
       },
       cancel() {
+        this._onConfirm = null;
         ModalUtil.hide('recordNoticeModal');
       },
       confirm() {
@@ -5919,7 +5956,9 @@
         try { localStorage.setItem('consent_agreed_version', CONSENT_VERSION); }
         catch (e) { /* 忽略，下次仍會再問一次，不影響核心功能 */ }
         ModalUtil.hide('recordNoticeModal');
-        DictationEngine.start();
+        const next = this._onConfirm || (() => DictationEngine.start());
+        this._onConfirm = null;
+        next();
       }
     };
 
@@ -6222,7 +6261,14 @@
           Dialog.alert('上一個檔案還在轉文字中，請等它完成再上傳下一個。', { icon: '⏳' });
           return;
         }
-        document.getElementById('audioFileInput').click();
+        // 上傳一樣會把他人聲音送去第三方辨識，須知與錄音共用；
+        // 在「同意」的點擊當下開選檔器，才不會被瀏覽器擋掉
+        const openPicker = () => document.getElementById('audioFileInput').click();
+        if (RecordNotice.shouldShow()) {
+          RecordNotice.show(openPicker, '同意，選擇檔案');
+          return;
+        }
+        openPicker();
       }
     };
 
