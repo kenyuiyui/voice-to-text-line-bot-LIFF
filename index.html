@@ -1190,6 +1190,64 @@
     #viewNotebook .summary-saved-hint { font-size: 12.5px; }
     #viewNotebook .card-actions-inline button { min-width: 40px; height: 38px; font-size: 17px; border-radius: 10px; }
     .kw-paste button { flex: 0 0 auto; }
+
+    /* ---------- 上傳進度 ---------- */
+    #uploadProgressModal { z-index: 1150; }
+    .up-box { max-width: 360px; padding: 24px 22px 18px; text-align: center; }
+    .up-icon { font-size: 44px; line-height: 1; }
+    .up-file { margin-top: 8px; font-size: 13.5px; color: var(--ink-soft); word-break: break-all; }
+    .up-bar { position: relative; height: 12px; border-radius: 6px; background: var(--border); overflow: hidden; margin: 18px 0 12px; }
+    .up-fill { height: 100%; width: 0; border-radius: 6px; background: var(--line-green); transition: width .4s ease; }
+    .up-bar.indeterminate .up-fill { width: 35%; animation: upSlide 1.2s ease-in-out infinite; }
+    @keyframes upSlide { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
+    .up-stage { font-size: 16.5px; font-weight: 800; }
+    .up-meta { display: flex; justify-content: center; gap: 12px; margin-top: 6px; font-size: 13.5px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+    .up-meta span:empty { display: none; }
+    .up-keep { margin-top: 16px; padding: 10px 12px; border-radius: 12px; background: #fff7e0; font-size: 13.5px; line-height: 1.6; }
+    .up-cancel { width: 100%; height: 48px; margin-top: 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--card-bg); color: var(--ink-soft); font-size: 15.5px; font-weight: 700; cursor: pointer; }
+
+    .rec-keepon { font-size: 13.5px; line-height: 1.7; padding: 10px 14px; border-radius: 14px; background: #fff7e0; color: var(--ink-soft); }
+    .rec-keepon b { color: var(--ink); }
+
+    .drop-overlay {
+      position: fixed; inset: 0; z-index: 1300; display: none; align-items: center; justify-content: center;
+      background: rgba(6, 199, 85, .12); border: 4px dashed var(--line-green); pointer-events: none;
+    }
+    .drop-overlay.show { display: flex; }
+    .drop-overlay div { padding: 18px 28px; border-radius: 18px; background: var(--card-bg); font-size: 20px; font-weight: 800; box-shadow: var(--shadow-pop); }
+    .desktop-placeholder { display: none; }
+
+    /* ---------- 電腦版：左清單、右內容 ---------- */
+    @media (min-width: 900px) {
+      .app {
+        max-width: 1280px; height: 100dvh; min-height: 0; display: grid;
+        grid-template-columns: 380px minmax(0, 1fr); border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+      }
+      .view { height: 100dvh; min-height: 0; overflow-y: auto; grid-row: 1; grid-column: 2; }
+      #viewHome, #viewHome.hidden { display: flex !important; grid-column: 1; border-right: 1px solid var(--border); }
+      .nb-list { padding-bottom: 24px; }
+      .nb-item.active { box-shadow: 0 0 0 2px var(--line-green); }
+      .home-dock, .rec-footer, #viewNotebook .action-bar {
+        position: sticky; left: auto; transform: none; width: auto; max-width: none;
+      }
+      .home-dock { bottom: 20px; margin: auto auto 20px; }
+      .rec-footer { bottom: 0; margin-top: auto; }
+      .rec-body { padding-bottom: 20px; }
+      #viewNotebook .action-bar { bottom: 0; margin-top: auto; }
+      .view main { padding-bottom: 24px; max-width: 760px; width: 100%; margin: 0 auto; }
+      .rec-body { max-width: 640px; width: 100%; margin: 0 auto; }
+      .desktop-placeholder {
+        grid-row: 1; grid-column: 2; flex-direction: column; align-items: center; justify-content: center;
+        text-align: center; color: var(--ink-soft); gap: 8px;
+      }
+      body[data-view="home"] .desktop-placeholder { display: flex; }
+      .dp-art { font-size: 72px; }
+      .dp-title { font-size: 20px; font-weight: 800; color: var(--ink); }
+      .dp-desc { font-size: 15.5px; line-height: 1.7; }
+      .storage-toast { bottom: 96px; }
+      .seg, #viewNotebook .send-btn-row { max-width: 760px; width: 100%; margin-left: auto; margin-right: auto; }
+      .seg { top: 57px; }
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/cn2t.js"
           integrity="sha384-9JmxkgxoKE5gP14V/eBemUAwCKh8QSb5IFEJje/JNxxh8cn9hKsIs/q5Ho+mfVau"
@@ -1655,6 +1713,23 @@
     </div>
   </div>
 
+  <!-- 上傳進度：長檔案要跑好幾分鐘，秒數持續跳動讓人知道還在動 -->
+  <div class="modal-overlay hidden" id="uploadProgressModal" role="dialog" aria-modal="true" aria-labelledby="upStage">
+    <div class="modal-box up-box">
+      <div class="up-icon" aria-hidden="true">📁</div>
+      <div class="up-file" id="upFile"></div>
+      <div class="up-bar" id="upBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-labelledby="upStage">
+        <div class="up-fill" id="upFill"></div>
+      </div>
+      <div class="up-stage" id="upStage"></div>
+      <div class="up-meta"><span id="upElapsed"></span><span id="upEta"></span></div>
+      <div class="up-keep">📱 處理中請<b>保持畫面開著</b>，不要切出 LINE 或鎖定螢幕</div>
+      <button class="btn-cancel up-cancel" onclick="FileUploadTranscribe.cancel()">停止</button>
+    </div>
+  </div>
+
+  <div class="drop-overlay" id="dropOverlay" aria-hidden="true"><div>📁 放開就開始轉成文字</div></div>
+
   <div class="app" id="mainApp">
     <div class="storage-toast" id="storageToast" role="status" aria-live="polite">
       <span class="toast-icon">💾</span>
@@ -1663,11 +1738,6 @@
 
     <!-- 背景工作提示：上傳轉寫、錄音停止後還在跑的段落，不論在哪個畫面都看得到 -->
     <div class="busy-pill" id="busyPill" role="status" aria-live="polite">
-      <div class="upload-progress-row" id="uploadProgressRow">
-        <div class="upload-progress-spinner"></div>
-        <span id="uploadProgressText">上傳並轉寫中...</span>
-      </div>
-      <div class="upload-file-name" id="uploadFileName"></div>
       <div class="pending-row" id="pendingRow">
         <div class="upload-progress-spinner"></div>
         <span id="pendingText"></span>
@@ -1721,6 +1791,8 @@
         <div class="key-missing-hint hidden" id="recordKeyMissingHint" role="button" tabindex="0" onclick="KeyWizard.open('groq')">
           🔑 還沒設定語音金鑰，點這裡設定
         </div>
+
+        <div class="rec-keepon">📱 錄音時請<b>保持螢幕開著、不要切出 LINE</b>，切走會中斷。<br>想放背景錄？用手機內建的錄音 App 錄完，再回來按 📁 上傳。</div>
 
         <div class="rec-options" id="recOptions">
           <div class="opt-row">
@@ -1913,6 +1985,13 @@
       </div>
     </section>
 
+    <!-- 電腦版兩欄時，右邊還沒打開筆記的提示 -->
+    <div class="desktop-placeholder" aria-hidden="true">
+      <div class="dp-art">📝</div>
+      <div class="dp-title">選左邊一本筆記，或按「開始錄音」</div>
+      <div class="dp-desc">也可以直接把錄音檔<b>拖進這個視窗</b>，<br>長錄音會自動切段轉成文字</div>
+    </div>
+
     <!-- ============ 共享筆記（進階） ============ -->
     <section class="view hidden" id="viewShared" aria-label="共享筆記">
       <div class="topbar">
@@ -2062,6 +2141,9 @@
               <li>摘要不用再手動勾選，預設整理整本筆記；場合改成圖示按鈕</li>
               <li>修正：網路較慢或開啟翻譯時，逐字稿段落可能順序錯亂</li>
               <li>修正：iPhone 錄音的檔案格式標示錯誤，可能導致轉寫失敗</li>
+              <li><b>長錄音自動切段</b>：超過 25 MB 的錄音檔會在手機／電腦上自動壓縮、切成約 10 分鐘一段，同時送出，並顯示進度條與剩餘時間</li>
+              <li>錄音時螢幕保持亮著；切出畫面時先保存手上那段，回來會自動接著錄</li>
+              <li>電腦版改成左右兩欄，並可直接把錄音檔拖進視窗</li>
             </ul>
           </div>
           <div class="version-entry">
@@ -5045,113 +5127,324 @@
     };
 
     // ---------- 上傳既有語音檔案轉文字 ----------
+    // ---------- 上傳錄音檔轉文字 ----------
+    // 25 MB 以內直接送（原音質、最快）。超過就在瀏覽器裡解碼成 16kHz
+    // 單聲道（語音辨識本來就用這個取樣率），用 G.711 μ-law 存成 WAV：
+    // 音質接近 16-bit、檔案只有一半，上傳時間是長檔案的主要瓶頸。
+    // 約每 10 分鐘在最安靜的地方切一刀，同時送 3 段。全程只用瀏覽器
+    // 內建 Web Audio，不需要任何套件。
     const FileUploadTranscribe = {
-      // Groq 官方限制：免費方案單檔 25 MB、付費 Dev 方案 100 MB
-      SUGGESTED_MAX_MB: 25,
-      HARD_MAX_MB: 100,
+      DIRECT_MAX_MB: 25,          // Groq 免費方案單檔上限
+      MAX_MB: 500,                // 解碼後約佔 4 倍記憶體，再大電腦也吃不消
+      MOBILE_WARN_MB: 60,         // 約 1～2 小時；手機解碼可能被系統強制關閉分頁
       ALLOWED_EXT: ['flac', 'mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'webm'],
-      TIMEOUT_MS: 5 * 60 * 1000,
+      SAMPLE_RATE: 16000,
+      CHUNK_SEC: 600,
+      CUT_SEARCH_SEC: 5,
+      CONCURRENCY: 3,
+      MAX_RETRY: 2,
+      REQUEST_TIMEOUT_MS: 3 * 60 * 1000,
+
       isUploading: false,
+      _appendNext: false,
+      _abort: null,
+      _useMuLaw: true,
+
+      _isMobile() {
+        return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+      },
 
       async onFileSelected(fileList) {
         if (!fileList || fileList.length === 0) return;
         const file = fileList[0];
+        const append = this._appendNext;
+        this._appendNext = false;
+        this._resetInput();
 
-        const apiKey = KeyPoolManager.getActiveKeyValue('groq');
-        if (!apiKey) {
-          this._resetInput();
+        if (!KeyPoolManager.getActiveKeyValue('groq')) {
           KeyWizard.open('groq');
           return;
         }
-
         if (this.isUploading) {
-          Dialog.alert('目前已有一個檔案正在上傳轉寫中，請稍候完成後再上傳下一個。');
-          this._resetInput();
+          Dialog.alert('上一個檔案還在轉文字中，請等它完成再上傳下一個。', { icon: '⏳' });
+          return;
+        }
+        if (DictationEngine.isRecording) {
+          Dialog.alert('正在錄音中，請先停止錄音再上傳檔案。', { icon: '🎙️' });
           return;
         }
 
         const ext = ((file.name || '').split('.').pop() || '').toLowerCase();
         if (!this.ALLOWED_EXT.includes(ext)) {
-          this._resetInput();
           Dialog.alert(`這個檔案格式（.${ext || '未知'}）沒辦法轉文字。\n\n支援：m4a、mp3、wav、ogg、webm、flac、mp4。\n\nLINE 語音訊息存下來是 m4a，可以直接上傳；手機錄音 App 的檔案多半也是 m4a。`, { icon: '📁' });
           return;
         }
         if (file.size === 0) {
-          this._resetInput();
           Dialog.alert('這個檔案是空的，請確認有沒有選錯。', { icon: '📁' });
           return;
         }
 
         const sizeMB = file.size / (1024 * 1024);
-        if (sizeMB > this.HARD_MAX_MB) {
-          this._resetInput();
-          Dialog.alert(`這個檔案約 ${sizeMB.toFixed(0)} MB，超過單檔上限 ${this.HARD_MAX_MB} MB，沒辦法上傳。\n\n請先把錄音剪成幾段（每段 25 MB 以內），再到筆記裡「⋯ → 📁 加入錄音檔」一段一段加進去。`, { icon: '📦' });
+        if (sizeMB > this.MAX_MB) {
+          Dialog.alert(`這個檔案約 ${sizeMB.toFixed(0)} MB，太大了處理不動（上限 ${this.MAX_MB} MB）。\n\n請先剪成兩三段，再到筆記裡「⋯ → 📁 加入錄音檔」一段一段加進去。`, { icon: '📦' });
           return;
         }
-        document.getElementById('uploadFileName').textContent =
-          `已選擇：${file.name}（約 ${sizeMB.toFixed(1)} MB）`;
-
-        if (sizeMB > this.SUGGESTED_MAX_MB) {
-          const proceed = await Dialog.confirm(
-            `這個檔案約 ${sizeMB.toFixed(1)} MB。免費金鑰單檔上限是 ${this.SUGGESTED_MAX_MB} MB，超過幾乎一定會失敗（付費方案才能到 ${this.HARD_MAX_MB} MB）。\n\n` +
-            `建議先把錄音剪成幾段再上傳。還是要試試看嗎？`,
-            { icon: '📦', okText: '試試看' }
-          );
-          if (!proceed) {
-            this._resetInput();
-            return;
-          }
+        if (sizeMB > this.MOBILE_WARN_MB && this._isMobile()) {
+          const ok = await Dialog.confirm(
+            `這個檔案約 ${sizeMB.toFixed(0)} MB（大約 1 小時以上）。手機記憶體可能不夠，處理到一半頁面可能會被關掉。\n\n建議改用電腦打開本工具上傳。還是要在手機上試試看嗎？`,
+            { icon: '📱', okText: '試試看', cancelText: '改用電腦' });
+          if (!ok) return;
         }
 
         let createdNew = false;
-        if (View.current !== 'notebook' || !NotebookStore.active()) {
+        if (!append || !NotebookStore.active()) {
           const nb = NotebookStore.create((file.name || '').replace(/\.[^.]+$/, '') || '上傳的錄音', 'upload');
           NotebookStore.activeId = nb.id;
           Notebook.tab = 'cards';
           Notebook.load();
           createdNew = true;
-          if (View.current === 'home') Home.render();
+          Home.render();
         }
-        this.upload(file, NotebookStore.activeId, createdNew);
+        this.run(file, NotebookStore.activeId, createdNew);
       },
 
-      async upload(file, nbId, createdNew) {
-        this.isUploading = true;
-        const progressRow = document.getElementById('uploadProgressRow');
-        const progressText = document.getElementById('uploadProgressText');
-        const chooseLabel = document.getElementById('audioFileChooseLabel');
-        progressRow.classList.add('show');
-        progressText.textContent = '⏳ 正在把錄音檔轉成文字…';
-        chooseLabel.style.opacity = '0.5';
-        chooseLabel.style.pointerEvents = 'none';
+      async cancel() {
+        if (!this._abort) return;
+        const ok = await Dialog.confirm('要停止轉換嗎？已經轉好的部分會保留在筆記裡。', { okText: '停止', cancelText: '繼續轉換', icon: '⏹️' });
+        if (ok && this._abort) this._abort.abort();
+      },
 
+      async run(file, nbId, createdNew) {
+        this.isUploading = true;
+        this._abort = new AbortController();
+        this._useMuLaw = true;
+        const signal = this._abort.signal;
+        UploadProgress.open(file.name);
+        ScreenAwake.acquire();
+
+        let added = 0;
+        let total = 1;
+        let failure = null;
         try {
-          const text = await this._transcribeFile(file);
-          if (text && text.trim()) {
-            NotebookStore.addCardTo(nbId, text.trim());
-            if (NotebookStore.activeId === nbId && View.current !== 'notebook') View.show('notebook');
-            Dialog.alert('轉好了！文字已經放進筆記裡。', { icon: '✅' });
+          if (file.size <= this.DIRECT_MAX_MB * 1024 * 1024) {
+            UploadProgress.set({ stage: '正在轉成文字…', indeterminate: true });
+            const text = await this._transcribeWithRetry(() => file, file.name, signal, false);
+            if (text.trim()) { NotebookStore.addCardTo(nbId, text.trim()); added++; }
           } else {
-            this._discardIfEmpty(nbId, createdNew);
-            Dialog.alert('檔案裡沒有聽到說話的聲音（可能是沒有人聲，或音量太小）。', { icon: '🔇' });
+            UploadProgress.set({ stage: '正在讀取錄音檔…（長檔案約需 10～60 秒）', indeterminate: true });
+            const pcm = await this._decode(file);
+            if (signal.aborted) throw new DOMException('aborted', 'AbortError');
+            const ranges = this._planChunks(pcm);
+            total = ranges.length;
+            const result = await this._runChunks(pcm, ranges, nbId, signal);
+            added = result.added;
+            failure = result.failure;
           }
         } catch (err) {
-          console.error('上傳語音檔轉寫失敗：', err);
-          this._discardIfEmpty(nbId, createdNew);
-          Dialog.alert('轉成文字失敗了，請檢查網路後再試一次。\n\n（原因：' + err.message + '）');
+          failure = err;
         } finally {
           this.isUploading = false;
-          progressRow.classList.remove('show');
-          chooseLabel.style.opacity = '';
-          chooseLabel.style.pointerEvents = '';
-          this._resetInput();
+          this._abort = null;
+          ScreenAwake.release();
+          UploadProgress.close();
+        }
+
+        if (added === 0) this._discardIfEmpty(nbId, createdNew);
+        if (added > 0 && NotebookStore.activeId === nbId && View.current !== 'notebook') View.show('notebook');
+        if (View.current === 'notebook') Notebook.render();
+        Home.render();
+
+        const userStopped = failure && failure.name === 'AbortError';
+        if (!failure) {
+          Dialog.alert(added > 0
+            ? (total > 1 ? `轉好了！共 ${total} 段，已經放進筆記裡。` : '轉好了！文字已經放進筆記裡。')
+            : '檔案裡沒有聽到說話的聲音（可能是沒有人聲，或音量太小）。', { icon: added > 0 ? '✅' : '🔇' });
+        } else if (userStopped) {
+          Dialog.alert(added > 0 ? `已停止。轉好的 ${added} 段已經保留在筆記裡。` : '已停止轉換。', { icon: '⏹️' });
+        } else {
+          console.error('上傳語音檔轉寫失敗：', failure);
+          const partial = added > 0 ? `\n\n已經轉好的 ${added} 段有保留在筆記裡。` : '';
+          Dialog.alert(`轉成文字失敗了。${partial}\n\n（原因：${failure.message}）`);
         }
       },
 
-      async _transcribeFile(file) {
+      // 手機上 decodeAudioData 只接受整份檔案；指定 16kHz 的 OfflineAudioContext
+      // 讓瀏覽器解碼時順便降取樣，省下自己重新取樣的時間與記憶體
+      async _decode(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const Ctx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        const ctx = new Ctx(1, 1, this.SAMPLE_RATE);
+        let audioBuffer;
+        try {
+          audioBuffer = await new Promise((resolve, reject) => {
+            const p = ctx.decodeAudioData(arrayBuffer, resolve, reject);
+            if (p && typeof p.then === 'function') p.then(resolve, reject);
+          });
+        } catch (e) {
+          throw new Error('讀不出這個檔案的聲音，可能檔案損毀或格式特殊');
+        }
+        // 立體聲直接在第一聲道原地混成單聲道，不另外配置一份記憶體
+        const mono = audioBuffer.getChannelData(0);
+        if (audioBuffer.numberOfChannels > 1) {
+          const right = audioBuffer.getChannelData(1);
+          for (let i = 0; i < mono.length; i++) mono[i] = (mono[i] + right[i]) * 0.5;
+        }
+        return mono;
+      },
+
+      // 目標每段 CHUNK_SEC 秒，在目標點前後 CUT_SEARCH_SEC 秒內找最安靜的
+      // 50ms 切下去，減少把一句話切成兩半
+      _planChunks(pcm) {
+        const sr = this.SAMPLE_RATE;
+        const target = this.CHUNK_SEC * sr;
+        const search = this.CUT_SEARCH_SEC * sr;
+        const frame = Math.round(0.05 * sr);
+        const ranges = [];
+        let start = 0;
+        while (pcm.length - start > target + search) {
+          let bestAt = start + target;
+          let bestEnergy = Infinity;
+          for (let f = start + target - search; f + frame <= start + target + search; f += frame) {
+            let energy = 0;
+            for (let k = f; k < f + frame; k++) energy += pcm[k] * pcm[k];
+            if (energy < bestEnergy) { bestEnergy = energy; bestAt = f + (frame >> 1); }
+          }
+          ranges.push([start, bestAt]);
+          start = bestAt;
+        }
+        ranges.push([start, pcm.length]);
+        return ranges;
+      },
+
+      async _runChunks(pcm, ranges, nbId, signal) {
+        const total = ranges.length;
+        const results = new Array(total);
+        let next = 0;
+        let committed = 0;
+        let finished = 0;
+        let added = 0;
+        let failure = null;
+        const startedAt = Date.now();
+
+        // 各段平行送出、回來先後不定；只把「從頭連續完成」的部分依序寫入
+        const commit = () => {
+          while (committed < total && results[committed] !== undefined) {
+            const text = (results[committed] || '').trim();
+            if (text) { NotebookStore.addCardTo(nbId, text); added++; }
+            committed++;
+          }
+        };
+        const report = () => {
+          const elapsed = Date.now() - startedAt;
+          const etaMs = finished > 0 ? elapsed / finished * (total - finished) : null;
+          UploadProgress.set({ stage: `正在轉成文字… 第 ${finished} / ${total} 段`, percent: finished / total, etaMs });
+        };
+        report();
+
+        const worker = async () => {
+          while (next < total && !failure && !signal.aborted) {
+            const i = next++;
+            const samples = pcm.subarray(ranges[i][0], ranges[i][1]);
+            try {
+              results[i] = await this._transcribeWithRetry(
+                () => this._encodeWav(samples, this._useMuLaw), `part${i + 1}.wav`, signal, true);
+            } catch (err) {
+              failure = failure || err;
+              return;
+            }
+            finished++;
+            commit();
+            report();
+          }
+        };
+        await Promise.all(Array.from({ length: Math.min(this.CONCURRENCY, total) }, worker));
+        if (!failure && signal.aborted) failure = new DOMException('aborted', 'AbortError');
+
+        // 中途失敗時，順序在後面但已完成的段落也保留，缺的地方留標記
+        if (failure) {
+          const lastDone = results.reduce((last, r, i) => (r !== undefined ? i : last), -1);
+          for (let i = committed; i <= lastDone; i++) {
+            const text = results[i] === undefined ? '⚠️（這裡約 10 分鐘沒有轉成功）' : (results[i] || '').trim();
+            if (text) { NotebookStore.addCardTo(nbId, text); if (results[i] !== undefined) added++; }
+          }
+        }
+        return { added, failure };
+      },
+
+      _encodeWav(samples, muLaw) {
+        const sr = this.SAMPLE_RATE;
+        const n = samples.length;
+        const bytesPerSample = muLaw ? 1 : 2;
+        const fmtSize = muLaw ? 18 : 16;
+        const headerSize = 12 + 8 + fmtSize + (muLaw ? 12 : 0) + 8;
+        const buf = new ArrayBuffer(headerSize + n * bytesPerSample);
+        const view = new DataView(buf);
+        let o = 0;
+        const str = s => { for (let i = 0; i < s.length; i++) view.setUint8(o++, s.charCodeAt(i)); };
+        const u32 = x => { view.setUint32(o, x, true); o += 4; };
+        const u16 = x => { view.setUint16(o, x, true); o += 2; };
+
+        str('RIFF'); u32(buf.byteLength - 8); str('WAVE');
+        str('fmt '); u32(fmtSize); u16(muLaw ? 7 : 1); u16(1); u32(sr); u32(sr * bytesPerSample); u16(bytesPerSample); u16(bytesPerSample * 8);
+        if (muLaw) { u16(0); str('fact'); u32(4); u32(n); } // 非 PCM 的 WAV 規格要求 fact 區塊
+        str('data'); u32(n * bytesPerSample);
+
+        if (muLaw) {
+          const out = new Uint8Array(buf, o);
+          for (let i = 0; i < n; i++) {
+            const s = samples[i] < -1 ? -1 : (samples[i] > 1 ? 1 : samples[i]);
+            out[i] = this._linearToMuLaw(s < 0 ? Math.round(s * 32768) : Math.round(s * 32767));
+          }
+        } else {
+          for (let i = 0; i < n; i++) {
+            const s = samples[i] < -1 ? -1 : (samples[i] > 1 ? 1 : samples[i]);
+            view.setInt16(o, s < 0 ? s * 32768 : s * 32767, true);
+            o += 2;
+          }
+        }
+        return new Blob([buf], { type: 'audio/wav' });
+      },
+
+      // G.711 μ-law 標準演算法
+      _linearToMuLaw(sample) {
+        const BIAS = 0x84;
+        const CLIP = 32635;
+        const sign = (sample >> 8) & 0x80;
+        if (sign) sample = -sample;
+        if (sample > CLIP) sample = CLIP;
+        sample += BIAS;
+        let exponent = 7;
+        for (let mask = 0x4000; (sample & mask) === 0 && exponent > 0; exponent--, mask >>= 1) { /* 找最高位 */ }
+        const mantissa = (sample >> (exponent + 3)) & 0x0F;
+        return ~(sign | (exponent << 4) | mantissa) & 0xFF;
+      },
+
+      async _transcribeWithRetry(getBlob, filename, signal, canFallback) {
+        for (let attempt = 0; ; attempt++) {
+          const keyBefore = KeyPoolManager.getActiveId('groq');
+          // 平行的其他段可能已經切換過格式，要依「這次實際送出的格式」判斷
+          const sentMuLaw = canFallback && this._useMuLaw;
+          try {
+            return await this._transcribeFile(getBlob(), filename, signal);
+          } catch (err) {
+            if (signal.aborted) throw new DOMException('aborted', 'AbortError');
+            // μ-law 是 WAV 的標準格式之一，但萬一辨識端不收，改送 16-bit（大一倍、一定支援）
+            if (sentMuLaw && err.status === 400) {
+              this._useMuLaw = false;
+              continue;
+            }
+            const keySwitched = KeyPoolManager.getActiveId('groq') !== keyBefore;
+            if (!(err.retryable || keySwitched) || attempt >= this.MAX_RETRY) throw err;
+            await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+          }
+        }
+      },
+
+      async _transcribeFile(file, filename, userSignal) {
         const apiKey = KeyPoolManager.getActiveKeyValue('groq');
+        if (!apiKey) throw new Error('沒有可用的語音金鑰');
         const formData = new FormData();
-        formData.append('file', file, file.name || 'upload.audio');
+        formData.append('file', file, filename || 'upload.audio');
         formData.append('model', 'whisper-large-v3-turbo');
 
         const langParams = LanguageManager.getParamsForSegment();
@@ -5162,61 +5455,103 @@
           formData.append('prompt', 'This is a recording of a meeting.');
         }
         formData.append('response_format', 'verbose_json');
-        formData.append('temperature', '0'); // 逐字稿場景不需要隨機性，降低靜音/雜訊段的幻覺機率
+        formData.append('temperature', '0');
 
-        const endpoint = 'https://api.groq.com/openai/v1/audio/transcriptions';
+        // 單段逾時與使用者取消合併；舊瀏覽器沒有 AbortSignal.any 時只保留取消
+        const signal = (typeof AbortSignal.any === 'function' && typeof AbortSignal.timeout === 'function')
+          ? AbortSignal.any([userSignal, AbortSignal.timeout(this.REQUEST_TIMEOUT_MS)])
+          : userSignal;
 
         let res;
         try {
-          res = await fetch(endpoint, {
+          res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
             method: 'POST',
-            // 長檔案可能等很久；沒有逾時的話網路卡住時會永遠停在「轉換中」
-            signal: typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(this.TIMEOUT_MS) : undefined,
             headers: { 'Authorization': `Bearer ${apiKey}` },
-            body: formData
+            body: formData,
+            signal
           });
         } catch (networkErr) {
-          if (networkErr.name === 'TimeoutError') throw new Error('等了 5 分鐘還沒轉完，檔案可能太長，請剪短後再試');
-          throw new Error('連不上語音辨識服務，請檢查網路：' + networkErr.message);
+          if (userSignal.aborted) throw networkErr;
+          const err = new Error(networkErr.name === 'TimeoutError'
+            ? '伺服器太久沒回應'
+            : '連不上語音辨識服務，請檢查網路');
+          err.retryable = true;
+          throw err;
         }
 
-        let data;
-        try {
-          data = await res.json();
-        } catch (parseErr) {
-          throw new Error('語音辨識服務回應異常（代碼 ' + res.status + '）');
-        }
+        let data = null;
+        try { data = await res.json(); } catch (e) { /* 非 JSON 回應，下面依狀態碼處理 */ }
 
         if (!res.ok) {
-          const apiMessage = (data && data.error && data.error.message) || ('HTTP ' + res.status);
-          // Groq：401 為 key 無效，429 為額度用完
-          if (res.status === 401) {
-            KeyPoolPanel.notifyFailure('groq', 'invalid', 'Groq');
-          } else if (res.status === 429) {
-            KeyPoolPanel.notifyFailure('groq', 'quota_exceeded', 'Groq');
-          }
-          throw new Error(apiMessage);
+          if (res.status === 401) KeyPoolPanel.notifyFailure('groq', 'invalid', 'Groq');
+          else if (res.status === 429) KeyPoolPanel.notifyFailure('groq', 'quota_exceeded', 'Groq');
+          const apiMessage = (data && data.error && data.error.message) || ('代碼 ' + res.status);
+          const err = new Error(res.status === 429 ? '今天（或這一小時）的免費額度用完了' : apiMessage);
+          err.status = res.status;
+          err.retryable = res.status >= 500;
+          throw err;
         }
 
-        LanguageManager.onDetectedLanguage(data.language);
-
-        // verbose_json 會回傳音訊實際長度，比用檔案大小推估準確
-        if (data.duration) QuotaMeter.add('groq', data.duration);
-
-        return data.text || '';
+        LanguageManager.onDetectedLanguage(data && data.language);
+        if (data && data.duration) QuotaMeter.add('groq', data.duration);
+        return (data && data.text) || '';
       },
 
-      // 從首頁上傳卻失敗時，不留下一本空筆記
+      // 從首頁上傳卻完全沒轉出內容時，不留下一本空筆記
       _discardIfEmpty(nbId, createdNew) {
         const nb = NotebookStore.get(nbId);
         if (!createdNew || !nb || nb.cards.length > 0) return;
         NotebookStore.remove(nbId);
-        if (View.current === 'home') Home.render();
+        Home.render();
       },
 
       _resetInput() {
         const input = document.getElementById('audioFileInput');
         if (input) input.value = '';
+      }
+    };
+
+    // 上傳進度視窗：長檔案要跑好幾分鐘，秒數持續跳動讓人知道還在動
+    const UploadProgress = {
+      _timer: null,
+      _startedAt: 0,
+
+      open(fileName) {
+        this._startedAt = Date.now();
+        document.getElementById('upFile').textContent = fileName || '';
+        document.getElementById('upEta').textContent = '';
+        this.set({ stage: '準備中…', indeterminate: true });
+        const elapsedEl = document.getElementById('upElapsed');
+        const pad = n => String(n).padStart(2, '0');
+        clearInterval(this._timer);
+        this._timer = setInterval(() => {
+          const s = Math.floor((Date.now() - this._startedAt) / 1000);
+          elapsedEl.textContent = `已經過 ${Math.floor(s / 60)}:${pad(s % 60)}`;
+        }, 1000);
+        elapsedEl.textContent = '已經過 0:00';
+        ModalUtil.show('uploadProgressModal');
+      },
+
+      set({ stage, percent, indeterminate, etaMs }) {
+        const bar = document.getElementById('upBar');
+        bar.classList.toggle('indeterminate', !!indeterminate);
+        if (!indeterminate) {
+          const pct = Math.round(Math.max(0, Math.min(1, percent || 0)) * 100);
+          document.getElementById('upFill').style.width = pct + '%';
+          bar.setAttribute('aria-valuenow', String(pct));
+        } else {
+          bar.removeAttribute('aria-valuenow');
+        }
+        if (stage) document.getElementById('upStage').textContent = stage;
+        if (etaMs != null) {
+          const min = Math.ceil(etaMs / 60000);
+          document.getElementById('upEta').textContent = etaMs < 60000 ? '快好了，不到 1 分鐘' : `大約還要 ${min} 分鐘`;
+        }
+      },
+
+      close() {
+        clearInterval(this._timer);
+        ModalUtil.hide('uploadProgressModal');
       }
     };
 
@@ -5641,6 +5976,14 @@
       isRecording: false,
       segmentTimer: null,
       SEGMENT_MS: 15000,
+      AUDIO_CONSTRAINTS: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: true,
+        channelCount: 1,
+        sampleRate: 48000
+      },
+      _hiddenAt: 0,
       SILENCE_RMS_THRESHOLD: 0.01,
 
       async isSegmentSilent(audioBlob) {
@@ -5695,15 +6038,7 @@
         LanguageManager.setSelectLocked(true);
 
         try {
-          this.stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: true,
-              channelCount: 1,
-              sampleRate: 48000
-            }
-          });
+          this.stream = await navigator.mediaDevices.getUserMedia({ audio: this.AUDIO_CONSTRAINTS });
 
           const track = this.stream.getAudioTracks()[0];
           if (track && track.getSettings) {
@@ -5711,6 +6046,7 @@
           }
 
           this.isRecording = true;
+          ScreenAwake.acquire();
           RecordScreen.onStarted();
           this.updateUI(true);
           this.startNewSegment();
@@ -5745,7 +6081,13 @@
           }
         };
 
-        this.mediaRecorder.start();
+        try {
+          this.mediaRecorder.start();
+        } catch (e) {
+          // 麥克風已被系統收回（例如在背景），等回到畫面由 _resumeIfNeeded 接手
+          console.warn('無法開始錄音片段：', e);
+          return;
+        }
 
         this.segmentTimer = setTimeout(() => {
           if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
@@ -5764,6 +6106,8 @@
           this.stream.getTracks().forEach(track => track.stop());
           this.stream = null;
         }
+        ScreenAwake.release();
+        this._hiddenAt = 0;
         this.updateUI(false);
         LanguageManager.setSelectLocked(false);
         RecordScreen.onStopped();
@@ -5890,6 +6234,39 @@
           } else {
             StorageToast.show('⚠️ 最後一段沒轉成功，筆記可能<b>少了結尾一小段</b>');
           }
+        }
+      },
+
+      // iOS 切到背景一定會關掉網頁的麥克風，Android 視瀏覽器而定。
+      // 切走當下把手上這段送出，至少不會連同之前說的一起遺失
+      onVisibilityChange() {
+        if (!this.isRecording) return;
+        if (document.hidden) {
+          this._hiddenAt = Date.now();
+          clearTimeout(this.segmentTimer);
+          if (this.mediaRecorder && this.mediaRecorder.state === 'recording') this.mediaRecorder.stop();
+          return;
+        }
+        this._resumeIfNeeded();
+      },
+
+      async _resumeIfNeeded() {
+        const gapSec = this._hiddenAt ? Math.round((Date.now() - this._hiddenAt) / 1000) : 0;
+        this._hiddenAt = 0;
+        const track = this.stream && this.stream.getAudioTracks()[0];
+        if (track && track.readyState === 'live' && !track.muted) {
+          if (!this.mediaRecorder || this.mediaRecorder.state !== 'recording') this.startNewSegment();
+          return;
+        }
+        try {
+          if (this.stream) this.stream.getTracks().forEach(t => t.stop());
+          this.stream = await navigator.mediaDevices.getUserMedia({ audio: this.AUDIO_CONSTRAINTS });
+          if (!this.isRecording) { this.stream.getTracks().forEach(t => t.stop()); return; }
+          this.startNewSegment();
+          StorageToast.show(`⚠️ 剛剛切出畫面，錄音中斷了約 <b>${gapSec} 秒</b>，已經自動接著錄`);
+        } catch (e) {
+          this.stop();
+          Dialog.alert('切出畫面後，麥克風被手機系統關掉了，錄音已停止。\n\n已經轉好的內容都還在，要繼續請按「🎙️ 繼續錄音」。', { icon: '🎤' });
         }
       },
 
@@ -6064,13 +6441,14 @@
 
       _apply(name) {
         this.current = name;
+        document.body.dataset.view = name;
         this.NAMES.forEach(n => {
           document.getElementById('view' + n.charAt(0).toUpperCase() + n.slice(1))
             .classList.toggle('hidden', n !== name);
         });
         window.scrollTo(0, 0);
+        Home.render();
         const onEnter = {
-          home: () => Home.render(),
           notebook: () => Notebook.render(),
           settings: () => {
             SettingsPanel.render();
@@ -6229,7 +6607,7 @@
         const items = NotebookStore.list.slice().sort((a, b) => b.updatedAt - a.updatedAt);
         document.getElementById('homeEmpty').classList.toggle('hidden', items.length > 0);
         listEl.innerHTML = items.map(nb => `
-          <button class="nb-item ${nb.source === 'upload' ? 'upload' : ''}" onclick="Notebook.open('${nb.id}')">
+          <button class="nb-item ${nb.source === 'upload' ? 'upload' : ''} ${nb.id === NotebookStore.activeId && View.current !== 'home' ? 'active' : ''}" onclick="Notebook.open('${nb.id}')">
             <span class="nb-icon" aria-hidden="true">${nb.source === 'upload' ? '📁' : '🎙️'}</span>
             <span class="nb-main">
               <span class="nb-title">${Utils.escapeHtml(nb.title)}</span>
@@ -6252,7 +6630,7 @@
 
       // 精靈驗證金鑰要等網路回應，回來時點擊的使用者互動已失效，
       // 無法再自動開檔案選擇器，只能請使用者再按一次
-      pickFile() {
+      pickFile(append = false) {
         if (!this._hasGroqKey()) {
           KeyWizard.open('groq', () => Dialog.alert('設定完成！再按一次 📁 就能選擇錄音檔。', { icon: '✅' }));
           return;
@@ -6261,6 +6639,7 @@
           Dialog.alert('上一個檔案還在轉文字中，請等它完成再上傳下一個。', { icon: '⏳' });
           return;
         }
+        FileUploadTranscribe._appendNext = append;
         // 上傳一樣會把他人聲音送去第三方辨識，須知與錄音共用；
         // 在「同意」的點擊當下開選檔器，才不會被瀏覽器擋掉
         const openPicker = () => document.getElementById('audioFileInput').click();
@@ -6269,6 +6648,22 @@
           return;
         }
         openPicker();
+      },
+
+      // 拖放進來的檔案一律開新筆記，避免誤加進右邊正打開的那本
+      uploadFiles(files) {
+        if (!files || files.length === 0) return;
+        if (!this._hasGroqKey()) {
+          KeyWizard.open('groq', () => Dialog.alert('設定完成！請再拖放一次錄音檔。', { icon: '✅' }));
+          return;
+        }
+        FileUploadTranscribe._appendNext = false;
+        const go = () => FileUploadTranscribe.onFileSelected(files);
+        if (RecordNotice.shouldShow()) {
+          RecordNotice.show(go, '同意，開始轉換');
+          return;
+        }
+        go();
       }
     };
 
@@ -6619,7 +7014,7 @@
           merge: () => editMode('merge'),
           reorder: () => editMode('reorder'),
           select: () => editMode('select'),
-          upload: () => Home.pickFile(),
+          upload: () => Home.pickFile(true),
           rename: () => Notebook.rename(),
           mindmap: () => this._requireSummary('mindmap'),
           terms: () => this._requireSummary('terms'),
@@ -6628,6 +7023,68 @@
           delete: () => Notebook.remove()
         };
         if (actions[action]) actions[action]();
+      }
+    };
+
+
+    // 錄音與長檔案處理時讓螢幕不要自動關閉。切到背景時系統會自動
+    // 釋放，回到畫面再要一次；不支援的瀏覽器只剩畫面上的提醒文字
+    const ScreenAwake = {
+      _lock: null,
+      _wanted: 0,
+
+      acquire() {
+        this._wanted++;
+        this._request();
+      },
+
+      release() {
+        this._wanted = Math.max(0, this._wanted - 1);
+        if (this._wanted === 0 && this._lock) {
+          this._lock.release().catch(() => { /* 已被系統釋放 */ });
+          this._lock = null;
+        }
+      },
+
+      async _request() {
+        if (!('wakeLock' in navigator) || this._lock || document.hidden || this._wanted === 0) return;
+        try {
+          this._lock = await navigator.wakeLock.request('screen');
+          this._lock.addEventListener('release', () => { this._lock = null; });
+        } catch (e) { /* 不支援、省電模式或被拒絕 */ }
+      }
+    };
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) ScreenAwake._request();
+      DictationEngine.onVisibilityChange();
+    });
+
+    // 電腦版：直接把錄音檔拖進視窗。dragenter／dragleave 在子元素間
+    // 移動時會成對觸發，用計數判斷是否真的離開視窗
+    const DropUpload = {
+      init() {
+        let depth = 0;
+        const overlay = document.getElementById('dropOverlay');
+        const hasFiles = e => !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+        document.addEventListener('dragenter', e => {
+          if (!hasFiles(e)) return;
+          e.preventDefault();
+          depth++;
+          overlay.classList.add('show');
+        });
+        document.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+        document.addEventListener('dragleave', e => {
+          if (!hasFiles(e)) return;
+          depth = Math.max(0, depth - 1);
+          if (depth === 0) overlay.classList.remove('show');
+        });
+        document.addEventListener('drop', e => {
+          if (!hasFiles(e)) return;
+          e.preventDefault();
+          depth = 0;
+          overlay.classList.remove('show');
+          Home.uploadFiles(e.dataTransfer.files);
+        });
       }
     };
 
@@ -6664,6 +7121,7 @@
         SharedSheetNotes.resetUI();
         updateKeyMissingHints();
         View._apply('home');
+        DropUpload.init();
         Onboarding.initOnLoad();
       }
     };
