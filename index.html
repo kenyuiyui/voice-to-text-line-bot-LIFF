@@ -1897,6 +1897,7 @@
             <div class="summary-pool-list" id="summaryPoolList"></div>
 
             <button class="btn-summary-generate" id="summaryGenerateBtn" onclick="SummaryModule.generate()">✨ 產生重點摘要</button>
+            <button class="link-btn hidden" id="summaryCancelBtn" onclick="SummaryModule.cancel()">取消</button>
 
           <!-- 摘要結果的次級分頁：摘要／待辦事項／心智圖同層切換，
                固定在同一個區塊高度內，不需要滑動穿越三塊內容。
@@ -4124,23 +4125,56 @@
         }
 
         this.isGenerating = true;
+        this._genAbort = new AbortController();
         this._setLoadingUI(true);
 
         try {
-          const summaryData = await this._callGemini(items, apiKey);
+          const summaryData = await this._callGemini(items, apiKey, this._genAbort.signal);
           if (!summaryData || !summaryData.summary) throw new Error('AI 沒有回傳摘要內容');
           this._renderSummary(summaryData);
           this._persist(summaryData);
         } catch (err) {
-          console.error('生成 AI 摘要失敗：', err);
-          this._renderError('整理重點失敗了，請稍後再試一次。\n（原因：' + err.message + '）');
+          if (err.name === 'AbortError') {
+            this._renderError('已取消整理。');
+          } else {
+            console.error('生成 AI 摘要失敗：', err);
+            this._renderError('整理重點失敗了，請稍後再試一次。\n（原因：' + err.message + '）');
+          }
         } finally {
           this.isGenerating = false;
+          this._genAbort = null;
           this._setLoadingUI(false);
         }
       },
 
-      async _callGemini(items, apiKey) {
+      // Gemini 的思考等級維持官方預設（品質較好），但一定要有逾時：
+      // 原本沒有逾時，請求一卡住畫面就永遠停在「整理中」，只能重整頁面。
+      // 思考模式本來就慢，逾時放寬到 3 分鐘；等待期間畫面會顯示秒數並可取消。
+      GEMINI_TIMEOUT_MS: 180000,
+
+      async _fetchGemini(endpoint, payload, apiKey, userSignal) {
+        const timeout = AbortSignal.timeout ? AbortSignal.timeout(this.GEMINI_TIMEOUT_MS) : null;
+        const signal = (userSignal && timeout && AbortSignal.any)
+          ? AbortSignal.any([userSignal, timeout])
+          : (userSignal || timeout || undefined);
+
+        try {
+          return await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+            body: JSON.stringify(payload),
+            signal
+          });
+        } catch (networkErr) {
+          if (userSignal && userSignal.aborted) throw networkErr;
+          if (networkErr.name === 'TimeoutError') {
+            throw new Error(`等了 ${Math.round(this.GEMINI_TIMEOUT_MS / 60000)} 分鐘還沒回應。內容較長時容易這樣，可以減少要整理的段落再試一次。`);
+          }
+          throw new Error('連不上 AI 服務，請檢查網路連線：' + networkErr.message);
+        }
+      },
+
+      async _callGemini(items, apiKey, signal) {
         const modelName = this.GEMINI_MODEL || 'gemini-2.5-flash';
         const preset = this.SCENE_PRESETS[this.currentScene] || this.SCENE_PRESETS.meeting;
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
@@ -4158,7 +4192,7 @@
         }).join('\n\n');
 
         const sourceNote = hasMultipleItems
-          ? '\n\n這份逐字稿是由多個段落合併而成（可能來自不同人分別整理、或同一場會議的不同時段），每個段落前面用【標籤】標示來源，已按照指定順序排列。請將其視為同一場會議或討論的完整內容，整合成單一份摘要，不需要逐段分別摘要或特別區分是誰整理的。'
+          ? '- 這份逐字稿由多個段落合併而成（可能來自不同人分別整理，或同一場的不同時段），每段前面用【標籤】標示來源並已排好順序。請視為同一場的完整內容整合成單一份摘要，不要逐段分別摘要，也不需區分是誰整理的\n'
           : '';
 
         // 語音卡片若開啟即時翻譯，內容會是「原文\n語言代碼: 翻譯」的
@@ -4167,7 +4201,7 @@
         // 沒用到翻譯功能時也徒增無謂的 token 與干擾。
         const hasTranslationLines = /^(zh|en|ja|ko): /m.test(fullText);
         const translationNote = hasTranslationLines
-          ? '\n\n逐字稿中某些行是「語言代碼: 內容」的格式（例如 "zh: 你好"），這是上一行原文的翻譯，不是新的發言或獨立內容。請以原文為準理解語意，翻譯行只是輔助對照，不要把翻譯行當成額外的重點重複摘要一次。'
+          ? '- 「語言代碼: 內容」格式的行（例如 `zh: 你好`）是上一行原文的翻譯，不是新的發言。請以原文理解語意，不要把翻譯行當成額外的重點再摘要一次\n'
           : '';
 
         // 結構化輸出：待辦事項、來源引用，用 responseSchema 強制
@@ -4183,14 +4217,22 @@
                     preset.role + '\n' +
                     '</role>\n\n' +
                     '<demand>\n' +
-                    '1. ' + preset.summaryRule + '直接輸出整理結果，不需要額外的開場白或結語。重點之間必須用換行字元分開，不可以把多個重點寫在同一行或同一段落裡。\n' +
-                    '2. ' + preset.actionRule + '\n' +
-                    '3. sourceRefs：列出 summary 中每一個重點對應到逐字稿的哪一個【標籤】段落（若原始逐字稿沒有分段標籤，此欄位回傳空陣列 []）。每一項包含 point（摘要中的那一點文字，簡短即可）與 label（對應的段落標籤名稱）。\n' +
-                    '4. 只根據 <meeting_log> 內的實際內容作答，不可自行補充或推論未提及的資訊。\n' +
-                    '5. 這份逐字稿由語音辨識產生，可能含有同音錯字、斷句錯誤或口語贅詞。請依上下文理解真正的語意，不要被個別錯字誤導；但也不要自行腦補逐字稿中完全沒有出現的內容。\n' +
+                    '## 摘要（summary）\n\n' +
+                    '- ' + preset.summaryRule.replace(/^summary：/, '') + '\n' +
+                    '- 直接輸出整理結果，不要開場白或結語\n' +
+                    '- 每個重點各自獨立一行，不可以把多個重點寫在同一行或同一段\n\n' +
+                    '## 待辦（actionItems）\n\n' +
+                    '- ' + preset.actionRule.replace(/^actionItems：/, '') + '\n\n' +
+                    '## 來源對應（sourceRefs）\n\n' +
+                    '- 列出 `summary` 中每個重點對應到逐字稿的哪一個【標籤】段落\n' +
+                    '- 每一項包含 `point`（摘要中的那一點，簡短即可）與 `label`（段落標籤名稱）\n' +
+                    '- 原始逐字稿沒有分段標籤時，回傳空陣列 `[]`\n\n' +
+                    '## 共同規則\n\n' +
+                    '- 只根據 `<meeting_log>` 內的實際內容作答，不可自行補充或推論未提及的資訊\n' +
+                    '- 這份逐字稿由語音辨識產生，可能含有同音錯字、斷句錯誤或口語贅詞；請依上下文理解真正的語意，不要被個別錯字誤導，但也不要腦補逐字稿中完全沒有出現的內容\n' +
                     sourceNote +
                     translationNote +
-                    '\n</demand>\n'
+                    '</demand>\n'
             }]
           },
           contents: [{
@@ -4234,19 +4276,7 @@
           }
         };
 
-        let res;
-        try {
-          res = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': apiKey
-            },
-            body: JSON.stringify(payload)
-          });
-        } catch (networkErr) {
-          throw new Error('無法連線到 Gemini 伺服器，請檢查網路連線：' + networkErr.message);
-        }
+        const res = await this._fetchGemini(endpoint, payload, apiKey, signal);
 
         let data;
         try {
@@ -4335,7 +4365,7 @@
       // 心智圖以「已生成的摘要文字」為輸入而非原始逐字稿，確保心智圖
       // 與摘要呈現內容一致。只在使用者切到心智圖分頁時才觸發，不隨
       // 摘要生成自動執行。
-      async _callGeminiMindmap(summaryText, apiKey) {
+      async _callGeminiMindmap(summaryText, apiKey, signal) {
         const modelName = this.GEMINI_MODEL || 'gemini-2.5-flash';
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
@@ -4347,15 +4377,20 @@
           systemInstruction: {
             parts: [{
               text: '<role>\n' +
-                    '你是一個心智圖整理助手。請針對使用者在下方 <summary_text> 標籤內提供的會議摘要文字，整理成階層式心智圖大綱。\n' +
+                    '你是一個心智圖整理助手。請把 `<summary_text>` 裡的摘要整理成階層式心智圖大綱。\n' +
                     '</role>\n\n' +
                     '<demand>\n' +
-                    '1. 只根據 <summary_text> 裡的內容整理，不可額外補充摘要沒有提到的資訊，也不可遺漏摘要中的重點。\n' +
-                    '2. 用 Markdown 格式輸出：第一行必須是 "# " 開頭的整體主題（作為心智圖的根節點），接下來每一層子項目都用清單並以縮排表示層級（每層用兩個半形空白縮排，"- " 開頭）。\n' +
-                    '3. 最多三層、最多 25 個節點，避免內容過於冗長；把摘要中相關的重點歸納到同一個子主題下。\n' +
-                    '4. 節點文字要短：主題與子主題 12 個字以內，最底層 25 個字以內。用關鍵詞或短語，不要寫成完整句子，也不要在節點裡放多個重點。\n' +
-                    '4. 直接輸出心智圖大綱本身，不需要額外的開場白、結語或程式碼區塊標記。範例格式：\n# 整體主題\n- 子主題1\n  - 細節A\n  - 細節B\n- 子主題2\n  - 細節C\n' +
-                    '\n</demand>\n'
+                    '## 輸出格式\n\n' +
+                    '- 第一行是 `# 整體主題`，作為心智圖的根節點\n' +
+                    '- 其餘每一層都用 `- ` 清單，每深一層多兩個半形空白縮排\n' +
+                    '- 直接輸出大綱本身，不要開場白、結語或程式碼區塊標記\n\n' +
+                    '## 內容規則\n\n' +
+                    '- 只根據 `<summary_text>` 的內容整理，不補充摘要沒提到的資訊，也不遺漏摘要中的重點\n' +
+                    '- 最多三層、最多 25 個節點，把相關的重點歸納到同一個子主題下\n' +
+                    '- 節點文字要短：主題與子主題 12 個字以內，最底層 25 個字以內。用關鍵詞或短語，不要寫成完整句子，也不要在一個節點裡放多個重點\n\n' +
+                    '## 範例\n\n' +
+                    '```\n# 整體主題\n- 子主題1\n  - 細節A\n  - 細節B\n- 子主題2\n  - 細節C\n```\n' +
+                    '</demand>\n'
             }]
           },
           contents: [{
@@ -4366,19 +4401,7 @@
           }]
         };
 
-        let res;
-        try {
-          res = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': apiKey
-            },
-            body: JSON.stringify(payload)
-          });
-        } catch (networkErr) {
-          throw new Error('無法連線到 Gemini 伺服器，請檢查網路連線：' + networkErr.message);
-        }
+        const res = await this._fetchGemini(endpoint, payload, apiKey, signal);
 
         let data;
         try {
@@ -4464,16 +4487,31 @@
         // localStorage 還原回上一次成功保存的內容
       },
 
+      // 等待時要看得出還在動，並且隨時可以取消
       _setLoadingUI(loading) {
         const btn = document.getElementById('summaryGenerateBtn');
         const box = document.getElementById('summaryOutputBox');
+        const cancelBtn = document.getElementById('summaryCancelBtn');
         btn.disabled = loading;
         btn.textContent = loading ? '⏳ 整理中…' : '✨ 產生重點摘要';
-        if (loading) {
-          box.classList.remove('empty');
-          box.classList.add('loading');
-          box.textContent = 'AI 正在整理重點，請稍等一下…（內容越長越久）';
-        }
+        if (cancelBtn) cancelBtn.classList.toggle('hidden', !loading);
+
+        clearInterval(this._loadingTimer);
+        if (!loading) return;
+
+        box.classList.remove('empty');
+        box.classList.add('loading');
+        const startedAt = Date.now();
+        const tick = () => {
+          const sec = Math.round((Date.now() - startedAt) / 1000);
+          box.textContent = `AI 正在整理重點，請稍等…（已經過 ${sec} 秒，內容越長越久）`;
+        };
+        tick();
+        this._loadingTimer = setInterval(tick, 1000);
+      },
+
+      cancel() {
+        if (this._genAbort) this._genAbort.abort();
       },
 
       _persist(data) {
@@ -4699,7 +4737,7 @@
         if (hint) { hint.textContent = '正在根據摘要內容整理心智圖，請稍候...'; }
 
         try {
-          const outline = await this._callGeminiMindmap(this.currentSummary.summary, apiKey);
+          const outline = await this._callGeminiMindmap(this.currentSummary.summary, apiKey, null);
           this.currentSummary.mindmapOutline = outline;
           this._persist(this.currentSummary);
           this._renderMindmap(this.currentSummary);
@@ -4744,7 +4782,7 @@
         if (hint) { hint.textContent = '正在從逐字稿中抽取專有名詞與上下文，請稍候...'; }
 
         try {
-          const terms = await this._callGeminiTerms(items, apiKey);
+          const terms = await this._callGeminiTerms(items, apiKey, null);
           if (!terms.length) {
             if (hint) { hint.textContent = '這份逐字稿中沒有抽取到明顯的專有名詞。'; }
             return;
@@ -4763,7 +4801,7 @@
 
       currentTerms: null,
 
-      async _callGeminiTerms(items, apiKey) {
+      async _callGeminiTerms(items, apiKey, signal) {
         const modelName = this.GEMINI_MODEL || 'gemini-2.5-flash';
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
@@ -4775,14 +4813,19 @@
           systemInstruction: {
             parts: [{
               text: '<role>\n' +
-                    '你是一個專有名詞抽取工具。請從使用者提供的逐字稿中，找出專業術語、學術名詞、機構名稱、專有地名、法規名稱等專有名詞。\n' +
+                    '你是一個專有名詞抽取工具。請從 `<transcript>` 裡找出專業術語、學術名詞、機構名稱、專有地名、法規名稱等專有名詞。\n' +
                     '</role>\n\n' +
                     '<demand>\n' +
-                    '1. 這份逐字稿由語音辨識產生，可能含有同音錯字。抽取時請「保留逐字稿中實際出現的原始寫法」，不要自行修正——後續會由具備搜尋能力的工具來判斷正確寫法。\n' +
-                    '2. 每個名詞附上它在逐字稿中出現的那一句或前後文（context），長度控制在 60 字以內，保留原文不要改寫。上下文是後續判斷正確寫法的唯一依據，務必忠實擷取。\n' +
-                    `3. 最多抽取 ${this.MAX_TERMS} 個。超過時，優先保留講者著墨較多、或對理解主題較關鍵的名詞。\n` +
-                    '4. 只抽真正的專有名詞。一般動詞、形容詞、常見日常詞彙不要抽。同一個名詞只出現一次，不要重複。\n' +
-                    '5. 如果逐字稿中沒有任何專有名詞，回傳空陣列 []。\n' +
+                    '## 抽取規則\n\n' +
+                    '- 保留逐字稿中**實際出現的原始寫法**，不要自行修正同音錯字（後續會由具備搜尋能力的工具判斷正確寫法）\n' +
+                    '- 只抽真正的專有名詞；一般動詞、形容詞、常見日常詞彙不要抽\n' +
+                    '- 同一個名詞只出現一次，不要重複\n' +
+                    `- 最多抽取 ${this.MAX_TERMS} 個；超過時優先保留講者著墨較多、或對理解主題較關鍵的名詞\n\n` +
+                    '## context 欄位\n\n' +
+                    '- 附上該名詞在逐字稿中出現的那一句或前後文\n' +
+                    '- 60 個字以內，忠實擷取原文、不要改寫（這是後續判斷正確寫法的唯一依據）\n\n' +
+                    '## 沒有結果時\n\n' +
+                    '- 逐字稿中沒有任何專有名詞就回傳空陣列 `[]`\n' +
                     '</demand>\n'
             }]
           },
@@ -4806,16 +4849,7 @@
           }
         };
 
-        let res;
-        try {
-          res = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-            body: JSON.stringify(payload)
-          });
-        } catch (networkErr) {
-          throw new Error('無法連線到 Gemini 伺服器，請檢查網路連線：' + networkErr.message);
-        }
+        const res = await this._fetchGemini(endpoint, payload, apiKey, signal);
 
         let data;
         try {
