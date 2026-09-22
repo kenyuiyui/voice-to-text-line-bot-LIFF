@@ -24,7 +24,7 @@
     base-uri 'self';
     form-action 'none';
   ">
-  <title>語音卡片筆記-語音轉文字Linebot</title>
+  <title>語音筆記｜說話自動變文字</title>
   <meta name="description" content="語音卡片筆記：透過 LINE 官方帳號即可使用的語音轉文字筆記工具。支援錄音、共享 Google Sheet 筆記、AI 摘要（中英日韓混雜語音辨識），不用另外安裝 App，加好友就能用。">
 
   <!-- Open Graph：讓 LINE /社群分享連結時顯示正確標題與描述。
@@ -839,6 +839,351 @@
       border: 1px solid var(--line-green); background: var(--line-green-tint); cursor: pointer;
       font-size: 12px; padding: 6px 10px; border-radius: 8px; color: var(--line-green-dark); font-weight: 600;
     }
+
+    /* ================= 2026-09 介面改版 =================
+       設計原則：一眼看圖示就懂、主要按鈕夠大（至少 48px 高）、
+       字級不小於 14px，舊樣式保留給進階區塊沿用，這裡只做覆蓋。 */
+    :root {
+      --radius-lg: 20px;
+      --shadow-soft: 0 2px 10px rgba(16, 24, 40, .06);
+      --shadow-pop: 0 10px 30px rgba(16, 24, 40, .16);
+      --rec-red: #ef4444;
+    }
+    body { font-size: 15px; -webkit-tap-highlight-color: transparent; }
+    .app { min-height: 100dvh; }
+    .view { display: flex; flex-direction: column; min-height: 100dvh; }
+    .view main { flex: 1; padding: 12px 16px 120px; }
+    button { font-family: inherit; }
+    :focus-visible { outline: 3px solid var(--line-green); outline-offset: 2px; }
+
+    .icon-btn {
+      width: 44px; height: 44px; border-radius: 50%; border: none; background: transparent;
+      font-size: 22px; line-height: 1; cursor: pointer; color: var(--ink); flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .icon-btn:active { background: var(--border); }
+    .icon-btn-spacer { width: 44px; flex-shrink: 0; }
+    .link-btn {
+      display: block; margin: 12px auto 0; border: none; background: none; color: var(--line-green-dark);
+      font-size: 14px; font-weight: 600; cursor: pointer; padding: 8px; text-decoration: underline; text-underline-offset: 3px;
+    }
+
+    /* ---------- 頂部列 ---------- */
+    .topbar {
+      position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 4px;
+      padding: 6px 6px; background: var(--card-bg); border-bottom: 1px solid var(--border);
+    }
+    .topbar-title {
+      flex: 1; min-width: 0; text-align: center; font-size: 17px; font-weight: 700;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink);
+    }
+    .topbar-title.as-btn { border: none; background: none; cursor: pointer; padding: 8px 4px; }
+    .topbar-title.as-btn::after { content: ' ✎'; font-size: 13px; color: var(--ink-faint); }
+
+    /* ---------- 首頁 ---------- */
+    .home-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 12px 10px 20px; background: var(--bg);
+    }
+    .brand { display: flex; align-items: center; gap: 8px; }
+    .brand-icon {
+      width: 40px; height: 40px; border-radius: 12px; background: var(--line-green);
+      display: inline-flex; align-items: center; justify-content: center; font-size: 22px;
+    }
+    .home-header h1 { font-size: 26px; font-weight: 800; margin: 0; letter-spacing: .5px; }
+    .header-actions { display: flex; gap: 2px; }
+
+    .setup-banner, .setup-card {
+      display: flex; align-items: center; gap: 12px; margin: 6px 16px 10px; padding: 14px 16px;
+      border-radius: 16px; background: #fff7e0; border: 1.5px solid #f5c542; cursor: pointer;
+    }
+    .setup-card { margin: 0 0 14px; background: #f3efff; border-color: #b9a6ff; }
+    .setup-banner-icon { font-size: 28px; flex-shrink: 0; }
+    .setup-banner-text { flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: var(--ink-soft); }
+    .setup-banner-text b { font-size: 16px; color: var(--ink); }
+    .chev { font-size: 26px; color: var(--ink-faint); }
+
+    .nb-list { display: flex; flex-direction: column; gap: 10px; padding: 4px 16px 140px; }
+    .nb-item {
+      display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; cursor: pointer;
+      padding: 16px; border: none; border-radius: var(--radius-lg); background: var(--card-bg);
+      box-shadow: var(--shadow-soft); color: var(--ink);
+    }
+    .nb-item:active { transform: scale(.985); }
+    .nb-icon {
+      width: 48px; height: 48px; border-radius: 14px; background: var(--line-green-tint);
+      display: inline-flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0;
+    }
+    .nb-item.upload .nb-icon { background: #e8f0ff; }
+    .nb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .nb-title { font-size: 17px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .nb-meta { font-size: 13.5px; color: var(--ink-soft); }
+    .nb-chev { font-size: 24px; color: var(--ink-faint); }
+
+    .home-empty { text-align: center; padding: 40px 24px 160px; color: var(--ink-soft); }
+    .home-empty-art { font-size: 72px; line-height: 1; margin-bottom: 14px; }
+    .home-empty-title { font-size: 20px; font-weight: 800; color: var(--ink); margin-bottom: 8px; }
+    .home-empty-desc { font-size: 16px; line-height: 1.7; }
+    .home-empty-arrow { font-size: 36px; margin-top: 18px; color: var(--line-green); animation: bob 1.4s ease-in-out infinite; }
+    @keyframes bob { 50% { transform: translateY(8px); } }
+
+    .home-dock {
+      position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom));
+      display: flex; gap: 14px; align-items: center; z-index: 30; width: max-content;
+    }
+    .dock-round {
+      width: 64px; height: 64px; border-radius: 50%; border: none; background: var(--card-bg);
+      box-shadow: var(--shadow-pop); font-size: 24px; cursor: pointer; color: var(--ink);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+    }
+    .dock-round small { font-size: 11px; color: var(--ink-soft); font-weight: 600; }
+    .dock-main {
+      height: 64px; padding: 0 30px; border-radius: 32px; border: none; background: var(--line-green); color: #fff;
+      font-size: 19px; font-weight: 800; box-shadow: var(--shadow-pop); cursor: pointer;
+      display: inline-flex; align-items: center; gap: 8px; letter-spacing: 1px; white-space: nowrap;
+    }
+    .dock-main span { font-size: 24px; }
+    .dock-main:active, .dock-round:active { transform: scale(.96); }
+    .pulse { animation: pulse 1.2s ease-out infinite; }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(6, 199, 85, .55), var(--shadow-pop); }
+      100% { box-shadow: 0 0 0 22px rgba(6, 199, 85, 0), var(--shadow-pop); }
+    }
+
+    /* ---------- 錄音畫面 ---------- */
+    .rec-body { flex: 1; padding: 12px 16px 200px; display: flex; flex-direction: column; gap: 12px; }
+    .rec-options { background: var(--card-bg); border-radius: 16px; padding: 4px 12px; box-shadow: var(--shadow-soft); }
+    .opt-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+    .opt-row + .opt-row { border-top: 1px solid var(--border); }
+    .opt-icon { font-size: 22px; flex-shrink: 0; }
+    .opt-label { flex: 1; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .opt-switch input { width: 22px; height: 22px; accent-color: var(--line-green); }
+    .opt-row select {
+      font-size: 15px; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--ink); max-width: 52%;
+    }
+    .rec-options.locked { opacity: .55; pointer-events: none; }
+    .btn-help-icon {
+      width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--card-bg);
+      color: var(--ink-soft); font-weight: 800; font-size: 14px; cursor: pointer; flex-shrink: 0; padding: 0;
+    }
+    #viewRecord .meeting-mode { border: none; box-shadow: var(--shadow-soft); border-radius: var(--radius-lg); padding: 24px 16px; }
+    .rec-timer { font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 10px; letter-spacing: 2px; }
+    #viewRecord .rec-status-text { font-size: 17px; }
+    #viewRecord .rec-sub-text { font-size: 14px; }
+    #viewRecord .live-preview-list { max-height: 34vh; margin-top: 14px; font-size: 15px; }
+    #viewRecord .live-preview-list:empty { display: none; }
+    .rec-footer {
+      position: fixed; left: 50%; transform: translateX(-50%); bottom: 0; width: 100%; max-width: 480px;
+      padding: 14px 20px calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 30%);
+      display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 25;
+    }
+    #viewRecord .btn-record-toggle {
+      width: 100%; height: 64px; border-radius: 32px; font-size: 19px; font-weight: 800; letter-spacing: 1px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    #viewRecord .btn-record-toggle.start { background: var(--rec-red); color: #fff; border: none; }
+    #viewRecord .btn-record-toggle.start::before { content: ''; width: 18px; height: 18px; border-radius: 50%; background: #fff; }
+    #viewRecord .btn-record-toggle.stop { background: var(--ink); color: #fff; border: none; }
+    #viewRecord .btn-record-toggle.stop::before { content: ''; width: 16px; height: 16px; border-radius: 3px; background: #fff; }
+    #viewRecord .quota-mini { width: 100%; }
+
+    /* ---------- 單本筆記 ---------- */
+    .seg {
+      display: flex; gap: 6px; padding: 10px 16px 4px; background: var(--bg); position: sticky; top: 57px; z-index: 15;
+    }
+    .seg button {
+      flex: 1; height: 46px; border-radius: 23px; border: 1.5px solid var(--border); background: var(--card-bg);
+      font-size: 15.5px; font-weight: 700; color: var(--ink-soft); cursor: pointer;
+    }
+    .seg button.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+    #viewNotebook .card { font-size: 16px; line-height: 1.75; }
+    #viewNotebook .edit-mode-hint {
+      display: none; position: sticky; top: 114px; z-index: 14; align-items: center; gap: 10px;
+      font-size: 14.5px; padding: 12px 12px 12px 14px; border-radius: 14px; margin-bottom: 10px;
+    }
+    #viewNotebook .edit-mode-hint.show { display: flex; }
+    #editModeHintText { flex: 1; }
+    .edit-done-btn {
+      flex-shrink: 0; border: none; background: var(--line-green); color: #fff; font-weight: 800;
+      font-size: 15px; padding: 10px 16px; border-radius: 12px; cursor: pointer;
+    }
+    .empty-state { text-align: center; color: var(--ink-soft); padding: 40px 16px; font-size: 15.5px; line-height: 1.8; }
+    .empty-state .empty-icon { font-size: 54px; line-height: 1.2; margin-bottom: 8px; }
+    #viewNotebook .action-bar {
+      display: block; position: fixed; left: 50%; transform: translateX(-50%); bottom: 0; width: 100%; max-width: 480px;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: var(--card-bg);
+      border-top: 1px solid var(--border); z-index: 25;
+    }
+    #viewNotebook .send-btn-row { display: flex; gap: 10px; }
+    #viewNotebook .send-btn-row button { flex: 1; height: 54px; font-size: 16.5px; font-weight: 800; border-radius: 16px; }
+
+    .field-title { font-size: 15px; font-weight: 800; margin: 2px 0 10px; }
+    .scene-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .scene-chip {
+      display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 4px; cursor: pointer;
+      border-radius: 14px; border: 1.5px solid var(--border); background: var(--card-bg);
+      font-size: 14px; font-weight: 700; color: var(--ink-soft);
+    }
+    .scene-chip span { font-size: 26px; }
+    .scene-chip.active { border-color: var(--line-green); background: var(--line-green-tint); color: var(--ink); }
+    #viewNotebook .summary-scene-desc { font-size: 13.5px; margin: 8px 2px 12px; }
+    #viewNotebook .summary-pool-hint { font-size: 14px; line-height: 1.6; margin-bottom: 10px; }
+    #viewNotebook .btn-summary-generate, #viewShared .btn-summary-generate {
+      width: 100%; height: 56px; font-size: 17px; font-weight: 800; border-radius: 16px;
+    }
+    #viewNotebook .summary-output { font-size: 15.5px; line-height: 1.8; }
+
+    /* ---------- 底部選單 ---------- */
+    .sheet-overlay { align-items: flex-end; }
+    .sheet {
+      width: 100%; max-width: 480px; background: var(--card-bg); border-radius: 24px 24px 0 0;
+      padding: 8px 16px calc(16px + env(safe-area-inset-bottom)); animation: sheetUp .22s ease-out;
+    }
+    @keyframes sheetUp { from { transform: translateY(40px); opacity: 0; } }
+    .sheet-handle { width: 44px; height: 5px; border-radius: 3px; background: var(--border); margin: 4px auto 12px; }
+    .sheet-title { font-size: 13.5px; font-weight: 800; color: var(--ink-soft); margin: 6px 4px 10px; }
+    .tile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 8px; }
+    .tile {
+      display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 4px; cursor: pointer;
+      border: none; border-radius: 16px; background: var(--bg); font-size: 14px; font-weight: 700; color: var(--ink);
+    }
+    .tile span { font-size: 28px; line-height: 1; }
+    .tile:active { background: var(--border); }
+    .sheet-danger, .sheet-cancel {
+      width: 100%; height: 50px; margin-top: 8px; border-radius: 14px; font-size: 16px; font-weight: 700; cursor: pointer;
+    }
+    .sheet-danger { border: 1.5px solid #f5c2c2; background: #fff5f5; color: var(--danger); }
+    .sheet-cancel { border: 1px solid var(--border); background: var(--card-bg); color: var(--ink-soft); }
+    .settings-quick { grid-template-columns: repeat(2, 1fr); margin: 4px 0 18px; }
+    .settings-quick .tile { background: var(--card-bg); box-shadow: var(--shadow-soft); }
+
+    /* ---------- 對話框 ---------- */
+    .dialog-box { max-width: 340px; padding: 22px 20px 16px; text-align: center; }
+    .dialog-icon { font-size: 40px; line-height: 1; margin-bottom: 10px; }
+    .dialog-icon:empty { display: none; }
+    .dialog-msg {
+      font-size: 15.5px; line-height: 1.7; white-space: pre-line; text-align: left; color: var(--ink);
+      max-height: 55vh; overflow-y: auto; word-break: break-word;
+    }
+    .dialog-input {
+      width: 100%; margin-top: 12px; padding: 12px; font-size: 16px; border-radius: 12px;
+      border: 1.5px solid var(--border); background: var(--bg);
+    }
+    .dialog-input:focus { outline: none; border-color: var(--line-green); background: var(--card-bg); }
+    .dialog-actions { display: flex; gap: 10px; margin-top: 18px; }
+    .dialog-actions button { flex: 1; height: 50px; border-radius: 14px; font-size: 16px; font-weight: 700; cursor: pointer; }
+    .dialog-actions .btn-cancel { border: 1px solid var(--border); background: var(--card-bg); color: var(--ink-soft); }
+    .dialog-actions .btn-confirm { border: none; background: var(--line-green); color: #fff; }
+    .dialog-actions .btn-confirm.danger { background: var(--danger); }
+
+    /* ---------- 新手引導 ---------- */
+    .onboard-box { max-width: 380px; padding: 26px 22px 18px; text-align: center; position: relative; }
+    .onboard-skip {
+      position: absolute; top: 10px; right: 12px; border: none; background: none; color: var(--ink-faint);
+      font-size: 14px; padding: 8px; cursor: pointer;
+    }
+    .onboard-step h2 { font-size: 22px; margin: 14px 0 8px; }
+    .onboard-step p { font-size: 15.5px; line-height: 1.75; color: var(--ink-soft); margin: 0; }
+    .onboard-step p b { color: var(--ink); }
+    .onboard-flow { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 8px; }
+    .onboard-flow div { display: flex; flex-direction: column; align-items: center; font-size: 13px; font-weight: 700; gap: 4px; }
+    .onboard-flow span {
+      width: 64px; height: 64px; border-radius: 20px; background: var(--line-green-tint);
+      display: flex; align-items: center; justify-content: center; font-size: 32px;
+    }
+    .onboard-flow i { font-style: normal; font-size: 24px; color: var(--ink-faint); margin-bottom: 18px; }
+    .onboard-hero { font-size: 64px; line-height: 1.1; margin-top: 8px; }
+    .onboard-trust { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 16px; }
+    .onboard-trust div { font-size: 13px; padding: 6px 10px; border-radius: 999px; background: var(--bg); font-weight: 600; }
+    .onboard-key-done { margin-top: 14px; font-size: 16px; font-weight: 800; color: var(--line-green-dark); }
+    .icon-legend { list-style: none; padding: 0; margin: 14px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: left; }
+    .icon-legend li { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; padding: 8px 10px; border-radius: 12px; background: var(--bg); }
+    .icon-legend span { font-size: 24px; width: 30px; text-align: center; }
+    .onboard-foot { margin-top: 20px; }
+    .onboard-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 14px; }
+    .onboard-dots i { width: 8px; height: 8px; border-radius: 4px; background: var(--border); transition: width .2s; }
+    .onboard-dots i.on { width: 22px; background: var(--line-green); }
+    .onboard-next { width: 100%; height: 54px; border: none; border-radius: 16px; background: var(--line-green); color: #fff; font-size: 17px; font-weight: 800; cursor: pointer; }
+
+    /* ---------- 金鑰精靈 ---------- */
+    .kw-box { max-width: 420px; max-height: 90vh; display: flex; flex-direction: column; }
+    .kw-head { display: flex; align-items: center; gap: 8px; padding: 14px 8px 6px 16px; }
+    .kw-head h2 { flex: 1; font-size: 19px; margin: 0; }
+    .kw-icon { font-size: 26px; }
+    .kw-body { padding: 0 16px 8px; overflow-y: auto; }
+    .kw-why { font-size: 14.5px; color: var(--ink-soft); line-height: 1.7; margin: 0 0 12px; }
+    .kw-steps { list-style: none; counter-reset: kw; padding: 0; margin: 0 0 14px; display: flex; flex-direction: column; gap: 10px; }
+    .kw-steps li {
+      counter-increment: kw; position: relative; padding: 12px 12px 12px 48px; border-radius: 14px;
+      background: var(--bg); font-size: 14.5px; line-height: 1.7;
+    }
+    .kw-steps li::before {
+      content: counter(kw); position: absolute; left: 12px; top: 12px; width: 26px; height: 26px; border-radius: 50%;
+      background: var(--line-green); color: #fff; font-weight: 800; font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .kw-open {
+      display: block; margin-top: 8px; padding: 12px; text-align: center; border-radius: 12px; font-weight: 800; font-size: 15.5px;
+      background: var(--ink); color: #fff; text-decoration: none;
+    }
+    .kw-sub { display: block; font-size: 12.5px; color: var(--ink-faint); margin-top: 4px; }
+    .mock-btn {
+      display: inline-block; padding: 1px 8px; margin: 0 2px; border-radius: 6px; font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 13px; font-weight: 700; background: #fff; border: 1.5px solid var(--ink); color: var(--ink); white-space: nowrap;
+    }
+    .kw-paste { display: flex; gap: 8px; }
+    .kw-paste input {
+      flex: 1; min-width: 0; padding: 13px 12px; font-size: 16px; border-radius: 12px;
+      border: 2px solid var(--line-green); background: var(--card-bg);
+    }
+    .kw-paste button { flex-shrink: 0; padding: 0 14px; border-radius: 12px; font-weight: 700; font-size: 15px; }
+    .kw-status { min-height: 22px; margin-top: 8px; font-size: 14.5px; font-weight: 700; }
+    .kw-status.err { color: var(--danger); }
+    .kw-status.warn { color: #b8860b; }
+    .kw-status.ok { color: var(--line-green-dark); }
+    .kw-note { font-size: 12.5px; color: var(--ink-faint); line-height: 1.6; margin: 6px 0 0; }
+    .kw-note:empty { display: none; }
+    .kw-submit { width: 100%; height: 54px; border: none; border-radius: 16px; background: var(--line-green); color: #fff; font-size: 17px; font-weight: 800; cursor: pointer; }
+    .kw-submit:disabled { opacity: .6; }
+
+    /* ---------- 背景工作提示 ---------- */
+    .busy-pill {
+      position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 900; max-width: 92vw;
+      display: none; flex-direction: column; gap: 2px; padding: 10px 16px; border-radius: 16px;
+      background: var(--ink); color: #fff; box-shadow: var(--shadow-pop); font-size: 14px;
+    }
+    .busy-pill:has(.upload-progress-row.show), .busy-pill:has(.pending-row.show) { display: flex; }
+    .busy-pill .upload-progress-row { display: none; align-items: center; gap: 8px; color: #fff; margin: 0; }
+    .busy-pill .upload-progress-row.show { display: flex; }
+    .busy-pill .upload-file-name { font-size: 12px; color: #cbd5e1; margin: 0; }
+    .busy-pill .upload-file-name:empty { display: none; }
+    .pending-row { display: none; align-items: center; gap: 8px; }
+    .pending-row.show { display: flex; }
+    #dialogModal { z-index: 1200; }
+    #keyWizardModal, #trustModal { z-index: 1100; }
+    .storage-toast { font-size: 14px; bottom: calc(130px + env(safe-area-inset-bottom)); }
+    .modal-tabs button { font-size: 15px; }
+    .modal-body { font-size: 14.5px; line-height: 1.7; }
+    .share-option-title { font-size: 16px; }
+    .share-option-desc { font-size: 13px; }
+
+    .changelog-details { margin-top: 20px; background: var(--card-bg); border-radius: 14px; padding: 12px 14px; border: 1px solid var(--border); }
+    .changelog-details summary { font-weight: 700; cursor: pointer; font-size: 15px; }
+    .changelog-details .version-entry { font-size: 13px; }
+    .summary-result-tab.adv-tab:not(.active) { display: none; }
+    .modal-overlay { padding: 12px; }
+    .sheet-overlay { padding: 0; }
+
+    .invisible { visibility: hidden; }
+    .modal-footer .sheet-cancel { width: 100%; height: 50px; background: var(--card-bg); color: var(--ink-soft); border: 1px solid var(--border); }
+    #viewNotebook .summary-result-tab { font-size: 14.5px; padding: 10px 8px; }
+    #viewNotebook .summary-actions-row { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+    #viewNotebook .summary-actions-inline { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    #viewNotebook .summary-actions-inline button { font-size: 14px; padding: 11px 4px; white-space: nowrap; border-radius: 12px; }
+    #viewNotebook .summary-saved-hint { font-size: 12.5px; }
+    #viewNotebook .card-actions-inline button { min-width: 40px; height: 38px; font-size: 17px; border-radius: 10px; }
+    .kw-paste button { flex: 0 0 auto; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/cn2t.js"
           integrity="sha384-9JmxkgxoKE5gP14V/eBemUAwCKh8QSb5IFEJje/JNxxh8cn9hKsIs/q5Ho+mfVau"
@@ -868,35 +1213,113 @@
           crossorigin="anonymous"></script>
 </head>
 <body>
-  <!-- 首次進站提示彈窗：兩頁（注意事項／更新內容），關閉後記住已讀版本，
-       不會每次重新整理都跳出來打擾，但版本號更新時會重新提示。 -->
-  <div class="modal-overlay" id="introModal">
-    <div class="modal-box">
-      <div class="modal-tabs">
-        <button id="modalTabTrust" class="active" onclick="IntroModal.switchTab('trust')">🛡️ 安全說明</button>
-        <button id="modalTabNotice" onclick="IntroModal.switchTab('notice')">⚠️ 使用注意事項</button>
-        <button id="modalTabChangelog" onclick="IntroModal.switchTab('changelog')">🆕 更新內容</button>
+  <!-- 對話框：取代原生 alert/confirm/prompt。原生框在 LINE 內建瀏覽器
+       會顯示網址當標題、無法中文化，prompt() 還會破壞剪貼簿時序。 -->
+  <div class="modal-overlay hidden" id="dialogModal" role="alertdialog" aria-modal="true" aria-labelledby="dialogMsg">
+    <div class="modal-box dialog-box">
+      <div class="dialog-icon" id="dialogIcon" aria-hidden="true"></div>
+      <div class="dialog-msg" id="dialogMsg"></div>
+      <input type="text" class="dialog-input hidden" id="dialogInput" maxlength="60" aria-labelledby="dialogMsg">
+      <div class="dialog-actions">
+        <button class="btn-cancel" id="dialogCancelBtn">取消</button>
+        <button class="btn-confirm" id="dialogOkBtn">好</button>
       </div>
-      <div class="modal-body" id="modalBody">
-        <!-- 安全說明放在第一個分頁：使用者對「要貼 API Key 的無名網頁」
-             的疑慮，應該在他產生疑問之前就先回答，而不是等他自己去設定
-             頁找。內容與設定頁的信任面板一致，全部是可驗證的事實陳述。 -->
-        <div id="modalTrustContent">
-          <h4>先講清楚：這個工具怎麼處理你的資料</h4>
-          <div class="trust-body" style="margin-top:8px;">
+    </div>
+  </div>
+
+  <!-- 新手引導：三步驟，第二步直接接金鑰精靈。安全說明不再擋在
+       第一眼，改成一行可展開的連結，先讓使用者看到能做什麼。 -->
+  <div class="modal-overlay hidden" id="onboardModal" role="dialog" aria-modal="true" aria-label="新手教學">
+    <div class="modal-box onboard-box">
+      <button class="onboard-skip" onclick="Onboarding.finish()">跳過</button>
+
+      <div class="onboard-step" data-step="1">
+        <div class="onboard-flow" aria-hidden="true">
+          <div><span>🎙️</span>說話</div><i>›</i>
+          <div><span>📝</span>變文字</div><i>›</i>
+          <div><span>✨</span>整理重點</div>
+        </div>
+        <h2>歡迎使用語音筆記</h2>
+        <p>上課、開會、聊天，<b>按一下就能把聲音變成文字筆記</b>，還能請 AI 幫你整理重點。</p>
+        <div class="onboard-trust">
+          <div>🆓 免費使用</div><div>🙅 不用註冊</div><div>📱 資料只存在你的手機</div>
+        </div>
+        <button class="link-btn" onclick="openTrustPanel()">🛡️ 想知道資料怎麼處理？點這裡</button>
+      </div>
+
+      <div class="onboard-step hidden" data-step="2">
+        <div class="onboard-hero" aria-hidden="true">🔑</div>
+        <h2>設定一次「語音金鑰」</h2>
+        <p id="onboardKeyText">金鑰就像通行證，讓這個工具能幫你把聲音轉成文字。<b>免費、不用信用卡</b>，設定一次就好，約 2 分鐘。</p>
+        <div class="onboard-key-done hidden" id="onboardKeyDone">✅ 你已經設定好語音金鑰了</div>
+      </div>
+
+      <div class="onboard-step hidden" data-step="3">
+        <div class="onboard-hero" aria-hidden="true">🎉</div>
+        <h2>準備好了！</h2>
+        <p>記住這幾個圖示就會用：</p>
+        <ul class="icon-legend">
+          <li><span>🎙️</span>開始錄音</li>
+          <li><span>📁</span>上傳錄音檔</li>
+          <li><span>✨</span>AI 整理重點</li>
+          <li><span>📤</span>傳給別人</li>
+          <li><span>⋯</span>更多功能</li>
+          <li><span>⚙️</span>設定</li>
+        </ul>
+      </div>
+
+      <div class="onboard-foot">
+        <div class="onboard-dots" aria-hidden="true"><i data-dot="1"></i><i data-dot="2"></i><i data-dot="3"></i></div>
+        <button class="btn-confirm onboard-next" id="onboardNextBtn" onclick="Onboarding.next()">下一步</button>
+        <button class="link-btn hidden" id="onboardLaterBtn" onclick="Onboarding.go(3)">先逛逛，晚點再設定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 金鑰精靈：申請頁是英文，逐步標出「要按哪顆按鈕」，貼上後立刻
+       打一次 API 驗證，不讓使用者到錄音時才發現金鑰貼錯。 -->
+  <div class="modal-overlay hidden" id="keyWizardModal" role="dialog" aria-modal="true" aria-labelledby="kwTitle">
+    <div class="modal-box kw-box">
+      <div class="kw-head">
+        <span class="kw-icon" id="kwIcon" aria-hidden="true">🔑</span>
+        <h2 id="kwTitle">設定金鑰</h2>
+        <button class="icon-btn" onclick="KeyWizard.close()" aria-label="關閉">✕</button>
+      </div>
+      <div class="kw-body">
+        <p class="kw-why" id="kwWhy"></p>
+        <ol class="kw-steps" id="kwSteps"></ol>
+        <div class="kw-paste">
+          <input type="password" id="kwInput" autocomplete="off" spellcheck="false" aria-label="貼上金鑰">
+          <button class="btn-secondary" onclick="KeyWizard.pasteFromClipboard()">📋 貼上</button>
+        </div>
+        <div class="kw-status" id="kwStatus" role="status" aria-live="polite"></div>
+        <p class="kw-note" id="kwNote"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-confirm kw-submit" id="kwSubmitBtn" onclick="KeyWizard.submit()">✅ 完成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 資料安全說明：新手引導與設定頁共用同一份內容 -->
+  <div class="modal-overlay hidden" id="trustModal" role="dialog" aria-modal="true" aria-label="資料安全說明">
+    <div class="modal-box" style="max-width:460px; max-height:85vh;">
+      <div class="modal-tabs"><button class="active" style="cursor:default;">🛡️ 資料安全說明</button></div>
+      <div class="modal-body">
+          <div class="trust-body">
             <div class="trust-block">
               <div class="trust-head">💰 不會被扣錢</div>
               <ul>
                 <li>Groq、Gemini 都有<b>免費方案，不需綁定信用卡</b></li>
-                <li>額度用完只會暫停並顯示提示，<b>不會自動轉為付費</b></li>
+                <li>額度用完只會暫停服務並顯示提示，<b>不會自動轉為付費</b></li>
               </ul>
             </div>
 
             <div class="trust-block">
               <div class="trust-head">📍 你的資料在哪裡</div>
               <ul>
-                <li>API Key、語音卡片、摘要：<b>只存在這台裝置的瀏覽器裡</b></li>
-                <li>語音會傳送到 Groq 的伺服器辨識，辨識完不保留</li>
+                <li>金鑰、語音卡片、摘要：<b>只存在這台裝置的瀏覽器裡</b></li>
+                <li>語音會傳送到 Groq 的伺服器進行辨識，辨識完不保留</li>
                 <li><b>本工具沒有自己的伺服器</b>，你的資料不會經過我這邊</li>
               </ul>
             </div>
@@ -904,8 +1327,8 @@
             <div class="trust-block">
               <div class="trust-head">🚫 本工具不會做的事</div>
               <ul>
-                <li><b>不需要對本工具註冊</b>、本工具<b>不蒐集 email</b> 或任何個人資料
-                  <span class="trust-note">（Groq、Gemini 等第三方服務仍需你自行前往註冊）</span>
+                <li><b>不需要對本工具註冊</b>、本工具<b>不蒐集電子信箱</b> 或任何個人資料
+                  <span class="trust-note">（Groq、Gemini 等第三方服務仍需你自行前往註冊，那是與各該服務的關係）</span>
                 </li>
                 <li>不讀取通訊錄、相簿、定位</li>
                 <li>沒有廣告，不販售任何資料</li>
@@ -917,9 +1340,9 @@
               <div class="trust-svc">
                 <div class="trust-svc-name">Groq　<span>語音辨識</span></div>
                 <div class="trust-svc-desc">
-                  2016 年成立於美國加州的 AI 運算公司，全球 13 個資料中心，
-                  超過 <b>600 萬名開發者</b>與多家《財星》500 大企業在使用，
-                  晶片大廠 <b>NVIDIA</b> 是其合作夥伴與投資人。
+                  2016 年成立於美國加州的 AI 運算公司，全球有 13 個資料中心，
+                  超過 <b>600 萬名開發者</b>與多家《財星》500 大企業在使用。
+                  晶片大廠 <b>NVIDIA</b> 是它的合作夥伴與投資人。
                   依 Groq 官方條款，<b>不會將客戶資料用於訓練模型</b>，語音辨識請求預設不保留內容，
                   僅在排除系統異常或調查濫用時暫存最長 30 天（此政策不分免費／付費層）。
                 </div>
@@ -927,7 +1350,7 @@
               <div class="trust-svc">
                 <div class="trust-svc-name">Google Gemini　<span>AI 摘要</span></div>
                 <div class="trust-svc-desc">
-                  Google 官方推出的 AI 模型服務。
+                  Google 官方推出的 AI 模型服務，就是你在手機上會看到的那個 Google。
                   <b>提醒：Gemini 免費方案的內容依 Google 條款可能被用於改善 Google 產品、也可能被人工審閱</b>，
                   付費方案才有不用於訓練的承諾。若內容涉及機密或不想外流的資訊，建議略過 AI 摘要，只使用轉寫功能。
                 </div>
@@ -936,200 +1359,76 @@
                 <div class="trust-svc-name">MyMemory　<span>即時翻譯</span></div>
                 <div class="trust-svc-desc">
                   由義大利翻譯公司 Translated 營運，是<b>全世界最大的翻譯記憶庫</b>，
-                  語料來自<b>歐盟與聯合國</b>的官方翻譯文件。本工具只使用它的查詢功能，不會把你的內容送進它的公開貢獻流程。
+                  語料來自<b>歐盟與聯合國</b>的官方翻譯文件，累積約 75 億筆專業譯者翻譯過的句子。
+                  本工具只使用它的<b>查詢功能</b>，不會把你的內容提交進它的公開貢獻流程（不會變成別人查得到的公開語料）。
                   <b>但依 Translated 官方條款，凡是提交的內容（含查詢字句）都可能被長期保存並用於改善服務</b>，
-                  條款沒有為單純查詢另外訂定較短的保留期限，這點與 Groq 不同，請自行斟酌。
+                  條款沒有為單純查詢另外訂定較短的保留期限，這點與 Groq 明確承諾「不保留、不訓練」不同，若翻譯內容較敏感請自行斟酌是否使用。
                 </div>
               </div>
+              <span class="trust-note">
+                這三家都是提供 API 的正規服務商，你可以自行搜尋查證。你的金鑰是向它們申請的，
+                本工具只是幫你把請求送過去。
+              </span>
+            </div>
+
+            <div class="trust-block">
+              <div class="trust-head">🎤 只要一項權限</div>
+              <ul>
+                <li>麥克風，用於錄音，僅此而已</li>
+              </ul>
             </div>
 
             <div class="trust-block">
               <div class="trust-head">🔍 不用相信我，自己驗證</div>
               <ul>
-                <li>整個工具是<b>單一 HTML 檔案</b>，按右鍵「檢視網頁原始碼」就能看到全部程式</li>
-                <li>本工具只會連線到：Groq（辨識）、Google（摘要）、MyMemory（翻譯）、
-                    Google Sheets（讀共享筆記）、LINE（登入與送回聊天室）、jsDelivr（心智圖元件）</li>
+                <li>整個工具是<b>單一 HTML 檔案</b>，在瀏覽器按右鍵「檢視網頁原始碼」就能看到全部程式</li>
+                <li>按 <code>F12</code> 打開開發者工具的 <b>Network</b> 分頁再操作一次，可以核對實際發出的請求</li>
+                <li>想完全斷開？用完到最下方「危險區域」點「刪除全部本機資料」即可清空</li>
+              </ul>
+              <div class="trust-head" style="margin-top:8px;">本工具會連線的對象，僅有這些：</div>
+              <ul>
+                <li><code>api.groq.com</code>　語音辨識</li>
+                <li><code>generativelanguage.googleapis.com</code>　AI 摘要</li>
+                <li><code>api.mymemory.translated.net</code>　即時翻譯</li>
+                <li><code>docs.google.com</code>　讀取你貼上的共用表格連結</li>
+                <li><code>*.line-scdn.net</code>、<code>api.line.me</code>、<code>access.line.me</code>　LINE 登入與送回聊天室</li>
+                <li><code>cdn.jsdelivr.net</code>　載入心智圖繪圖元件</li>
               </ul>
               <span class="trust-note">
-                這份清單同時寫在網頁原始碼的 CSP 安全設定裡，由<b>瀏覽器強制執行</b>——
-                就算程式想連清單以外的網址，也會被瀏覽器直接擋下。完整說明在「⚙️ 設定」分頁。
+                這份清單不只是說明——它同時寫在網頁原始碼最上方的 CSP（內容安全政策）設定裡，
+                由<b>瀏覽器強制執行</b>：就算程式想連到清單以外的網址，瀏覽器也會直接擋下來。
               </span>
             </div>
           </div>
-        </div>
-
-        <div id="modalNoticeContent" style="display:none;">
-          <h4>開始使用前，請先知道這些事</h4>
-          <ul style="padding-left:18px; margin:0;">
-            <li>需要自己申請 <b>Groq API Key</b>（免費，設定頁有教學連結）</li>
-            <li>語音會上傳到 Groq 伺服器轉寫，<b>原始音檔不保留</b>，只留文字</li>
-            <li>Key 與筆記都存在<b>這台裝置的瀏覽器</b>裡。共用裝置請於設定頁清除資料</li>
-            <li>每 15 秒切一段，句子跨越切點時可能被拆成兩張卡片</li>
-          </ul>
-          <p style="margin:10px 0 0; font-size:12px; color:var(--ink-soft);">
-            其他說明（發送方式、共享筆記等）在各功能旁的 ❓ 圖示裡。
-          </p>
-        </div>
-        <div id="modalChangelogContent" style="display:none;">
-          <div class="version-entry">
-            <span class="version-tag">最新</span>
-            <h4>辨識準確度提升、翻譯改用免費服務、摘要可依場景切換</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li><b>中文辨識準確度提升</b>：修正提示詞用法（原本寫成指令句，會被當成語音內容直接寫進逐字稿，例如憑空出現「請依語意選擇。」這種句子）。改為前後段接續，並關閉隨機性，減少靜音段落產生的幻覺內容</li>
-              <li><b>即時翻譯改用 MyMemory 免費翻譯服務</b>：原本是把同一段音檔用目標語言再送一次辨識，結果經常沒翻譯、語意崩壞或跳針重複。現在改成翻譯已轉好的文字，不需申請 Key、不消耗 Groq 額度。免費額度每天 5,000 字元，可到設定頁填 email 提升到 50,000</li>
-              <li><b>AI 摘要新增場景選擇</b>：課堂／演講、會議、訪談／對談、日常對話四種。同一份逐字稿在不同場景該抽取的重點不同——課堂會著重知識脈絡與專有名詞、抓作業與考試範圍；日常對話則不會硬生出結論或待辦</li>
-              <li><b>新增「📖 名詞」分頁</b>：抽出逐字稿中的專有名詞與上下文，產生一份可直接貼到 Gemini 網頁版的提問稿，讓它幫你查證、修正辨識錯字並補充說明與公式。可自行勾選要保留哪些名詞</li>
-              <li><b>新增每日用量預覽</b>：設定頁可看 Groq／Gemini／MyMemory 三者今日用量，錄音頁也會顯示轉寫用量。數字為本裝置估算值，每日午夜歸零</li>
-              <li>勾選模式新增<b>全選／全不選</b>按鈕與已勾選張數顯示</li>
-              <li>使用注意事項大幅精簡，細節改放在各功能旁的 ❓ 圖示中</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>不用加好友也能直接使用，並支援「加到主畫面」</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>打開網頁<b>直接就能用</b>：不再於進站時強制檢查官方帳號好友關係、也不再擋一頁同意書。錄音、轉寫、AI 摘要、分享出去等功能，用一般瀏覽器（Chrome／Safari）開啟即可使用</li>
-              <li>使用須知改到<b>第一次按「開始錄音」時</b>才顯示，內容不變，同意過一次就不會再跳（條款版本更新時會重新徵詢一次）</li>
-              <li>「📥 送回聊天室」<b>仍然需要加好友</b>，因為那是由官方帳號把內容送進你的聊天室；改成按下按鈕時才檢查，不是好友才會提示前往加好友。非 LINE 環境下這個按鈕會直接停用並說明原因</li>
-              <li>新增 PWA 支援：可用瀏覽器的「加到主畫面」把這個工具當成獨立 App 開啟，不必每次都從 LINE 進入。<b>注意</b>：iOS 的主畫面版本與 Safari <b>不共用瀏覽器儲存空間</b>，第一次從主畫面開啟需要重新填一次 API Key</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>AI 摘要新增待辦事項、來源核對、簡易心智圖；API Key 改為多把管理</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>AI 摘要現在會額外整理出<b>待辦事項清單</b>（誰要做什麼、期限），逐字稿沒有明確提到的負責人或期限會顯示空白，不會自己亂猜</li>
-              <li>摘要中的重點可以<b>核對出自哪個來源段落</b>：有對應到的句子旁邊會出現小標籤，點一下會捲動並標示到「勾選池」中對應的那筆資料，方便確認 AI 有沒有整理錯</li>
-              <li>新增<b>簡易心智圖</b>：摘要生成後，可以另外按「產生心智圖」，AI 會根據已經生成好的摘要文字（不是重新讀一次逐字稿）整理成階層式心智圖圖形；提供「編輯」分頁可直接修改心智圖的縮排文字大綱再重新渲染，但不支援用手指拖曳節點位置</li>
-              <li>Groq／Gemini 的 API Key 設定改為<b>可儲存多把</b>（Groq 最多 12 把、Gemini 最多 5 把），每把可自訂名稱，方便用完額度或某把被刪除失效時直接切換，不用重新輸入；每種服務可各自設定失效時要「自動切換到下一把」還是「僅提醒，自己手動切換」</li>
-              <li>Key 額度用完（收到額度上限回應）或失效（被刪除、格式錯誤等）時，會跳出提示告知是哪一把、以及後續處理方式（已自動切換到哪把，或請自行到設定分頁切換）</li>
-              <li>修正一個既有問題：錄音中的背景自動轉寫，原本在 Key 失效或額度用完時不會顯示任何錯誤，該段內容會憑空消失且無法察覺原因；現在會正確顯示提示</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>新增韓文辨識，自動模式支援中英日韓混雜</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>「辨識語言」下拉選單新增<b>韓文</b>選項，跟中／英／日一樣可以固定鎖定整場錄音的語言</li>
-              <li>「自動」模式原本只認得中英日三種語言，現在擴充到能辨識<b>中英日韓四語混雜</b>的情境，偵測到韓文時會自動鎖定 60 秒（跟其他語言邏輯一致），提升這段時間內的轉寫準確度</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>修正「複製成 Sheet 貼上格式」偶爾複製失敗的問題</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>部分瀏覽器環境（尤其 iPhone／iOS 上的 Safari 與 LINE 內建瀏覽器）點擊「複製成 Sheet 貼上格式」輸入完主題名稱後，會出現「複製失敗」——這是瀏覽器對彈出輸入框之後緊接著呼叫剪貼簿功能的時序限制所致，跟輸入的內容無關</li>
-              <li>已修正：複製功能改為在現代瀏覽器複製方式失敗時，自動改用另一種較舊但更可靠的備援方式重試，大幅降低複製失敗的機率；「複製摘要」「發送失敗改複製」等其他複製功能也一併套用同樣的強化</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>共享表格圖文教學、資安提醒強化</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>「共享」分頁的「讀取共用 Google Sheet」標題旁新增❓圖示，點擊可看完整圖文教學：如何建立共用表格、複製貼上的位置示意圖（A1、A2、A3...）、共用權限該選哪一種</li>
-              <li>教學內加入明確的<b>資安提醒</b>：本工具只會讀取資料，完全沒有寫入 Google Sheets 的功能；但「連結可編輯」是 Google Sheets 本身的權限設定，一旦選用，任何拿到連結的人都能修改或刪除整份表格，這個風險與本工具無關、是使用者在 Google 那端的設定選擇，建議一律選「檢視者」權限</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>介面改版：分頁式導覽，API Key 移至設定頁</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>整體介面改為 5 個分頁：<b>🎙️錄音／🗂️筆記／📖共享／📝摘要／⚙️設定</b>，同一時間只顯示一個分頁內容，畫面更聚焦，尤其在手機小螢幕上更容易看清楚目前在做什麼</li>
-              <li>Groq／Gemini API Key 輸入區從主畫面移到獨立的「設定」分頁，不再佔用「錄音」「筆記」分頁的版面；若對應 Key 尚未設定，「錄音」與「摘要」分頁會顯示精簡提示，點擊可直接前往設定分頁</li>
-              <li>設定頁新增「個別資料管理」：語音卡片草稿、AI 摘要、分享中斷續傳記錄、已讀提示記錄，各自獨立顯示狀態燈號（綠點=有資料／灰點=無資料）與刪除按鈕，不需要每次都整批清除，也可以只清單一項目</li>
-              <li>兩把 API Key 也各自新增「忘記這把 Key」按鈕，只清除單一把 Key，不影響其他已保存的資料</li>
-              <li>原本的「清除本機資料」整合進設定頁最下方的「危險區域」，改名為「刪除全部本機資料」，維持一次性清空所有資料的功能，僅樣式上加強警示（紅框、紅字）避免誤觸</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>會議摘要改為自由勾選＋自訂順序，卡片與共享筆記可混合</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>會議摘要不再是「語音卡片」或「共享筆記」二選一：現在可以<b>同時勾選兩邊的資料混合使用</b>，例如自己的卡片加上共享筆記裡別人整理的內容，一起生成同一份摘要</li>
-              <li>送去生成摘要的<b>順序改為使用者勾選的先後順序</b>（不是固定依原始順序排列），勾選項目旁會顯示「順序1」「順序2」...的標號，方便確認排列是否正確；共享筆記清單上方也提供「全選」快速鍵</li>
-              <li>「整理完成的語音卡片」新增「✅ 勾選模式」，切換後點擊整張卡片即可勾選／取消，加入摘要來源池，跟合併／改順序／編輯內容一樣是可切換的操作模式</li>
-              <li>共享筆記清單新增「📝 摘要」／「🎤 逐字稿」標籤區分資料類型，避免不小心把別人已經生成好的摘要當成逐字稿疊加使用（勾選到摘要類型資料時仍會額外提醒一次，但不強制阻擋）</li>
-              <li>「複製成 Sheet 貼上格式」改為<b>先詢問主題名稱</b>（例如「上半場逐字稿」），不再只是自動帶入日期時間；同時新增資料的 <code>type</code> 標記（逐字稿為 raw），讓共用表格裡的每筆資料都能被清楚辨識類型</li>
-              <li>已生成的摘要新增「📤 存回 Sheet」按鈕，可直接複製成 <code>type: summary</code> 格式貼回共用表格，讓其他協作者也能讀到這份摘要</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>共享筆記改為單欄 JSON 格式（⚠️ 不相容舊表格）</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>「查看共享筆記」的資料格式改版：原本用 A/B/C 三欄分別存標籤、內容、時間戳記，需要理解欄位定義、貼上時容易貼錯欄；現在改成<b>每一格存一整包完整資料</b>，人類只需要負責複製、貼到下一個空白儲存格，不需要理解或維護欄位格式</li>
-              <li><b>這是不相容的格式變更</b>：用舊版「複製成 Sheet 貼上格式」貼進去的舊表格，用這個新版本讀取會失敗。請所有共用同一份 Sheet 的成員都更新到這個版本後，重新用新按鈕產生的內容貼一份新的</li>
-              <li>若表格裡混雜了新舊格式或有貼壞的資料，讀取時會清楚標示哪幾筆格式有問題並略過，其餘正常的資料仍會正常顯示，不會整批讀取失敗</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>分享中斷後可接續，不用整段重來</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>「分享出去 → LINE 好友分享」若因內容較長分批送出、中途取消或失敗，下次再點分享時會自動偵測到上次中斷在第幾批，詢問是否要接著送，不需要整段重新發送</li>
-              <li>只要中斷後卡片內容有任何新增、刪除、編輯、合併或調整順序，就會判定內容已變動，中斷進度會自動失效並提示改成整段重新分享，避免接續到錯誤的段落</li>
-              <li>中斷進度不限時間保存，除非成功送完或手動點「清除本機資料」，否則隔天再打開仍可以選擇接續</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>LINE 好友分享支援超過 5 則的長內容分批送出</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>「分享出去 → LINE 好友分享」原本超過 5 則訊息（約 24000 字以上）就會直接放棄改複製剪貼簿，現在改為<b>依序分批呼叫</b>（每批最多 5 則），可以送出更長的內容</li>
-              <li>因為 LINE 選擇分享對象的畫面在每一批之間會重新跳出，第二批（含）以後送出前會先提醒「請選擇跟上一批相同的對象」，並在全部送完後提醒使用者自行確認每批是否都送到了同一人</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>共享筆記可多選並直接生成摘要、分享功能修正</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>「查看共享筆記」從單選改為<b>可複選</b>，適合多人接力錄音（例如一人錄上半場、另一人錄下半場，各自整理後貼進同一份共用 Sheet）——現在可以一次勾選多筆，依表格原始順序合併查看</li>
-              <li>會議摘要新增「來源切換」：可選擇用「語音卡片」或「共享筆記」目前勾選的內容來生成摘要，兩邊各自獨立保存，互不覆蓋，切換來源不會清空另一邊已生成的摘要</li>
-              <li>勾選共享筆記資料時，會即時顯示已勾選筆數、總字數，以及估算的 token 數（約 2.5 token／中文字，僅供參考），方便掌握內容量是否過大</li>
-              <li>修正「分享出去 → LINE 好友分享」在內容較長（例如超過 5000 字）時會直接失敗、卻沒有任何提示的問題——原本只有「送回聊天室」有做自動分段，「分享出去」漏了同步這段邏輯，現已修正為兩種發送方式都會自動分段</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>讀取共享 Google Sheet 筆記（唯讀）</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>「錄音內容編輯」分頁新增「📖 查看共享筆記」區塊，貼上共用 Google Sheet 的連結，即可用下拉選單選擇要查看哪一筆別人整理好的內容（例如另一組人的會議記錄）</li>
-              <li>這是唯讀功能，僅供查看，不會寫入或修改 Sheet；要把自己的內容加進共用表格，仍需自行複製後手動貼上</li>
-              <li>卡片列表上方新增「複製成 Sheet 貼上格式」按鈕，一鍵複製成可直接貼進 Sheet 儲存格的格式（Tab 分隔，貼上時會自動落在三個獨立欄位）</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>會議摘要保存分享、上傳語音檔轉文字</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>生成好的會議摘要現在會自動保存在這台裝置上，重新整理或切出頁面不會消失，摘要下方新增「複製／分享／刪除」三個按鈕，分享方式與語音卡片相同（送 LINE 好友或系統分享）</li>
-              <li>新增「上傳語音檔案轉文字」功能，適合長輩傳來的 LINE 語音訊息或既有的錄音檔，不需要即時錄音，選好檔案即可送出轉寫，完成後直接加入語音卡片</li>
-              <li>清除本機資料時，已保存的會議摘要也會一併清除</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>資安強化：CSP、共用裝置資料清除</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>加入 Content-Security-Policy，限制頁面只能連到必要的網域，降低被注入惡意程式碼的風險</li>
-              <li>新增「共用裝置」提醒與一鍵清除本機資料工具，方便在公用裝置使用完畢後清乾淨</li>
-              <li>API Key 輸入框旁新增「忘記這把 Key」快捷按鈕</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>卡片編輯模式、雙發送管道、即時預覽</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>新增「合併／改順序／編輯內容」三種卡片編輯模式，預設唯讀避免誤觸</li>
-              <li>新增「手機系統分享」作為第二種發送方式，不需要 LINE 登入</li>
-              <li>即時錄音轉文字畫面改為即時列出所有卡片，不再只顯示最新一則</li>
-              <li>簡化為僅支援 Groq（移除 OpenAI 選項），並加入申請教學</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>LINE 發送功能</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>接上 LIFF SDK，可透過 shareTargetPicker 選擇好友／機器人發送</li>
-              <li>加入簡體轉繁體保險（Whisper 偶爾會輸出簡體字）</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <h4>分段錄音</h4>
-            <ul style="padding-left:18px; margin:4px 0 0;">
-              <li>改為每 15 秒自動切段送出轉寫，卡片可以陸續出現，不用等整場錄完</li>
-            </ul>
-          </div>
-        </div>
       </div>
       <div class="modal-footer">
-        <label><input type="checkbox" id="dontShowAgainCheckbox"> 這個版本不用再提醒我</label>
-        <button onclick="IntroModal.close()">我知道了，開始使用</button>
+        <button onclick="ModalUtil.hide('trustModal')">我知道了</button>
       </div>
+    </div>
+  </div>
+
+  <!-- 筆記的「更多」選單：進階功能收在這裡，新手畫面只留最常用的 -->
+  <div class="modal-overlay sheet-overlay hidden" id="moreMenuModal" onclick="if (event.target === this) MoreMenu.close()">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="更多功能">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <div class="sheet-title">整理這本筆記</div>
+      <div class="tile-grid">
+        <button class="tile" onclick="MoreMenu.run('edit')"><span>✏️</span>改文字</button>
+        <button class="tile" onclick="MoreMenu.run('merge')"><span>🔗</span>合併句子</button>
+        <button class="tile" onclick="MoreMenu.run('reorder')"><span>↕️</span>調整順序</button>
+        <button class="tile" onclick="MoreMenu.run('select')"><span>☑️</span>挑段落摘要</button>
+        <button class="tile" onclick="MoreMenu.run('upload')"><span>📁</span>加入錄音檔</button>
+        <button class="tile" onclick="MoreMenu.run('rename')"><span>🏷️</span>改名稱</button>
+      </div>
+      <div class="sheet-title">進階</div>
+      <div class="tile-grid">
+        <button class="tile" onclick="MoreMenu.run('mindmap')"><span>🧠</span>心智圖</button>
+        <button class="tile" onclick="MoreMenu.run('terms')"><span>🔍</span>名詞查證</button>
+        <button class="tile" onclick="MoreMenu.run('shared')"><span>📖</span>共享筆記</button>
+        <button class="tile" onclick="MoreMenu.run('sheet')"><span>📋</span>存到共享表格</button>
+      </div>
+      <button class="sheet-danger" onclick="MoreMenu.run('delete')">🗑️ 刪除這本筆記</button>
+      <button class="sheet-cancel" onclick="MoreMenu.close()">關閉</button>
     </div>
   </div>
 
@@ -1171,7 +1470,7 @@
         <p style="margin:0 0 8px;">這個工具只做「即時語音轉文字」，轉寫完成後<b>原始音檔就會被丟棄</b>，不會留存。如果你需要留一份原始錄音備份，請另外用手機內建的錄音 App 同時錄一份，兩者互相獨立。</p>
         <ul style="padding-left:18px; margin:8px 0;">
           <li>你錄製的語音內容<b>會上傳到 Groq 雲端伺服器</b>進行轉寫處理；依 Groq 官方條款，請求預設不保留、不用於訓練模型，僅在排除系統異常或調查濫用時暫存最長 30 天</li>
-          <li>需自行申請並填入 Groq API Key；<b>Key 會存在你這個裝置的瀏覽器裡</b>，若為共用裝置請於使用後清除本機資料</li>
+          <li>需自行申請並填入 語音金鑰；<b>金鑰會存在你這個裝置的瀏覽器裡</b>，若為共用裝置請於使用後清除本機資料</li>
           <li>整理好的<b>語音卡片同樣存在這個裝置的瀏覽器裡</b>，方便誤觸返回或切出頁面時找回，共用裝置也請一併清除</li>
           <li>本工具<b>不建議</b>用於處理真正機密或高度敏感的內容（例如商業機密、他人個資、密碼、身分證字號等）</li>
           <li>這是個人維護的小工具，<b>沒有正式的客服或服務保證</b>，可能因故調整或中止服務</li>
@@ -1204,14 +1503,14 @@
       <div class="modal-body">
         這會清除目前這台裝置、這個瀏覽器裡儲存的：
         <ul style="padding-left:18px; margin:8px 0;">
-          <li>你填過的 Groq API Key</li>
+          <li>你設定過的所有金鑰</li>
           <li>「不用再提醒」的已讀記錄（下次會重新看到提示彈窗）</li>
           <li>登入跳轉前暫存的待發送文字（若有）</li>
-          <li><b>目前尚未發送出去的語音卡片內容</b>（卡片會自動即時儲存，方便誤觸返回或切換分頁時找回，但也代表清除時會一併被刪除，且無法復原）</li>
+          <li><b>所有筆記與摘要</b>（刪除後無法復原）</li>
         </ul>
         <b>⚠️ 這個工具清不到的地方：</b>如果你曾經用「複製到剪貼簿」功能，筆記內容可能還留在系統剪貼簿裡（這是手機/瀏覽器本身的機制，網頁無法主動清除）。若這是共用裝置，建議額外複製一段無關文字覆蓋掉。
         <br><br>
-        確定要清除嗎？清除後需要重新輸入 API Key 才能繼續錄音，<b>目前的卡片內容也將無法復原</b>。
+        確定要清除嗎？清除後需要重新設定金鑰才能繼續錄音，<b>所有筆記都會消失</b>。
       </div>
       <div class="modal-footer">
         <div class="chat-preview-actions">
@@ -1223,13 +1522,13 @@
   </div>
 
   <!-- 共享表格建立教學，點❓圖示手動開啟。含資安提醒：本工具僅讀取，
-       但「連結可編輯」是使用者在 Google Sheets 端的權限選擇，與本
+       但「連結可編輯」是使用者在 Google 試算表端的權限選擇，與本
        工具無關，需講清楚避免誤解 -->
   <div class="modal-overlay hidden" id="sharedSheetGuideModal">
     <div class="modal-box" style="max-width:460px; max-height:85vh;">
       <div class="modal-tabs"><button class="active" style="cursor:default;">📖 建立共用表格教學</button></div>
       <div class="modal-body">
-        <h4 style="margin-top:0;">① 建立一份新的 Google Sheet</h4>
+        <h4 style="margin-top:0;">① 建立一份新的 Google 試算表</h4>
         <p style="margin:4px 0 10px; line-height:1.7;">
           打開 <a href="https://sheets.new" target="_blank" rel="noopener">sheets.new</a> 直接建立一份空白表格（或用現有的既有表格也可以）。這份表格不需要任何標題列，<b>每一格都直接存放一筆完整資料</b>，從 A1 開始，往下一格一格填。
         </p>
@@ -1238,7 +1537,7 @@
 
         <h4>② 把整理好的內容複製貼上</h4>
         <p style="margin:4px 0 10px; line-height:1.7;">
-          在「筆記」或「摘要」分頁點<b>「複製成 Sheet 貼上格式」</b>（或摘要那邊的「存回 Sheet」），系統會問你要取什麼主題名稱，接著自動複製成一整包資料到剪貼簿。回到 Google Sheet：
+          在「筆記」或「摘要」分頁點<b>「複製成表格貼上格式」</b>（或摘要那邊的「存回表格」），系統會問你要取什麼主題名稱，接著自動複製成一整包資料到剪貼簿。回到 Google 試算表：
         </p>
         <ol style="padding-left:20px; line-height:1.9; margin:0 0 10px;">
           <li>點選 <b>A1</b> 儲存格</li>
@@ -1267,10 +1566,10 @@
 
         <h4 style="color:var(--danger);">⚠️ 資安提醒：關於「連結可編輯」</h4>
         <p style="margin:4px 0 10px; line-height:1.75; font-size:12.5px;">
-          <b>本工具只會讀取資料，程式碼裡完全沒有寫入 Google Sheets 的功能</b>，就算你把權限設成「編輯者」，本工具本身也不會、也沒有能力去修改你的表格。
+          <b>本工具只會讀取資料，程式碼裡完全沒有寫入 Google 試算表的功能</b>，就算你把權限設成「編輯者」，本工具本身也不會、也沒有能力去修改你的表格。
         </p>
         <p style="margin:4px 0 10px; line-height:1.75; font-size:12.5px;">
-          但「連結可編輯」這個設定本身的風險，跟這個工具無關，而是 <b>Google Sheets 本身的機制</b>：一旦設成「知道連結的使用者」＋「編輯者」，代表<b>任何拿到這個連結的人</b>（不限於你邀請的協作者，只要連結被轉傳出去、被搜尋引擎索引到、或不小心分享錯地方）都能<b>修改、刪除、甚至清空整份表格</b>，不需要登入、不需要驗證身份。
+          但「連結可編輯」這個設定本身的風險，跟這個工具無關，而是 <b>Google 試算表本身的機制</b>：一旦設成「知道連結的使用者」＋「編輯者」，代表<b>任何拿到這個連結的人</b>（不限於你邀請的協作者，只要連結被轉傳出去、被搜尋引擎索引到、或不小心分享錯地方）都能<b>修改、刪除、甚至清空整份表格</b>，不需要登入、不需要驗證身份。
         </p>
         <p style="margin:4px 0 0; line-height:1.75; font-size:12.5px;">
           這個工具的用途只需要「檢視」權限就足夠，<b>強烈建議一律選「檢視者」，不要選「編輯者」</b>，把表格的編輯權限留給真正需要寫入的協作者，用 Email 邀請的方式個別授權，而不是整個對外開放編輯。
@@ -1300,8 +1599,8 @@
     <div class="modal-box" style="max-width:340px;">
       <div class="modal-tabs"><button class="active" style="cursor:default;">🌏 即時翻譯小提醒</button></div>
       <div class="modal-body" style="padding:16px; line-height:1.7;">
-        翻譯使用 <strong>MyMemory</strong> 免費服務，不需要另外申請 API Key，也不會消耗你的 Groq／Gemini 額度。<br><br>
-        免費額度為<strong>每天 5,000 字元</strong>，依你的網路位址計算。到「⚙️ 設定」分頁填入 email 可提升到 <strong>50,000 字元／天</strong>（不需註冊，只是讓服務方在異常時能聯絡到人）。<br><br>
+        翻譯使用 <strong>MyMemory</strong> 免費服務，不需要另外申請 金鑰，也不會消耗你的 Groq／Gemini 額度。<br><br>
+        免費額度為<strong>每天 5,000 字元</strong>，依你的網路位址計算。到「⚙️ 設定」分頁填入電子信箱可提升到 <strong>50,000 字元／天</strong>（不需註冊，只是讓服務方在異常時能聯絡到人）。<br><br>
         翻譯失敗或額度用完時，原文轉寫不受影響，只是該段不顯示翻譯。
       </div>
       <div class="modal-footer">
@@ -1350,204 +1649,181 @@
     </div>
   </div>
 
-  <div class="app" id="mainApp" style="display:flex;">
-    <div class="storage-toast" id="storageToast">
+  <div class="app" id="mainApp">
+    <div class="storage-toast" id="storageToast" role="status" aria-live="polite">
       <span class="toast-icon">💾</span>
       <span class="toast-text" id="storageToastText"></span>
     </div>
 
-    <!-- 主導覽 Tab 列：🎙️錄音／🗂️筆記／📖共享／📝摘要／⚙️設定，
-         同一時間只顯示一個分頁內容 -->
-    <div class="main-tabs">
-      <button id="navTabRecord" class="active" onclick="MainNav.switchTo('record')">
-        <span class="tab-icon">🎙️</span><span class="tab-label">錄音</span>
-      </button>
-      <button id="navTabCards" onclick="MainNav.switchTo('cards')">
-        <span class="tab-icon">🗂️</span><span class="tab-label">筆記</span>
-      </button>
-      <button id="navTabShared" onclick="MainNav.switchTo('shared')">
-        <span class="tab-icon">📖</span><span class="tab-label">共享</span>
-      </button>
-      <button id="navTabSummary" onclick="MainNav.switchTo('summary')">
-        <span class="tab-icon">📝</span><span class="tab-label">摘要</span>
-      </button>
-      <button id="navTabSettings" onclick="MainNav.switchTo('settings')">
-        <span class="tab-icon">⚙️</span><span class="tab-label">設定</span>
-      </button>
+    <!-- 背景工作提示：上傳轉寫、錄音停止後還在跑的段落，不論在哪個畫面都看得到 -->
+    <div class="busy-pill" id="busyPill" role="status" aria-live="polite">
+      <div class="upload-progress-row" id="uploadProgressRow">
+        <div class="upload-progress-spinner"></div>
+        <span id="uploadProgressText">上傳並轉寫中...</span>
+      </div>
+      <div class="upload-file-name" id="uploadFileName"></div>
+      <div class="pending-row" id="pendingRow">
+        <div class="upload-progress-spinner"></div>
+        <span id="pendingText"></span>
+      </div>
     </div>
 
-    <main>
-      <!-- ============ Tab 1／5：錄音 ============ -->
-      <div id="navPanelRecord" class="nav-panel">
-        <!-- 只在 Key 未設定時顯示，點擊直接跳轉設定分頁 -->
-        <div class="key-missing-hint hidden" id="recordKeyMissingHint" onclick="MainNav.switchTo('settings')">
-          🔑 尚未設定 Groq API Key，點此前往設定
+    <!-- ============ 首頁：筆記本清單 ============ -->
+    <section class="view" id="viewHome" aria-label="我的筆記">
+      <header class="home-header">
+        <div class="brand"><span class="brand-icon" aria-hidden="true">🎙️</span><h1>語音筆記</h1></div>
+        <div class="header-actions">
+          <button class="icon-btn" onclick="Onboarding.open()" aria-label="使用教學" title="使用教學">❓</button>
+          <button class="icon-btn" onclick="View.show('settings')" aria-label="設定" title="設定">⚙️</button>
+        </div>
+      </header>
+
+      <div class="setup-banner hidden" id="homeKeyBanner" role="button" tabindex="0" onclick="KeyWizard.open('groq')">
+        <span class="setup-banner-icon" aria-hidden="true">🔑</span>
+        <div class="setup-banner-text"><b>還差一步就能開始</b><span>設定免費的語音金鑰（約 2 分鐘）</span></div>
+        <span class="chev" aria-hidden="true">›</span>
+      </div>
+
+      <div class="nb-list" id="notebookList"></div>
+      <div class="home-empty hidden" id="homeEmpty">
+        <div class="home-empty-art" aria-hidden="true">📝</div>
+        <div class="home-empty-title">還沒有筆記</div>
+        <div class="home-empty-desc">按下方綠色的<b>「🎙️ 開始錄音」</b><br>說話就會自動變成文字</div>
+        <div class="home-empty-arrow" aria-hidden="true">↓</div>
+      </div>
+
+      <div class="home-dock">
+        <button class="dock-round" id="audioFileChooseLabel" onclick="Home.pickFile()" aria-label="上傳錄音檔">
+          <span aria-hidden="true">📁</span><small>上傳</small>
+        </button>
+        <button class="dock-main" id="homeRecordBtn" onclick="Home.startRecord()">
+          <span aria-hidden="true">🎙️</span>開始錄音
+        </button>
+      </div>
+      <input type="file" id="audioFileInput" accept="audio/*" hidden onchange="FileUploadTranscribe.onFileSelected(this.files)">
+    </section>
+
+    <!-- ============ 錄音畫面 ============ -->
+    <section class="view hidden" id="viewRecord" aria-label="錄音">
+      <div class="topbar">
+        <button class="icon-btn" id="recCloseBtn" onclick="View.back()" aria-label="關閉">✕</button>
+        <div class="topbar-title" id="recTitle">新錄音</div>
+        <span class="icon-btn-spacer"></span>
+      </div>
+
+      <div class="rec-body">
+        <div class="key-missing-hint hidden" id="recordKeyMissingHint" role="button" tabindex="0" onclick="KeyWizard.open('groq')">
+          🔑 還沒設定語音金鑰，點這裡設定
         </div>
 
-        <div class="lang-select-row">
-          <label for="langSelect" class="lang-select-label" style="display:flex; align-items:center; gap:4px;">
-            🌐 辨識語言
-            <button class="btn-help-icon" onclick="LangTranslationGuide.open()" title="選一個跟實際講話不同的語言，也能拿到單軌翻譯？點這裡看說明">❓</button>
-          </label>
-          <select id="langSelect" onchange="LanguageManager.onUserSelect(this.value)">
-            <option value="zh" selected>中文</option>
-            <option value="en">英文</option>
-            <option value="ja">日文</option>
-            <option value="ko">韓文</option>
-            <option value="auto">自動（中英日韓混雜）</option>
-          </select>
-        </div>
-
-        <!-- 即時翻譯：改用 MyMemory 純文字翻譯端點，不再重打一次音訊
-             API，因此不再有「額度 2 倍」的成本問題。額度按使用者自身
-             網路位址計算，填入 email 可提升 10 倍（詳見
-             TranslationManager 註解）。 -->
-        <div class="lang-select-row">
-          <label class="lang-select-label" style="display:flex; align-items:center; gap:4px; cursor:pointer;">
-            <input type="checkbox" id="translationEnabledCheckbox" onchange="TranslationManager.onToggle(this.checked)">
-            🌏 即時翻譯
-            <button class="btn-help-icon" onclick="LiveTranslationGuide.open()" title="關於翻譯服務與免費額度，點這裡看說明" style="margin-left:-2px;">❓</button>
-          </label>
-          <select id="translationTargetSelect" disabled onchange="TranslationManager.onTargetChange(this.value)">
-            <option value="zh">中文</option>
-            <option value="en">英文</option>
-            <option value="ja">日文</option>
-            <option value="ko">韓文</option>
-          </select>
-        </div>
-        <div class="translation-cost-hint" id="translationCostHint" style="display:none;">
-          ℹ️ 使用 MyMemory 免費翻譯，每日 5,000 字元；可到「⚙️ 設定」填 email 提升到 50,000
+        <div class="rec-options" id="recOptions">
+          <div class="opt-row">
+            <span class="opt-icon" aria-hidden="true">🗣️</span>
+            <label class="opt-label" for="langSelect">說的語言</label>
+            <select id="langSelect" onchange="LanguageManager.onUserSelect(this.value)">
+              <option value="zh" selected>中文</option>
+              <option value="en">英文</option>
+              <option value="ja">日文</option>
+              <option value="ko">韓文</option>
+              <option value="auto">自動（中英日韓混著講）</option>
+            </select>
+            <button class="btn-help-icon" onclick="LangTranslationGuide.open()" aria-label="語言說明">?</button>
+          </div>
+          <div class="opt-row">
+            <span class="opt-icon" aria-hidden="true">🌏</span>
+            <label class="opt-label opt-switch">
+              <input type="checkbox" role="switch" id="translationEnabledCheckbox" onchange="TranslationManager.onToggle(this.checked)">
+              同時翻譯成
+            </label>
+            <select id="translationTargetSelect" disabled onchange="TranslationManager.onTargetChange(this.value)" aria-label="翻譯成哪種語言">
+              <option value="zh">中文</option>
+              <option value="en">英文</option>
+              <option value="ja">日文</option>
+              <option value="ko">韓文</option>
+            </select>
+            <button class="btn-help-icon" onclick="LiveTranslationGuide.open()" aria-label="翻譯說明">?</button>
+          </div>
+          <div class="translation-cost-hint" id="translationCostHint" style="display:none;">
+            ℹ️ 免費翻譯每天約 5,000 字，可到「⚙️ 設定」提高到 50,000 字
+          </div>
         </div>
 
         <div class="meeting-mode" id="meetingCard">
-          <div class="rec-orb" id="recOrb">🎙️</div>
-          <div class="rec-status-text" id="recStatusText">尚未開始</div>
-          <div class="rec-sub-text" id="recSubText">點擊下方按鈕開始錄音（100% 支援 LIFF 內部）</div>
+          <div class="rec-orb" id="recOrb" aria-hidden="true">🎙️</div>
+          <div class="rec-timer" id="recTimer" aria-live="off">00:00</div>
+          <div class="rec-status-text" id="recStatusText">準備好了</div>
+          <div class="rec-sub-text" id="recSubText">按下方按鈕開始錄音</div>
           <div class="lang-detect-hint" id="langDetectHint" style="display:none;"></div>
-          <div class="live-preview-list" id="livePreviewList">
-            <div class="live-preview-empty">尚未有轉寫內容</div>
-          </div>
-          <button class="btn-record-toggle start" id="recordToggleBtn" onclick="toggleMeetingRecording()">開始錄音</button>
-          <!-- 錄音頁只顯示轉寫用量，那是錄音當下唯一會增加的項目；
-               完整三項用量在「⚙️ 設定」分頁 -->
-          <div class="quota-mini">
-            <span id="quotaMiniText">今日轉寫約 0 分鐘</span>
-            <div class="quota-mini-bar"><div class="quota-mini-fill" id="quotaMiniFill"></div></div>
-          </div>
-        </div>
-
-        <div class="upload-divider">或</div>
-        <div class="upload-panel">
-          <div class="upload-panel-label">📁 上傳語音檔案轉文字</div>
-          <div class="upload-panel-desc">適合長輩傳來的語音訊息、既有錄音檔。支援 mp3／m4a／wav／ogg 等常見格式，單檔建議在 25MB 以內。</div>
-          <label class="btn-upload-choose" for="audioFileInput" id="audioFileChooseLabel">選擇語音檔案</label>
-          <input type="file" id="audioFileInput" accept="audio/*" onchange="FileUploadTranscribe.onFileSelected(this.files)">
-          <div class="upload-file-name" id="uploadFileName"></div>
-          <div class="upload-progress-row" id="uploadProgressRow">
-            <div class="upload-progress-spinner"></div>
-            <span id="uploadProgressText">上傳並轉寫中...</span>
-          </div>
+          <div class="live-preview-list" id="livePreviewList" aria-live="polite"></div>
         </div>
       </div>
 
-      <!-- ============ Tab 2／5：筆記（語音卡片） ============ -->
-      <div id="navPanelCards" class="nav-panel hidden">
-        <div class="copy-sheet-format-row">
-          <button class="btn-copy-sheet-format" onclick="CopyToSheetFormat.copy()" title="把目前所有卡片內容整理成一包資料，貼到 Google Sheet 空白儲存格即可">
-            📋 複製成 Sheet 貼上格式
-          </button>
+      <div class="rec-footer">
+        <button class="btn-record-toggle start" id="recordToggleBtn" onclick="toggleMeetingRecording()">開始錄音</button>
+        <div class="quota-mini">
+          <span id="quotaMiniText">今日轉寫約 0 分鐘</span>
+          <div class="quota-mini-bar"><div class="quota-mini-fill" id="quotaMiniFill"></div></div>
         </div>
-        <div class="edit-mode-bar">
-          <button id="modeMergeBtn" onclick="EditModeManager.toggle('merge')">🔗 合併模式</button>
-          <button id="modeReorderBtn" onclick="EditModeManager.toggle('reorder')">↕️ 改順序模式</button>
-          <button id="modeEditBtn" onclick="EditModeManager.toggle('edit')">✏️ 編輯內容模式</button>
-          <button id="modeSelectBtn" onclick="EditModeManager.toggle('select')">✅ 勾選模式（納入摘要）</button>
-        </div>
-        <div class="edit-mode-hint" id="editModeHint"></div>
-        <!-- 全選列只在勾選模式顯示：其他模式下沒有勾選概念，
-             常駐會佔版面也造成誤解 -->
-        <div class="select-all-row hidden" id="selectAllRow">
-          <button id="selectAllBtn" onclick="CardSandbox.toggleSelectAll()">☑️ 全選</button>
-          <span class="select-all-count" id="selectAllCount"></span>
-        </div>
-        <div class="cards" id="cardsList"></div>
+      </div>
+    </section>
+
+    <!-- ============ 單本筆記 ============ -->
+    <section class="view hidden" id="viewNotebook" aria-label="筆記內容">
+      <div class="topbar">
+        <button class="icon-btn" onclick="View.back()" aria-label="返回">←</button>
+        <button class="topbar-title as-btn" id="nbTitle" onclick="Notebook.rename()" title="點一下改名稱"></button>
+        <button class="icon-btn" onclick="MoreMenu.open()" aria-label="更多功能" title="更多功能">⋯</button>
+      </div>
+      <div class="seg" role="tablist">
+        <button role="tab" id="nbTabCards" class="active" onclick="Notebook.switchTab('cards')">📝 逐字稿</button>
+        <button role="tab" id="nbTabSummary" onclick="Notebook.switchTab('summary')">✨ 重點摘要</button>
       </div>
 
-      <!-- ============ Tab 3／5：共享筆記 ============ -->
-      <div id="navPanelShared" class="nav-panel hidden">
-        <!-- 唯讀查看共享 Google Sheet 筆記，可勾選並與語音卡片混合送去
-             「摘要」分頁生成，順序依勾選先後決定。完全不寫入 Sheet -->
-        <div class="shared-notes-panel" id="sharedNotesPanel">
-          <div class="shared-notes-panel-label">
-            讀取共用 Google Sheet
-            <button class="btn-help-icon" onclick="SharedSheetGuide.open()" title="怎麼建立共用表格？點這裡看圖文教學">❓</button>
+      <main>
+        <div id="navPanelCards" class="nav-panel">
+          <div class="edit-mode-hint" id="editModeHint">
+            <span id="editModeHintText"></span>
+            <button class="edit-done-btn" onclick="EditModeManager.set(null)">✓ 完成</button>
           </div>
-          <div class="shared-notes-panel-desc">
-            貼上共用 Google Sheet 的分享連結，讀取後可勾選要查看（或用來生成摘要）的資料，可複選，勾選順序即為送去生成摘要時的順序。這裡只能「查看」，不會修改 Sheet 本身。還沒建立共用表格？點上面的❓看圖文教學。
+          <div class="select-all-row hidden" id="selectAllRow">
+            <button id="selectAllBtn" onclick="CardSandbox.toggleSelectAll()">☑️ 全選</button>
+            <span class="select-all-count" id="selectAllCount"></span>
           </div>
-          <div class="shared-notes-input-row">
-            <input type="text" id="sharedSheetUrlInput" placeholder="貼上 Google Sheet 分享連結">
-            <button class="btn-shared-notes-load" id="sharedNotesLoadBtn" onclick="SharedSheetNotes.load()">讀取</button>
+          <div class="cards" id="cardsList"></div>
+        </div>
+
+        <div id="navPanelSummary" class="nav-panel hidden">
+          <div class="setup-card hidden" id="summaryKeyMissingHint" role="button" tabindex="0" onclick="KeyWizard.open('gemini')">
+            <span class="setup-banner-icon" aria-hidden="true">✨</span>
+            <div class="setup-banner-text"><b>想讓 AI 自動整理重點？</b><span>設定免費的摘要金鑰（約 2 分鐘）</span></div>
+            <span class="chev" aria-hidden="true">›</span>
           </div>
-          <div class="shared-notes-error" id="sharedNotesError"></div>
-          <div class="shared-notes-loading" id="sharedNotesLoading">
-            <div class="upload-progress-spinner"></div>
-            <span>正在讀取共用表格...</span>
-          </div>
-          <div class="shared-notes-select-row" id="sharedNotesSelectRow">
-            <div class="shared-notes-select-header">
-              <label>勾選要查看（或納入摘要）的資料，順序即點選順序</label>
-              <button class="shared-notes-select-all-btn" onclick="SharedSheetNotes.toggleSelectAll()" id="sharedNotesSelectAllBtn">全選</button>
+          <div class="summary-panel" id="summaryPanel">
+            <div class="field-title">這是什麼場合？</div>
+            <div class="scene-chips" role="radiogroup" aria-label="場合">
+              <button class="scene-chip" data-scene="lecture" role="radio" onclick="SummaryModule.onSceneChange('lecture')"><span>📚</span>上課</button>
+              <button class="scene-chip" data-scene="meeting" role="radio" onclick="SummaryModule.onSceneChange('meeting')"><span>💼</span>開會</button>
+              <button class="scene-chip" data-scene="interview" role="radio" onclick="SummaryModule.onSceneChange('interview')"><span>🎤</span>訪談</button>
+              <button class="scene-chip" data-scene="daily" role="radio" onclick="SummaryModule.onSceneChange('daily')"><span>💬</span>聊天</button>
             </div>
-            <div class="shared-notes-checkbox-list" id="sharedNotesCheckboxList"></div>
-            <div class="shared-notes-total-count" id="sharedNotesTotalCount"></div>
-          </div>
-          <div class="shared-notes-output" id="sharedNotesOutput"></div>
-          <div class="shared-notes-warn-note">
-            ⚠️ 這份表格每一格存放一整包資料，請不要手動編輯格式或自行輸入內容，一律使用「複製成 Sheet 貼上格式」按鈕產生內容，貼到下一個空白儲存格即可；對方表格需設為「知道連結的使用者可檢視」才讀得到；僅讀取第一個工作分頁；多人同時手動貼上時沒有鎖定機制，貼上前請先確認自己要貼在空白儲存格，避免覆蓋他人資料。
-          </div>
-        </div>
-      </div>
+            <div class="summary-scene-desc" id="summarySceneDesc"></div>
+            <div class="summary-pool-hint" id="summaryPoolHint"></div>
+            <div class="summary-pool-list" id="summaryPoolList"></div>
 
-      <!-- ============ Tab 4／5：AI 摘要 ============ -->
-      <div id="navPanelSummary" class="nav-panel hidden">
-        <!-- 摘要來源讀取 SelectionPool（卡片+共享筆記統一勾選池） -->
-        <div class="key-missing-hint hidden" id="summaryKeyMissingHint" onclick="MainNav.switchTo('settings')">
-          🔑 尚未設定 Gemini API Key，點此前往設定（選填功能）
-        </div>
-        <div class="summary-panel" id="summaryPanel">
-          <div class="summary-pool-hint" id="summaryPoolHint">尚未勾選任何資料。到「共享」分頁勾選共享筆記項目，或在「筆記」分頁切到「✅ 勾選模式」勾選卡片，即可納入摘要來源。</div>
-          <div class="summary-pool-list" id="summaryPoolList"></div>
-
-          <!-- 摘要場景：同一份逐字稿在不同場景下該抽取的重點完全不同
-               （課堂要的是知識脈絡，會議要的是決議與待辦），用會議框架
-               去理解課堂內容會逼 AI 去找不存在的「負責人」「決議」。
-               這裡只切換 systemInstruction，responseSchema 不變。 -->
-          <div class="summary-scene-row">
-            <label for="summarySceneSelect" class="summary-scene-label">🎯 場景</label>
-            <select id="summarySceneSelect" onchange="SummaryModule.onSceneChange(this.value)">
-              <option value="lecture">📚 課堂／演講</option>
-              <option value="meeting">💼 會議</option>
-              <option value="interview">🎤 訪談／對談</option>
-              <option value="daily">💬 日常對話</option>
-            </select>
-          </div>
-          <div class="summary-scene-desc" id="summarySceneDesc"></div>
-
-          <button class="btn-summary-generate" id="summaryGenerateBtn" onclick="SummaryModule.generate()">📝 生成 AI 摘要</button>
+            <button class="btn-summary-generate" id="summaryGenerateBtn" onclick="SummaryModule.generate()">✨ 產生重點摘要</button>
 
           <!-- 摘要結果的次級分頁：摘要／待辦事項／心智圖同層切換，
                固定在同一個區塊高度內，不需要滑動穿越三塊內容。
                待辦事項／心智圖分頁按鈕沒有對應資料時停用。 -->
           <div class="summary-result-tabs hidden" id="summaryResultTabs">
-            <button class="summary-result-tab active" id="summaryTabBtn-text" onclick="SummaryModule.switchResultTab('text')">📄 摘要</button>
+            <button class="summary-result-tab active" id="summaryTabBtn-text" onclick="SummaryModule.switchResultTab('text')">📄 重點</button>
             <button class="summary-result-tab" id="summaryTabBtn-actions" onclick="SummaryModule.switchResultTab('actions')">✅ 待辦</button>
-            <button class="summary-result-tab" id="summaryTabBtn-mindmap" onclick="SummaryModule.switchResultTab('mindmap')">🧠 心智圖</button>
-            <button class="summary-result-tab" id="summaryTabBtn-terms" onclick="SummaryModule.switchResultTab('terms')">📖 名詞</button>
+            <button class="summary-result-tab adv-tab" id="summaryTabBtn-mindmap" onclick="SummaryModule.switchResultTab('mindmap')">🧠 心智圖</button>
+            <button class="summary-result-tab adv-tab" id="summaryTabBtn-terms" onclick="SummaryModule.switchResultTab('terms')">📖 名詞</button>
           </div>
 
           <div class="summary-output empty" id="summaryOutputBox">
-            尚未生成摘要。勾選好要納入的資料後，點上方按鈕即可生成重點摘要。
+            還沒有摘要。選好場合後，按上方的「✨ 產生重點摘要」。
           </div>
 
           <div class="summary-result-panel hidden" id="summaryActionItemsSection">
@@ -1574,7 +1850,7 @@
                 <button onclick="SummaryModule.resetMindmapView()" title="回到中心">🎯 置中</button>
                 <button onclick="SummaryModule.downloadMindmapImage()" title="下載成 PNG 圖片">⬇️ 下載圖片</button>
                 <button onclick="SummaryModule.shareMindmapImage()" title="分享圖片">🔗 分享圖片</button>
-                <button onclick="SummaryModule.copyMindmapToSheet()" title="存成文字大綱到共用 Sheet">📤 存 Sheet</button>
+                <button onclick="SummaryModule.copyMindmapToSheet()" title="存成文字大綱到共用表格">📤 存表格</button>
               </div>
             </div>
             <div id="mindmapEditWrap" class="hidden">
@@ -1615,216 +1891,137 @@
             <div class="summary-actions-inline">
               <button class="copy" onclick="SummaryModule.copy()" title="複製摘要文字">📋 複製</button>
               <button class="share" onclick="SummaryModule.share()" title="分享摘要">🔗 分享</button>
-              <button class="copysheet" onclick="SummaryModule.copyToSheet()" title="複製成可貼進共用 Sheet 的格式">📤 存回 Sheet</button>
+              <button class="copysheet" onclick="SummaryModule.copyToSheet()" title="複製成可貼進共用表格的格式">📤 存回表格</button>
               <button class="del" onclick="SummaryModule.remove()" title="刪除已保存的摘要">✕ 刪除</button>
             </div>
           </div>
+          </div>
+        </div>
+      </main>
+
+      <div class="action-bar" id="actionBar">
+        <div class="send-btn-row">
+          <button class="btn-secondary" onclick="RecordScreen.open(false)">🎙️ 繼續錄音</button>
+          <button class="btn-primary" id="shareOutBtn" onclick="ShareMenu.open()">📤 傳送</button>
         </div>
       </div>
+    </section>
 
-      <!-- ============ Tab 5／5：設定 ============ -->
-      <div id="navPanelSettings" class="nav-panel hidden">
-        <!-- 信任說明放在 API Key 上方：使用者疑慮最高的時刻就是被要求
-             貼上 Key 的當下。內容全部是可驗證的事實陳述，主詞明確限定
-             在「本工具」，避免與第三方服務（Groq／Gemini 等仍需各自
-             註冊）混為一談造成不實陳述。 -->
-        <div class="settings-section-label">🛡️ 這個工具怎麼處理你的資料</div>
-        <details class="trust-panel">
-          <summary>要貼 API Key 給你，安全嗎？（點開看說明）</summary>
-          <div class="trust-body">
-            <div class="trust-block">
-              <div class="trust-head">💰 不會被扣錢</div>
-              <ul>
-                <li>Groq、Gemini 都有<b>免費方案，不需綁定信用卡</b></li>
-                <li>額度用完只會暫停服務並顯示提示，<b>不會自動轉為付費</b></li>
-              </ul>
-            </div>
-
-            <div class="trust-block">
-              <div class="trust-head">📍 你的資料在哪裡</div>
-              <ul>
-                <li>API Key、語音卡片、摘要：<b>只存在這台裝置的瀏覽器裡</b></li>
-                <li>語音會傳送到 Groq 的伺服器進行辨識，辨識完不保留</li>
-                <li><b>本工具沒有自己的伺服器</b>，你的資料不會經過我這邊</li>
-              </ul>
-            </div>
-
-            <div class="trust-block">
-              <div class="trust-head">🚫 本工具不會做的事</div>
-              <ul>
-                <li><b>不需要對本工具註冊</b>、本工具<b>不蒐集 email</b> 或任何個人資料
-                  <span class="trust-note">（Groq、Gemini 等第三方服務仍需你自行前往註冊，那是與各該服務的關係）</span>
-                </li>
-                <li>不讀取通訊錄、相簿、定位</li>
-                <li>沒有廣告，不販售任何資料</li>
-              </ul>
-            </div>
-
-            <div class="trust-block">
-              <div class="trust-head">🏢 這些服務是誰？</div>
-              <div class="trust-svc">
-                <div class="trust-svc-name">Groq　<span>語音辨識</span></div>
-                <div class="trust-svc-desc">
-                  2016 年成立於美國加州的 AI 運算公司，全球有 13 個資料中心，
-                  超過 <b>600 萬名開發者</b>與多家《財星》500 大企業在使用。
-                  晶片大廠 <b>NVIDIA</b> 是它的合作夥伴與投資人。
-                  依 Groq 官方條款，<b>不會將客戶資料用於訓練模型</b>，語音辨識請求預設不保留內容，
-                  僅在排除系統異常或調查濫用時暫存最長 30 天（此政策不分免費／付費層）。
-                </div>
-              </div>
-              <div class="trust-svc">
-                <div class="trust-svc-name">Google Gemini　<span>AI 摘要</span></div>
-                <div class="trust-svc-desc">
-                  Google 官方推出的 AI 模型服務，就是你在手機上會看到的那個 Google。
-                  <b>提醒：Gemini 免費方案的內容依 Google 條款可能被用於改善 Google 產品、也可能被人工審閱</b>，
-                  付費方案才有不用於訓練的承諾。若內容涉及機密或不想外流的資訊，建議略過 AI 摘要，只使用轉寫功能。
-                </div>
-              </div>
-              <div class="trust-svc">
-                <div class="trust-svc-name">MyMemory　<span>即時翻譯</span></div>
-                <div class="trust-svc-desc">
-                  由義大利翻譯公司 Translated 營運，是<b>全世界最大的翻譯記憶庫</b>，
-                  語料來自<b>歐盟與聯合國</b>的官方翻譯文件，累積約 75 億筆專業譯者翻譯過的句子。
-                  本工具只使用它的<b>查詢功能</b>，不會把你的內容提交進它的公開貢獻流程（不會變成別人查得到的公開語料）。
-                  <b>但依 Translated 官方條款，凡是提交的內容（含查詢字句）都可能被長期保存並用於改善服務</b>，
-                  條款沒有為單純查詢另外訂定較短的保留期限，這點與 Groq 明確承諾「不保留、不訓練」不同，若翻譯內容較敏感請自行斟酌是否使用。
-                </div>
-              </div>
-              <span class="trust-note">
-                這三家都是提供 API 的正規服務商，你可以自行搜尋查證。你的 Key 是向它們申請的，
-                本工具只是幫你把請求送過去。
-              </span>
-            </div>
-
-            <div class="trust-block">
-              <div class="trust-head">🎤 只要一項權限</div>
-              <ul>
-                <li>麥克風，用於錄音，僅此而已</li>
-              </ul>
-            </div>
-
-            <div class="trust-block">
-              <div class="trust-head">🔍 不用相信我，自己驗證</div>
-              <ul>
-                <li>整個工具是<b>單一 HTML 檔案</b>，在瀏覽器按右鍵「檢視網頁原始碼」就能看到全部程式</li>
-                <li>按 <code>F12</code> 打開開發者工具的 <b>Network</b> 分頁再操作一次，可以核對實際發出的請求</li>
-                <li>想完全斷開？用完到最下方「危險區域」點「刪除全部本機資料」即可清空</li>
-              </ul>
-              <div class="trust-head" style="margin-top:8px;">本工具會連線的對象，僅有這些：</div>
-              <ul>
-                <li><code>api.groq.com</code>　語音辨識</li>
-                <li><code>generativelanguage.googleapis.com</code>　AI 摘要</li>
-                <li><code>api.mymemory.translated.net</code>　即時翻譯</li>
-                <li><code>docs.google.com</code>　讀取你貼上的共用 Sheet 連結</li>
-                <li><code>*.line-scdn.net</code>、<code>api.line.me</code>、<code>access.line.me</code>　LINE 登入與送回聊天室</li>
-                <li><code>cdn.jsdelivr.net</code>　載入心智圖繪圖元件</li>
-              </ul>
-              <span class="trust-note">
-                這份清單不只是說明——它同時寫在網頁原始碼最上方的 CSP（內容安全政策）設定裡，
-                由<b>瀏覽器強制執行</b>：就算程式想連到清單以外的網址，瀏覽器也會直接擋下來。
-              </span>
-            </div>
+    <!-- ============ 共享筆記（進階） ============ -->
+    <section class="view hidden" id="viewShared" aria-label="共享筆記">
+      <div class="topbar">
+        <button class="icon-btn" onclick="View.back()" aria-label="返回">←</button>
+        <div class="topbar-title">📖 共享筆記</div>
+        <button class="icon-btn" onclick="SharedSheetGuide.open()" aria-label="教學">?</button>
+      </div>
+      <main id="navPanelShared">
+        <div class="shared-notes-panel" id="sharedNotesPanel">
+          <div class="shared-notes-panel-label">
+            讀取共用 Google 試算表
+            <button class="btn-help-icon" onclick="SharedSheetGuide.open()" title="怎麼建立共用表格？點這裡看圖文教學">❓</button>
           </div>
-        </details>
+          <div class="shared-notes-panel-desc">
+            貼上共用 Google 試算表的分享連結，讀取後可勾選要查看（或用來生成摘要）的資料，可複選，勾選順序即為送去生成摘要時的順序。這裡只能「查看」，不會修改表格本身。還沒建立共用表格？點上面的❓看圖文教學。
+          </div>
+          <div class="shared-notes-input-row">
+            <input type="text" id="sharedSheetUrlInput" placeholder="貼上 Google 試算表分享連結">
+            <button class="btn-shared-notes-load" id="sharedNotesLoadBtn" onclick="SharedSheetNotes.load()">讀取</button>
+          </div>
+          <div class="shared-notes-error" id="sharedNotesError"></div>
+          <div class="shared-notes-loading" id="sharedNotesLoading">
+            <div class="upload-progress-spinner"></div>
+            <span>正在讀取共用表格...</span>
+          </div>
+          <div class="shared-notes-select-row" id="sharedNotesSelectRow">
+            <div class="shared-notes-select-header">
+              <label>勾選要查看（或納入摘要）的資料，順序即點選順序</label>
+              <button class="shared-notes-select-all-btn" onclick="SharedSheetNotes.toggleSelectAll()" id="sharedNotesSelectAllBtn">全選</button>
+            </div>
+            <div class="shared-notes-checkbox-list" id="sharedNotesCheckboxList"></div>
+            <div class="shared-notes-total-count" id="sharedNotesTotalCount"></div>
+          </div>
+          <div class="shared-notes-output" id="sharedNotesOutput"></div>
+          <div class="shared-notes-warn-note">
+            ⚠️ 這份表格每一格存放一整包資料，請不要手動編輯格式或自行輸入內容，一律使用「複製成表格貼上格式」按鈕產生內容，貼到下一個空白儲存格即可；對方表格需設為「知道連結的使用者可檢視」才讀得到；僅讀取第一個工作分頁；多人同時手動貼上時沒有鎖定機制，貼上前請先確認自己要貼在空白儲存格，避免覆蓋他人資料。
+          </div>
+        </div>
+        <button class="btn-summary-generate" style="margin-top:14px;" onclick="View.back(); Notebook.switchTab('summary');">✨ 用勾選的內容做摘要</button>
+      </main>
+    </section>
 
-        <div class="settings-section-label">🔑 API Key</div>
+    <!-- ============ 設定 ============ -->
+    <section class="view hidden" id="viewSettings" aria-label="設定">
+      <div class="topbar">
+        <button class="icon-btn" onclick="View.back()" aria-label="返回">←</button>
+        <div class="topbar-title">⚙️ 設定</div>
+        <span class="icon-btn-spacer"></span>
+      </div>
+      <main id="navPanelSettings">
+        <div class="tile-grid settings-quick">
+          <button class="tile" onclick="Onboarding.open()"><span>🎓</span>使用教學</button>
+          <button class="tile" onclick="openTrustPanel()"><span>🛡️</span>資料安全</button>
+          <button class="tile" onclick="KeyWizard.open('groq')"><span>🎙️</span>設定語音金鑰</button>
+          <button class="tile" onclick="KeyWizard.open('gemini')"><span>✨</span>設定摘要金鑰</button>
+        </div>
+
+        <div class="settings-section-label">🔑 我的金鑰</div>
 
         <div class="key-panel">
-          <div class="key-panel-label">Groq API Key（錄音轉文字用，必填）</div>
-          <div class="key-panel-desc">可以預先存好多把 Key，額度用完或某把被刪除失效時，不用重新輸入，直接切換到下一把即可。目前使用中的那把會用綠框標示，最多可存 12 把。</div>
-
+          <div class="key-panel-label">🎙️ 語音金鑰（錄音變文字，必要）</div>
+          <div class="key-panel-desc">可以存好幾組，額度用完時換下一組。綠框是正在使用的那組。</div>
           <div class="keypool-list" id="groqKeyPoolList"></div>
-
           <div class="keypool-add-row">
-            <input type="text" id="groqKeyPoolLabelInput" class="keypool-label-input" placeholder="名稱（選填）">
-            <input type="password" id="groqKeyPoolValueInput" placeholder="貼上新的 Key：gsk_...">
-            <button class="keypool-add-btn" onclick="KeyPoolPanel.addKey('groq')">新增</button>
+            <input type="text" id="groqKeyPoolLabelInput" class="keypool-label-input" placeholder="名稱（可不填）" aria-label="金鑰名稱">
+            <input type="password" id="groqKeyPoolValueInput" placeholder="貼上 gsk_ 開頭的金鑰" aria-label="語音金鑰">
+            <button class="keypool-add-btn" onclick="KeyPoolPanel.addKey('groq')">加入</button>
           </div>
           <div class="keypool-count-hint" id="groqKeyPoolCountHint"></div>
-          <div class="keypool-trust-hint">
-            🛡️ Groq 免費方案不需綁信用卡，額度用完只會暫停、不會扣款。Key 只存在這台裝置，
-            <a href="#" onclick="openTrustPanel(event)">看完整說明</a>
-          </div>
-
           <div class="keypool-switch-mode-row">
-            <div class="keypool-switch-mode-label">偵測到目前這把 Key 失效或額度用完時：</div>
+            <div class="keypool-switch-mode-label">金鑰失效或額度用完時：</div>
             <div class="keypool-switch-mode-toggle" id="groqSwitchModeToggle">
-              <button id="groqSwitchModeManual" onclick="KeyPoolPanel.setSwitchMode('groq', 'manual')">僅提醒</button>
-              <button id="groqSwitchModeAuto" onclick="KeyPoolPanel.setSwitchMode('groq', 'auto')">自動切換</button>
+              <button id="groqSwitchModeManual" onclick="KeyPoolPanel.setSwitchMode('groq', 'manual')">只提醒我</button>
+              <button id="groqSwitchModeAuto" onclick="KeyPoolPanel.setSwitchMode('groq', 'auto')">自動換下一組</button>
             </div>
           </div>
-
-          <details>
-            <summary>還沒有 Groq API Key？點這裡看申請教學</summary>
-            <div class="guide-body">
-              <ol style="margin:0; padding-left:18px;">
-                <li>打開 <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>（會直接跳到 API Keys 頁面）</li>
-                <li>用 Google／GitHub／Email 任一種方式註冊登入（Email 註冊需要驗證信箱）</li>
-                <li>登入後點畫面上的「<b>Create API Key</b>」按鈕</li>
-                <li>隨便輸入一個名稱（例如「我的筆記」），送出</li>
-                <li>畫面會顯示一串以 <code>gsk_</code> 開頭的金鑰——<b>這串只會顯示這一次</b>，記得先複製起來，離開頁面後就看不到了</li>
-                <li>回到這裡，把整串貼進上面的輸入框即可</li>
-              </ol>
-              <div class="guide-note">免費額度不需要信用卡，日常筆記用量通常足夠；金鑰只存在你自己手機瀏覽器裡，不會被上傳到任何地方。</div>
-            </div>
-          </details>
+          <button class="link-btn" onclick="KeyWizard.open('groq')">🧭 還沒有金鑰？一步步帶你申請</button>
         </div>
 
         <div class="key-panel">
-          <div class="key-panel-label">Gemini API Key（AI 摘要用，選填）</div>
-          <div class="key-panel-desc">要使用「AI 摘要」功能才需要填寫。同樣可以預先存好多把 Key（最多 5 把），失效時直接切換即可。</div>
-
+          <div class="key-panel-label">✨ 摘要金鑰（AI 整理重點，可不設）</div>
+          <div class="key-panel-desc">要用「重點摘要」才需要。一樣可以存好幾組。</div>
           <div class="keypool-list" id="geminiKeyPoolList"></div>
-
           <div class="keypool-add-row">
-            <input type="text" id="geminiKeyPoolLabelInput" class="keypool-label-input" placeholder="名稱（選填）">
-            <input type="password" id="geminiKeyPoolValueInput" placeholder="貼上新的 Key：AIza...">
-            <button class="keypool-add-btn" onclick="KeyPoolPanel.addKey('gemini')">新增</button>
+            <input type="text" id="geminiKeyPoolLabelInput" class="keypool-label-input" placeholder="名稱（可不填）" aria-label="金鑰名稱">
+            <input type="password" id="geminiKeyPoolValueInput" placeholder="貼上 AIza 開頭的金鑰" aria-label="摘要金鑰">
+            <button class="keypool-add-btn" onclick="KeyPoolPanel.addKey('gemini')">加入</button>
           </div>
           <div class="keypool-count-hint" id="geminiKeyPoolCountHint"></div>
-
           <div class="keypool-switch-mode-row">
-            <div class="keypool-switch-mode-label">偵測到目前這把 Key 失效或額度用完時：</div>
+            <div class="keypool-switch-mode-label">金鑰失效或額度用完時：</div>
             <div class="keypool-switch-mode-toggle" id="geminiSwitchModeToggle">
-              <button id="geminiSwitchModeManual" onclick="KeyPoolPanel.setSwitchMode('gemini', 'manual')">僅提醒</button>
-              <button id="geminiSwitchModeAuto" onclick="KeyPoolPanel.setSwitchMode('gemini', 'auto')">自動切換</button>
+              <button id="geminiSwitchModeManual" onclick="KeyPoolPanel.setSwitchMode('gemini', 'manual')">只提醒我</button>
+              <button id="geminiSwitchModeAuto" onclick="KeyPoolPanel.setSwitchMode('gemini', 'auto')">自動換下一組</button>
             </div>
           </div>
-
-          <details>
-            <summary>還沒有 Gemini API Key？點這裡看申請教學</summary>
-            <div class="guide-body">
-              <ol style="margin:0; padding-left:18px;">
-                <li>打開 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com/app/apikey</a>（Google AI Studio 的 API Key 頁面）</li>
-                <li>用你的 Google 帳號登入（跟平常登入 Gmail／Google Drive 用同一組帳號即可），第一次使用可能需要先同意條款</li>
-                <li>點畫面上的「<b>Create API key</b>」按鈕</li>
-                <li>如果系統詢問要建立在哪個 Google Cloud 專案底下，選「Create API key in new project」（建立新專案）最簡單，不需要額外設定</li>
-                <li>畫面會顯示一串以 <code>AIza</code> 開頭的金鑰，點旁邊的複製圖示整串複製起來（這個頁面之後還能回來查看，不像 Groq 只顯示一次，但還是建議先複製好）</li>
-                <li>回到這裡，把整串貼進上面的輸入框即可</li>
-              </ol>
-              <div class="guide-note">免費額度足夠日常使用，不需要信用卡；金鑰只存在你自己手機瀏覽器裡，不會被上傳到任何地方。這個 Key 是選填的，只有要用「AI 摘要」功能時才需要設定，不影響錄音轉文字等其他功能。</div>
-            </div>
-          </details>
+          <button class="link-btn" onclick="KeyWizard.open('gemini')">🧭 還沒有金鑰？一步步帶你申請</button>
         </div>
 
-        <!-- 即時翻譯的額度設定：MyMemory 不需要 API Key，只用 email
-             參數提升每日額度，因此與 API Key 分開成獨立區塊 -->
         <div class="settings-section-label">🌏 翻譯額度</div>
         <div class="keypool-block">
-          <input type="email" id="translationEmailInput" placeholder="你的 email（選填）"
+          <input type="email" id="translationEmailInput" placeholder="你的電子信箱（可不填）" aria-label="電子信箱"
             onchange="TranslationManager.onEmailChange(this.value)">
 
           <details>
-            <summary>這個 email 是做什麼用的？</summary>
+            <summary>填電子信箱有什麼用？</summary>
             <div class="guide-body">
               <ol style="margin:0; padding-left:18px;">
-                <li>「即時翻譯」使用 <b>MyMemory</b> 免費翻譯服務，不需要申請 API Key，也不會消耗你的 Groq／Gemini 額度</li>
+                <li>「即時翻譯」使用 <b>MyMemory</b> 免費翻譯服務，不需要申請 金鑰，也不會消耗你的 Groq／Gemini 額度</li>
                 <li>不填任何東西也能直接用，免費額度是<b>每天 5,000 字元</b>，依你的網路位址計算</li>
-                <li>填入 email 後，額度會提升到<b>每天 50,000 字元</b>（約 10 倍）</li>
+                <li>填入電子信箱後，額度會提升到<b>每天 50,000 字元</b>（約 10 倍）</li>
                 <li>這不是註冊帳號，<b>不需要驗證信箱、也不會收到任何信件</b>；服務方要求填寫只是為了在你的用量造成異常時能聯絡到人</li>
                 <li>請填真實可用的信箱，亂填雖然當下也會通，但可能被對方的防護機制判定異常而封鎖連線</li>
               </ol>
-              <div class="guide-note">email 只存在你自己手機瀏覽器裡，不會被上傳到本工具的任何地方，僅在呼叫翻譯服務時隨請求一起送出。額度用完時原文轉寫不受影響，只是該段不顯示翻譯，等 24 小時後會自動重置。</div>
+              <div class="guide-note">電子信箱只存在你自己手機瀏覽器裡，不會被上傳到本工具的任何地方，僅在呼叫翻譯服務時隨請求一起送出。額度用完時原文轉寫不受影響，只是該段不顯示翻譯，等 24 小時後會自動重置。</div>
             </div>
           </details>
         </div>
@@ -1833,66 +2030,224 @@
         <div id="quotaMeterList"></div>
         <div class="quota-meter-note">
           這是<b>本裝置</b>送出的量，不是各服務回報的實際餘額（三家都沒有可查詢餘額的介面）。
-          若同一把 Key 在其他裝置或工具用過，實際用量會比這裡更高。每日午夜歸零。
+          若同一把金鑰在其他裝置或工具用過，實際用量會比這裡更高。每日午夜歸零。
         </div>
 
-        <!-- 逐項刪除，狀態燈號（綠=已設定／灰=無資料）方便辨識 -->        <div class="settings-section-label">🗂️ 個別資料管理</div>
+        <div class="settings-section-label">🗂️ 資料管理</div>
         <div id="settingsItemsList"></div>
 
         <div class="settings-danger-zone">
-          <div class="danger-label">⚠️ 危險區域</div>
+          <div class="danger-label">⚠️ 全部刪除</div>
           <div class="danger-desc">
-            一次清除這台裝置上的所有 API Key、卡片草稿、摘要、分享中斷記錄與已讀提示記錄。<b>此動作無法復原</b>，適合在共用裝置使用完畢後執行。
+            一次清除這支手機上的所有金鑰、筆記與設定。<b>刪了就救不回來</b>，適合在借來的手機用完後執行。
           </div>
-          <button class="btn-danger-full" onclick="ClearLocalData.open()">🗑️ 刪除全部本機資料</button>
+          <button class="btn-danger-full" onclick="ClearLocalData.open()">🗑️ 刪除全部資料</button>
         </div>
+
+        <details class="changelog-details">
+          <summary>📜 更新紀錄</summary>
+          <div class="version-entry">
+            <span class="version-tag">最新</span>
+            <h4>介面大改版：更簡單、全中文</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>首頁改成<b>筆記本清單</b>，每次錄音自動存成一本，按「🎙️ 開始錄音」就能用</li>
+              <li>新增<b>三步驟新手教學</b>與<b>金鑰設定精靈</b>，一步步標出申請網頁要按哪顆按鈕，貼上後立刻檢查能不能用</li>
+              <li>「金鑰」一律改稱「金鑰」；進階功能（合併、調整順序、心智圖、共享筆記等）收進「⋯」選單</li>
+              <li>摘要不用再手動勾選，預設整理整本筆記；場合改成圖示按鈕</li>
+              <li>修正：網路較慢或開啟翻譯時，逐字稿段落可能順序錯亂</li>
+              <li>修正：iPhone 錄音的檔案格式標示錯誤，可能導致轉寫失敗</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <span class="version-tag">最新</span>
+            <h4>辨識準確度提升、翻譯改用免費服務、摘要可依場景切換</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li><b>中文辨識準確度提升</b>：修正提示詞用法（原本寫成指令句，會被當成語音內容直接寫進逐字稿，例如憑空出現「請依語意選擇。」這種句子）。改為前後段接續，並關閉隨機性，減少靜音段落產生的幻覺內容</li>
+              <li><b>即時翻譯改用 MyMemory 免費翻譯服務</b>：原本是把同一段音檔用目標語言再送一次辨識，結果經常沒翻譯、語意崩壞或跳針重複。現在改成翻譯已轉好的文字，不需申請金鑰、不消耗 Groq 額度。免費額度每天 5,000 字元，可到設定頁填電子信箱提升到 50,000</li>
+              <li><b>AI 摘要新增場景選擇</b>：課堂／演講、會議、訪談／對談、日常對話四種。同一份逐字稿在不同場景該抽取的重點不同——課堂會著重知識脈絡與專有名詞、抓作業與考試範圍；日常對話則不會硬生出結論或待辦</li>
+              <li><b>新增「📖 名詞」分頁</b>：抽出逐字稿中的專有名詞與上下文，產生一份可直接貼到 Gemini 網頁版的提問稿，讓它幫你查證、修正辨識錯字並補充說明與公式。可自行勾選要保留哪些名詞</li>
+              <li><b>新增每日用量預覽</b>：設定頁可看 Groq／Gemini／MyMemory 三者今日用量，錄音頁也會顯示轉寫用量。數字為本裝置估算值，每日午夜歸零</li>
+              <li>勾選模式新增<b>全選／全不選</b>按鈕與已勾選張數顯示</li>
+              <li>使用注意事項大幅精簡，細節改放在各功能旁的 ❓ 圖示中</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>不用加好友也能直接使用，並支援「加到主畫面」</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>打開網頁<b>直接就能用</b>：不再於進站時強制檢查官方帳號好友關係、也不再擋一頁同意書。錄音、轉寫、AI 摘要、分享出去等功能，用一般瀏覽器（Chrome／Safari）開啟即可使用</li>
+              <li>使用須知改到<b>第一次按「開始錄音」時</b>才顯示，內容不變，同意過一次就不會再跳（條款版本更新時會重新徵詢一次）</li>
+              <li>「📥 送回聊天室」<b>仍然需要加好友</b>，因為那是由官方帳號把內容送進你的聊天室；改成按下按鈕時才檢查，不是好友才會提示前往加好友。非 LINE 環境下這個按鈕會直接停用並說明原因</li>
+              <li>新增 PWA 支援：可用瀏覽器的「加到主畫面」把這個工具當成獨立 App 開啟，不必每次都從 LINE 進入。<b>注意</b>：iOS 的主畫面版本與 Safari <b>不共用瀏覽器儲存空間</b>，第一次從主畫面開啟需要重新填一次 金鑰</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>AI 摘要新增待辦事項、來源核對、簡易心智圖；金鑰改為多把管理</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>AI 摘要現在會額外整理出<b>待辦事項清單</b>（誰要做什麼、期限），逐字稿沒有明確提到的負責人或期限會顯示空白，不會自己亂猜</li>
+              <li>摘要中的重點可以<b>核對出自哪個來源段落</b>：有對應到的句子旁邊會出現小標籤，點一下會捲動並標示到「勾選池」中對應的那筆資料，方便確認 AI 有沒有整理錯</li>
+              <li>新增<b>簡易心智圖</b>：摘要生成後，可以另外按「產生心智圖」，AI 會根據已經生成好的摘要文字（不是重新讀一次逐字稿）整理成階層式心智圖圖形；提供「編輯」分頁可直接修改心智圖的縮排文字大綱再重新渲染，但不支援用手指拖曳節點位置</li>
+              <li>Groq／Gemini 的 金鑰設定改為<b>可儲存多把</b>（Groq 最多 12 把、Gemini 最多 5 把），每把可自訂名稱，方便用完額度或某把被刪除失效時直接切換，不用重新輸入；每種服務可各自設定失效時要「自動切換到下一把」還是「僅提醒，自己手動切換」</li>
+              <li>金鑰額度用完（收到額度上限回應）或失效（被刪除、格式錯誤等）時，會跳出提示告知是哪一把、以及後續處理方式（已自動切換到哪把，或請自行到設定分頁切換）</li>
+              <li>修正一個既有問題：錄音中的背景自動轉寫，原本在金鑰失效或額度用完時不會顯示任何錯誤，該段內容會憑空消失且無法察覺原因；現在會正確顯示提示</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>新增韓文辨識，自動模式支援中英日韓混雜</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>「辨識語言」下拉選單新增<b>韓文</b>選項，跟中／英／日一樣可以固定鎖定整場錄音的語言</li>
+              <li>「自動」模式原本只認得中英日三種語言，現在擴充到能辨識<b>中英日韓四語混雜</b>的情境，偵測到韓文時會自動鎖定 60 秒（跟其他語言邏輯一致），提升這段時間內的轉寫準確度</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>修正「複製成表格貼上格式」偶爾複製失敗的問題</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>部分瀏覽器環境（尤其 iPhone／iOS 上的 Safari 與 LINE 內建瀏覽器）點擊「複製成表格貼上格式」輸入完主題名稱後，會出現「複製失敗」——這是瀏覽器對彈出輸入框之後緊接著呼叫剪貼簿功能的時序限制所致，跟輸入的內容無關</li>
+              <li>已修正：複製功能改為在現代瀏覽器複製方式失敗時，自動改用另一種較舊但更可靠的備援方式重試，大幅降低複製失敗的機率；「複製摘要」「發送失敗改複製」等其他複製功能也一併套用同樣的強化</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>共享表格圖文教學、資安提醒強化</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>「共享」分頁的「讀取共用 Google 試算表」標題旁新增❓圖示，點擊可看完整圖文教學：如何建立共用表格、複製貼上的位置示意圖（A1、A2、A3...）、共用權限該選哪一種</li>
+              <li>教學內加入明確的<b>資安提醒</b>：本工具只會讀取資料，完全沒有寫入 Google 試算表的功能；但「連結可編輯」是 Google 試算表本身的權限設定，一旦選用，任何拿到連結的人都能修改或刪除整份表格，這個風險與本工具無關、是使用者在 Google 那端的設定選擇，建議一律選「檢視者」權限</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>介面改版：分頁式導覽，金鑰移至設定頁</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>整體介面改為 5 個分頁：<b>🎙️錄音／🗂️筆記／📖共享／📝摘要／⚙️設定</b>，同一時間只顯示一個分頁內容，畫面更聚焦，尤其在手機小螢幕上更容易看清楚目前在做什麼</li>
+              <li>Groq／摘要金鑰輸入區從主畫面移到獨立的「設定」分頁，不再佔用「錄音」「筆記」分頁的版面；若對應金鑰尚未設定，「錄音」與「摘要」分頁會顯示精簡提示，點擊可直接前往設定分頁</li>
+              <li>設定頁新增「個別資料管理」：語音卡片草稿、AI 摘要、分享中斷續傳記錄、已讀提示記錄，各自獨立顯示狀態燈號（綠點=有資料／灰點=無資料）與刪除按鈕，不需要每次都整批清除，也可以只清單一項目</li>
+              <li>兩把 金鑰也各自新增「忘記這把金鑰」按鈕，只清除單一把金鑰，不影響其他已保存的資料</li>
+              <li>原本的「清除本機資料」整合進設定頁最下方的「危險區域」，改名為「刪除全部本機資料」，維持一次性清空所有資料的功能，僅樣式上加強警示（紅框、紅字）避免誤觸</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>會議摘要改為自由勾選＋自訂順序，卡片與共享筆記可混合</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>會議摘要不再是「語音卡片」或「共享筆記」二選一：現在可以<b>同時勾選兩邊的資料混合使用</b>，例如自己的卡片加上共享筆記裡別人整理的內容，一起生成同一份摘要</li>
+              <li>送去生成摘要的<b>順序改為使用者勾選的先後順序</b>（不是固定依原始順序排列），勾選項目旁會顯示「順序1」「順序2」...的標號，方便確認排列是否正確；共享筆記清單上方也提供「全選」快速鍵</li>
+              <li>「整理完成的語音卡片」新增「✅ 勾選模式」，切換後點擊整張卡片即可勾選／取消，加入摘要來源池，跟合併／改順序／編輯內容一樣是可切換的操作模式</li>
+              <li>共享筆記清單新增「📝 摘要」／「🎤 逐字稿」標籤區分資料類型，避免不小心把別人已經生成好的摘要當成逐字稿疊加使用（勾選到摘要類型資料時仍會額外提醒一次，但不強制阻擋）</li>
+              <li>「複製成表格貼上格式」改為<b>先詢問主題名稱</b>（例如「上半場逐字稿」），不再只是自動帶入日期時間；同時新增資料的 <code>type</code> 標記（逐字稿為 raw），讓共用表格裡的每筆資料都能被清楚辨識類型</li>
+              <li>已生成的摘要新增「📤 存回表格」按鈕，可直接複製成 <code>type: summary</code> 格式貼回共用表格，讓其他協作者也能讀到這份摘要</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>共享筆記改為單欄 JSON 格式（⚠️ 不相容舊表格）</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>「查看共享筆記」的資料格式改版：原本用 A/B/C 三欄分別存標籤、內容、時間戳記，需要理解欄位定義、貼上時容易貼錯欄；現在改成<b>每一格存一整包完整資料</b>，人類只需要負責複製、貼到下一個空白儲存格，不需要理解或維護欄位格式</li>
+              <li><b>這是不相容的格式變更</b>：用舊版「複製成表格貼上格式」貼進去的舊表格，用這個新版本讀取會失敗。請所有共用同一份表格的成員都更新到這個版本後，重新用新按鈕產生的內容貼一份新的</li>
+              <li>若表格裡混雜了新舊格式或有貼壞的資料，讀取時會清楚標示哪幾筆格式有問題並略過，其餘正常的資料仍會正常顯示，不會整批讀取失敗</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>分享中斷後可接續，不用整段重來</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>「分享出去 → LINE 好友分享」若因內容較長分批送出、中途取消或失敗，下次再點分享時會自動偵測到上次中斷在第幾批，詢問是否要接著送，不需要整段重新發送</li>
+              <li>只要中斷後卡片內容有任何新增、刪除、編輯、合併或調整順序，就會判定內容已變動，中斷進度會自動失效並提示改成整段重新分享，避免接續到錯誤的段落</li>
+              <li>中斷進度不限時間保存，除非成功送完或手動點「清除本機資料」，否則隔天再打開仍可以選擇接續</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>LINE 好友分享支援超過 5 則的長內容分批送出</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>「分享出去 → LINE 好友分享」原本超過 5 則訊息（約 24000 字以上）就會直接放棄改複製剪貼簿，現在改為<b>依序分批呼叫</b>（每批最多 5 則），可以送出更長的內容</li>
+              <li>因為 LINE 選擇分享對象的畫面在每一批之間會重新跳出，第二批（含）以後送出前會先提醒「請選擇跟上一批相同的對象」，並在全部送完後提醒使用者自行確認每批是否都送到了同一人</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>共享筆記可多選並直接生成摘要、分享功能修正</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>「查看共享筆記」從單選改為<b>可複選</b>，適合多人接力錄音（例如一人錄上半場、另一人錄下半場，各自整理後貼進同一份共用表格）——現在可以一次勾選多筆，依表格原始順序合併查看</li>
+              <li>會議摘要新增「來源切換」：可選擇用「語音卡片」或「共享筆記」目前勾選的內容來生成摘要，兩邊各自獨立保存，互不覆蓋，切換來源不會清空另一邊已生成的摘要</li>
+              <li>勾選共享筆記資料時，會即時顯示已勾選筆數、總字數，以及估算的 token 數（約 2.5 token／中文字，僅供參考），方便掌握內容量是否過大</li>
+              <li>修正「分享出去 → LINE 好友分享」在內容較長（例如超過 5000 字）時會直接失敗、卻沒有任何提示的問題——原本只有「送回聊天室」有做自動分段，「分享出去」漏了同步這段邏輯，現已修正為兩種發送方式都會自動分段</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>讀取共享 Google 試算表筆記（唯讀）</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>「錄音內容編輯」分頁新增「📖 查看共享筆記」區塊，貼上共用 Google 試算表的連結，即可用下拉選單選擇要查看哪一筆別人整理好的內容（例如另一組人的會議記錄）</li>
+              <li>這是唯讀功能，僅供查看，不會寫入或修改表格；要把自己的內容加進共用表格，仍需自行複製後手動貼上</li>
+              <li>卡片列表上方新增「複製成表格貼上格式」按鈕，一鍵複製成可直接貼進表格儲存格的格式（Tab 分隔，貼上時會自動落在三個獨立欄位）</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>會議摘要保存分享、上傳語音檔轉文字</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>生成好的會議摘要現在會自動保存在這台裝置上，重新整理或切出頁面不會消失，摘要下方新增「複製／分享／刪除」三個按鈕，分享方式與語音卡片相同（送 LINE 好友或系統分享）</li>
+              <li>新增「上傳語音檔案轉文字」功能，適合長輩傳來的 LINE 語音訊息或既有的錄音檔，不需要即時錄音，選好檔案即可送出轉寫，完成後直接加入語音卡片</li>
+              <li>清除本機資料時，已保存的會議摘要也會一併清除</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>資安強化：CSP、共用裝置資料清除</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>加入 Content-Security-Policy，限制頁面只能連到必要的網域，降低被注入惡意程式碼的風險</li>
+              <li>新增「共用裝置」提醒與一鍵清除本機資料工具，方便在公用裝置使用完畢後清乾淨</li>
+              <li>金鑰輸入框旁新增「忘記這把金鑰」快捷按鈕</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>卡片編輯模式、雙發送管道、即時預覽</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>新增「合併／改順序／編輯內容」三種卡片編輯模式，預設唯讀避免誤觸</li>
+              <li>新增「手機系統分享」作為第二種發送方式，不需要 LINE 登入</li>
+              <li>即時錄音轉文字畫面改為即時列出所有卡片，不再只顯示最新一則</li>
+              <li>簡化為僅支援 Groq（移除 OpenAI 選項），並加入申請教學</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>LINE 發送功能</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>接上 LIFF SDK，可透過 shareTargetPicker 選擇好友／機器人發送</li>
+              <li>加入簡體轉繁體保險（Whisper 偶爾會輸出簡體字）</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <h4>分段錄音</h4>
+            <ul style="padding-left:18px; margin:4px 0 0;">
+              <li>改為每 15 秒自動切段送出轉寫，卡片可以陸續出現，不用等整場錄完</li>
+            </ul>
+          </div>
+        </details>
 
         <div class="settings-app-info">
-          語音卡片筆記 · LIFF 相容版<br>
+          語音筆記<br>
           版本：<span id="settingsAppVersion"></span>
         </div>
-      </div>
-    </main>
-
-    <!-- 發送列：只在「筆記」分頁顯示（卡片內容才需要發送），其他分頁
-         顯示發送按鈕沒有意義（共享筆記是別人的資料不該由我發送、
-         摘要有自己專屬的複製/分享按鈕，設定頁更不需要） -->
-    <div class="action-bar" id="actionBar" style="display:none;">
-      <div class="send-btn-row">
-        <button class="btn-primary" id="sendToRoomBtn" onclick="handleSendToRoom()">📥 送回聊天室</button>
-        <button class="btn-secondary" id="shareOutBtn" onclick="ShareMenu.open()">🔗 分享出去 ▾</button>
-      </div>
-    </div>
+      </main>
+    </section>
   </div>
 
-
-  <!-- 分享出去的子選單彈窗：三個選項，各自附上限制與建議說明。
-       「複製全文」是給桌機瀏覽器使用者的直接路徑——navigator.share()
-       在桌機瀏覽器普遍不支援，若沒有這個選項，桌機使用者得先點「分享
-       至其他應用程式」看一次失敗訊息，才會被動導向複製剪貼簿，體驗
-       繞遠路。這裡讓複製成為一個可以直接選的動作，不必等失敗才觸發。 -->
+  <!-- 傳送選單：送回聊天室也收進來，筆記頁只留一顆「傳送」按鈕 -->
   <div class="modal-overlay hidden" id="shareMenuModal">
     <div class="modal-box" style="max-width:380px;">
-      <div class="modal-tabs"><button class="active" style="cursor:default;">🔗 分享出去</button></div>
+      <div class="modal-tabs"><button class="active" style="cursor:default;">📤 傳送這本筆記</button></div>
       <div class="modal-body" style="padding:12px;">
-        <div class="share-option" onclick="ShareMenu.selectCopy()">
-          <div class="share-option-title">📋 複製全文</div>
-          <div class="share-option-desc">複製到剪貼簿，可貼到任何地方（LINE、Email、筆記軟體等）。<b>電腦版瀏覽器建議用這個</b>，不需要登入或加好友。</div>
+        <div class="share-option" id="sendToRoomBtn" role="button" tabindex="0" onclick="ShareMenu.selectRoom()">
+          <div class="share-option-title">💬 傳回這個 LINE 聊天室</div>
+          <div class="share-option-desc">從 LINE 聊天室打開本頁時可用，需要先加官方帳號好友。</div>
         </div>
-        <div class="share-option" onclick="ShareMenu.selectLineFriend()">
-          <div class="share-option-title">📤 LINE 好友分享</div>
-          <div class="share-option-desc">跳出 LINE 好友／群組清單，挑一個對象發送。<b>需要先登入 LINE</b>，且對方要在你的好友清單裡才選得到。</div>
+        <div class="share-option" role="button" tabindex="0" onclick="ShareMenu.selectLineFriend()">
+          <div class="share-option-title">👥 傳給 LINE 好友</div>
+          <div class="share-option-desc">跳出好友／群組清單，挑一個人傳送。需要登入 LINE。</div>
         </div>
-        <div class="share-option" onclick="ShareMenu.selectOtherApp()">
-          <div class="share-option-title">📲 分享至其他應用程式</div>
-          <div class="share-option-desc">跳出手機系統的分享選單（LINE、簡訊、Email 等）。<b>僅支援手機瀏覽器</b>，電腦版瀏覽器與 LINE 內建瀏覽器都不支援，會自動改用「複製全文」。</div>
+        <div class="share-option" role="button" tabindex="0" onclick="ShareMenu.selectOtherApp()">
+          <div class="share-option-title">📲 用其他 App 分享</div>
+          <div class="share-option-desc">打開手機的分享選單（簡訊、Email 等）。電腦上會自動改成複製。</div>
         </div>
-        <div style="margin-top:4px; padding:8px 10px; font-size:11.5px; color:var(--ink-faint); line-height:1.6; border-top:1px solid var(--border);">
-          分享前請確認內容不涉及他人隱私，且未逾越合理使用範圍（例如未經同意公開散布他人的授課或談話內容）。
+        <div class="share-option" role="button" tabindex="0" onclick="ShareMenu.selectCopy()">
+          <div class="share-option-title">📋 複製全部文字</div>
+          <div class="share-option-desc">複製後可以貼到任何地方。<b>用電腦時建議選這個</b>。</div>
+        </div>
+        <div style="margin-top:4px; padding:8px 10px; font-size:12px; color:var(--ink-faint); line-height:1.6; border-top:1px solid var(--border);">
+          傳送前請確認內容不涉及他人隱私，且未逾越合理使用範圍（例如未經同意公開散布他人的授課或談話內容）。
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-cancel" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card-bg); color:var(--ink-soft); cursor:pointer;" onclick="ShareMenu.close()">取消</button>
+        <button class="btn-cancel sheet-cancel" onclick="ShareMenu.close()">取消</button>
       </div>
     </div>
   </div>
@@ -1919,6 +2274,7 @@
       </div>
     </div>
   </div>
+
   <script>
     // 共用工具，零依賴，放檔案最前面。escapeHtml 被多個模組呼叫，
     // 不屬於任何單一業務模組，避免因暫時性死區被提前呼叫而中斷 script。
@@ -1966,54 +2322,15 @@
     // 版本號一變，之前勾選過「不用再提醒」的使用者會重新看到彈窗。
     const APP_VERSION = '2026-09-trust-first';
 
-    // 從 API Key 區塊的提示連結展開上方的信任說明並捲動過去。
+    // 從 金鑰區塊的提示連結展開上方的信任說明並捲動過去。
     // 使用者疑慮最高的當下就在輸入框旁，不該讓他自己往上找。
     function openTrustPanel(event) {
       if (event) event.preventDefault();
-      const panel = document.querySelector('.trust-panel');
-      if (!panel) return;
-      panel.open = true;
-      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      ModalUtil.show('trustModal');
     }
 
-    const IntroModal = {
-      switchTab(tab) {
-        const tabs = {
-          trust: { btn: 'modalTabTrust', content: 'modalTrustContent' },
-          notice: { btn: 'modalTabNotice', content: 'modalNoticeContent' },
-          changelog: { btn: 'modalTabChangelog', content: 'modalChangelogContent' }
-        };
-        Object.keys(tabs).forEach(key => {
-          const btn = document.getElementById(tabs[key].btn);
-          const content = document.getElementById(tabs[key].content);
-          if (btn) btn.classList.toggle('active', key === tab);
-          if (content) content.style.display = (key === tab) ? 'block' : 'none';
-        });
-      },
-      close() {
-        const dontShowAgain = document.getElementById('dontShowAgainCheckbox').checked;
-        if (dontShowAgain) {
-          try { localStorage.setItem('intro_modal_seen_version', APP_VERSION); }
-          catch (e) { /* localStorage 不可用時，下次仍會顯示，不影響核心功能 */ }
-        }
-        ModalUtil.hide('introModal');
-      },
-      initOnLoad() {
-        // 一律從「安全說明」分頁開始：使用者第一眼要看到的是資料怎麼被
-        // 處理，而不是注意事項或更新內容
-        this.switchTab('trust');
 
-        let seenVersion = null;
-        try { seenVersion = localStorage.getItem('intro_modal_seen_version'); }
-        catch (e) { /* 忽略 */ }
-        if (seenVersion === APP_VERSION) {
-          ModalUtil.hide('introModal');
-        }
-      }
-    };
-    IntroModal.initOnLoad();
-
-    // 多把 API Key 管理（KeyPoolManager）。每種服務可存多把 key、
+    // 多把 金鑰管理（KeyPoolManager）。每種服務可存多把 key、
     // 各自命名，失效時可切換，不用重新輸入。首次載入時若偵測到舊版
     // 單一 key 欄位（whisper_api_key／gemini_api_key），自動遷移成
     // 新版 pool 結構的第一把（見 _migrateLegacy）；遷移後舊欄位不再
@@ -2072,7 +2389,7 @@
 
         const id = this._genId();
         return {
-          keys: [{ id, label: '原有 Key', value: legacyValue, status: 'ok' }],
+          keys: [{ id, label: '原有金鑰', value: legacyValue, status: 'ok' }],
           activeId: id,
           switchMode: 'manual'
         };
@@ -2198,7 +2515,7 @@
       }
     };
 
-    // 多把 API Key 管理 UI（KeyPoolPanel）：把 KeyPoolManager 的
+    // 多把 金鑰管理 UI（KeyPoolPanel）：把 KeyPoolManager 的
     // 資料畫成畫面，處理新增／命名／切換／刪除等互動
     const KeyPoolPanel = {
       LIST_EL_ID: { groq: 'groqKeyPoolList', gemini: 'geminiKeyPoolList' },
@@ -2228,7 +2545,7 @@
         const activeId = KeyPoolManager.getActiveId(type);
 
         if (keys.length === 0) {
-          listEl.innerHTML = '<div class="keypool-empty-hint">尚未儲存任何 Key，請在下方新增。</div>';
+          listEl.innerHTML = '<div class="keypool-empty-hint">尚未儲存任何金鑰，請在下方新增。</div>';
           return;
         }
 
@@ -2252,7 +2569,7 @@
                 <div class="keypool-item-value">${masked}</div>
               </div>
               <span class="keypool-item-status ${statusClass}">${statusLabel}</span>
-              <button class="keypool-item-del" onclick="KeyPoolPanel.removeKey('${type}', '${k.id}')" title="刪除這把 Key">✕</button>
+              <button class="keypool-item-del" onclick="KeyPoolPanel.removeKey('${type}', '${k.id}')" title="刪除這把金鑰">✕</button>
             </div>
           `;
         }).join('');
@@ -2288,10 +2605,10 @@
         const result = KeyPoolManager.add(type, valueInput.value, labelInput.value);
         if (!result.ok) {
           if (result.reason === 'empty') {
-            alert('請先貼上 Key 內容再新增。');
+            Dialog.alert('請先貼上金鑰內容再新增。');
           } else if (result.reason === 'limit') {
             const limit = KeyPoolManager.LIMITS[type];
-            alert(`最多只能儲存 ${limit} 把 Key，請先刪除不需要的再新增。`);
+            Dialog.alert(`最多只能儲存 ${limit} 把金鑰，請先刪除不需要的再新增。`);
           }
           return;
         }
@@ -2302,8 +2619,8 @@
         if (typeof updateKeyMissingHints === 'function') updateKeyMissingHints();
       },
 
-      removeKey(type, id) {
-        if (!confirm('確定要刪除這把 Key 嗎？此動作無法復原。')) return;
+      async removeKey(type, id) {
+        if (!await Dialog.confirm('確定要刪除這組金鑰嗎？刪了就救不回來。', { okText: '刪除', danger: true })) return;
         KeyPoolManager.remove(type, id);
         this.render(type);
         if (typeof updateKeyMissingHints === 'function') updateKeyMissingHints();
@@ -2349,14 +2666,15 @@
         }
         this._lastNotifiedAt[cooldownKey] = now;
 
-        const reasonText = errorType === 'quota_exceeded' ? '額度已用完' : '已失效（可能是被刪除或內容錯誤）';
+        const reasonText = errorType === 'quota_exceeded' ? '今天的免費額度用完了' : '已經不能用了（可能被刪除或貼錯）';
+        const keyName = { groq: '語音金鑰', gemini: '摘要金鑰' }[type] || serviceLabel;
 
         if (result.switched) {
-          alert(`${serviceLabel} Key「${result.failedLabel}」${reasonText}，已自動切換到「${result.newActiveLabel}」。\n\n請重新按一次剛才的操作。`);
+          Dialog.alert(`${keyName}「${result.failedLabel}」${reasonText}，已自動換成「${result.newActiveLabel}」。\n\n請再按一次剛才的按鈕。`);
         } else if (result.mode === 'auto') {
-          alert(`${serviceLabel} Key「${result.failedLabel}」${reasonText}，但找不到其他可用的 Key 可以自動切換。\n\n請到「設定」分頁新增或切換一把可用的 Key。`);
+          Dialog.alert(`${keyName}「${result.failedLabel}」${reasonText}，而且沒有其他可以換的金鑰。\n\n請到「⚙️ 設定」新增一組。`);
         } else {
-          alert(`${serviceLabel} Key「${result.failedLabel}」${reasonText}。\n\n請到「設定」分頁手動切換到其他 Key。`);
+          Dialog.alert(`${keyName}「${result.failedLabel}」${reasonText}。\n\n請到「⚙️ 設定」換一組金鑰。`);
         }
       }
     };
@@ -2384,8 +2702,9 @@
         } catch (e) {
           console.warn('清除本機資料時發生問題：', e);
         }
-        CardSandbox.clearPersisted();
-        CardSandbox.cards = [];
+        try { localStorage.removeItem('onboard_done_version'); } catch (e) { /* 忽略 */ }
+        NotebookStore.clearAll();
+        CardSandbox.restore();
 
         // 摘要池的鍵依附卡片與共享筆記，兩者清空後池中記錄全變孤兒，一併清除
         SelectionPool.clear();
@@ -2407,7 +2726,7 @@
         if (typeof updateKeyMissingHints === 'function') updateKeyMissingHints();
         if (typeof SettingsPanel !== 'undefined') SettingsPanel.render();
         ModalUtil.hide('clearDataModal');
-        alert('已清除這台裝置上的 API Key、已讀記錄、暫存內容、已保存的摘要與尚未發送的卡片草稿。若要繼續使用，請重新輸入 API Key。');
+        Dialog.alert('已經清除這支手機上的金鑰、筆記與設定。要繼續使用，請重新設定金鑰。', { icon: '🧹' });
       }
     };
 
@@ -2418,32 +2737,16 @@
       // hasData()（回傳布林值，決定綠點/灰點）、del()（實際刪除動作）
       items: [
         {
-          id: 'cardsDraft',
-          name: '語音卡片草稿',
-          hasData: () => CardSandbox.cards.length > 0,
-          statusText: () => CardSandbox.cards.length > 0 ? `目前有 ${CardSandbox.cards.length} 張卡片` : '目前沒有卡片',
-          del: () => {
-            if (!confirm('確定要刪除目前所有語音卡片嗎？此動作無法復原。')) return;
-            CardSandbox.clearPersisted();
-            CardSandbox.cards = [];
+          id: 'notebooks',
+          name: '所有筆記',
+          hasData: () => NotebookStore.list.length > 0,
+          statusText: () => NotebookStore.list.length > 0 ? `目前有 ${NotebookStore.list.length} 本筆記` : '目前沒有筆記',
+          del: async () => {
+            if (!await Dialog.confirm('確定要刪除所有筆記嗎？刪了就救不回來。', { okText: '全部刪除', danger: true })) return;
+            NotebookStore.clearAll();
+            CardSandbox.restore();
             SelectionPool.order = SelectionPool.order.filter(k => !k.startsWith('card:'));
-            CardSandbox.render();
-            CardSandbox.renderLivePreview();
-            SummaryModule.renderPool();
-            SettingsPanel.render();
-          }
-        },
-        {
-          id: 'summaryDraft',
-          name: 'AI 摘要',
-          hasData: () => !!SummaryModule.currentSummary,
-          statusText: () => SummaryModule.currentSummary ? '已保存一份摘要' : '目前沒有已保存的摘要',
-          del: () => {
-            if (!SummaryModule.currentSummary) return;
-            if (!confirm('確定要刪除已保存的 AI 摘要嗎？此動作無法復原。')) return;
-            SummaryModule.currentSummary = null;
-            SummaryModule._renderCurrentUI();
-            try { localStorage.removeItem(SUMMARY_STORAGE_KEY); } catch (e) { /* 忽略 */ }
+            SummaryModule.clearFromMemoryAndUI();
             SettingsPanel.render();
           }
         },
@@ -2466,14 +2769,14 @@
           name: '已讀提示記錄',
           hasData: () => {
             try {
-              return !!localStorage.getItem('intro_modal_seen_version') || !!localStorage.getItem('consent_agreed_version');
+              return !!localStorage.getItem('onboard_done_version') || !!localStorage.getItem('consent_agreed_version');
             } catch (e) { return false; }
           },
           statusText: () => SettingsPanel.items.find(i => i.id === 'readNotices').hasData()
-            ? '下次不會再跳出更新公告／錄音提醒' : '尚未記錄過已讀',
+            ? '刪除後會重新顯示新手教學與錄音提醒' : '尚未記錄過已讀',
           del: () => {
             try {
-              localStorage.removeItem('intro_modal_seen_version');
+              localStorage.removeItem('onboard_done_version');
               localStorage.removeItem('consent_agreed_version');
             } catch (e) { /* 忽略 */ }
             SettingsPanel.render();
@@ -2550,6 +2853,10 @@
       close() {
         ModalUtil.hide('shareMenuModal');
       },
+      selectRoom() {
+        this.close();
+        handleSendToRoom();
+      },
       selectCopy() {
         this.close();
         handleCopyToClipboard();
@@ -2564,89 +2871,46 @@
       }
     };
 
-    // API Key 缺漏提示條，只在對應 Key 未設定時顯示
+    // 金鑰缺漏提示條，只在對應金鑰未設定時顯示
     function updateKeyMissingHints() {
       const hasGroqKey = !!KeyPoolManager.getActiveKeyValue('groq');
       const hasGeminiKey = !!KeyPoolManager.getActiveKeyValue('gemini');
-
-      const recordHint = document.getElementById('recordKeyMissingHint');
-      const summaryHint = document.getElementById('summaryKeyMissingHint');
-      if (recordHint) recordHint.classList.toggle('hidden', hasGroqKey);
-      if (summaryHint) summaryHint.classList.toggle('hidden', hasGeminiKey);
+      const toggle = (id, hide) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('hidden', hide);
+      };
+      toggle('recordKeyMissingHint', hasGroqKey);
+      toggle('homeKeyBanner', hasGroqKey);
+      toggle('summaryKeyMissingHint', hasGeminiKey);
     }
-    updateKeyMissingHints();
 
-    // 主導覽 5 分頁切換。action-bar 只在「筆記」分頁顯示，因為那是
-    // 唯一該被發送的內容來源——共享筆記是別人的資料，摘要有專屬
-    // 複製/分享按鈕，設定頁不需要發送。
-    const MainNav = {
-      current: 'record',
-
-      switchTo(tab) {
-        this.current = tab;
-
-        const tabs = ['record', 'cards', 'shared', 'summary', 'settings'];
-        tabs.forEach(t => {
-          const btn = document.getElementById('navTab' + this._capitalize(t));
-          const panel = document.getElementById('navPanel' + this._capitalize(t));
-          if (btn) btn.classList.toggle('active', t === tab);
-          if (panel) panel.classList.toggle('hidden', t !== tab);
-        });
-
-        document.getElementById('actionBar').style.display = (tab === 'cards') ? 'block' : 'none';
-
-        // 每次切到「筆記」或「摘要」分頁時，順手刷新一次相關畫面，
-        // 確保跨分頁的狀態（例如在「共享」分頁勾選後切來「摘要」
-        // 分頁）永遠是最新的，不需要使用者手動重新整理頁面
-        if (tab === 'summary' && typeof SummaryModule !== 'undefined') {
-          SummaryModule.renderPool();
-        }
-        if (tab === 'settings' && typeof SettingsPanel !== 'undefined') {
-          SettingsPanel.render();
-        }
-      },
-
-      _capitalize(s) {
-        return s.charAt(0).toUpperCase() + s.slice(1);
-      }
-    };
 
     // ---------- 編輯模式管理（合併／改順序／編輯內容，三選一互斥）----------
     const EditModeManager = {
       current: null,
 
       toggle(mode) {
-        this.current = (this.current === mode) ? null : mode;
+        this.set(this.current === mode ? null : mode);
+      },
+
+      set(mode) {
+        this.current = mode || null;
         this.render();
         CardSandbox.render();
       },
 
+      HINTS: {
+        merge: '🔗 按卡片上的「↓ 合併」，和下一段接成一句',
+        reorder: '↕️ 按 ↑ ↓ 移動段落順序',
+        edit: '✏️ 直接點文字修改，按 ✕ 刪除整段',
+        select: '☑️ 點段落挑選要做摘要的內容，數字是順序'
+      },
+
       render() {
-        const buttons = {
-          merge: document.getElementById('modeMergeBtn'),
-          reorder: document.getElementById('modeReorderBtn'),
-          edit: document.getElementById('modeEditBtn'),
-          select: document.getElementById('modeSelectBtn')
-        };
-        Object.keys(buttons).forEach(key => {
-          buttons[key].classList.toggle('active', this.current === key);
-        });
-
         const hint = document.getElementById('editModeHint');
-        const hints = {
-          merge: '合併模式：點卡片上的「↓ 合併」按鈕，把它和下一張卡片合併成一句。',
-          reorder: '改順序模式：點「↑」「↓」調整前後一格，點「⤒」直接移到最上面。',
-          edit: '編輯內容模式：點卡片文字即可直接修改，點 ✕ 可以刪除整張卡片。',
-          select: '勾選模式：點擊整張卡片即可勾選／取消，加入「📝 AI 摘要」分頁的來源池；順序即點選順序，離開此模式不會清空已勾選的內容。'
-        };
-        if (this.current) {
-          hint.textContent = hints[this.current];
-          hint.classList.add('show');
-        } else {
-          hint.classList.remove('show');
-        }
-
-        // 全選列只在勾選模式出現，切換模式時跟著更新顯示與計數
+        document.getElementById('editModeHintText').textContent = this.current ? this.HINTS[this.current] : '';
+        hint.classList.toggle('show', !!this.current);
+        document.getElementById('actionBar').classList.toggle('hidden', !!this.current || Notebook.tab !== 'cards');
         CardSandbox.renderSelectAllRow();
       }
     };
@@ -2756,6 +3020,18 @@
         return this.resolveItems().reduce((sum, item) => sum + item.content.length, 0);
       },
 
+      // 新手不需要知道「勾選」：沒挑任何段落時，直接整理整本筆記
+      itemsOrAll() {
+        const picked = this.resolveItems();
+        if (picked.length > 0 || CardSandbox.cards.length === 0) return picked;
+        const nb = NotebookStore.active();
+        return [{
+          source: 'card', id: -1, label: nb ? nb.title : '這本筆記',
+          content: CardSandbox.getAllFullText(), type: 'raw',
+          hasTranslation: CardSandbox.cards.some(c => !!c.translation)
+        }];
+      },
+
       // 內容變動時統一呼叫的入口：更新摘要區塊的池清單顯示、更新兩邊
       // 清單裡的順序標號顯示。集中在這裡呼叫，任何觸發勾選變化的地方
       // （卡片點擊、共享筆記 checkbox）只需要呼叫 toggle()，不需要
@@ -2823,44 +3099,25 @@
 
       persist() {
         this.changeVersion++;
-        try {
-          localStorage.setItem(CARDS_STORAGE_KEY, JSON.stringify({
-            cards: this.cards,
-            nextId: this.nextId,
-            changeVersion: this.changeVersion
-          }));
-        } catch (e) {
-          console.warn('卡片內容自動儲存失敗（可能是儲存空間已滿或隱私模式）：', e);
-        }
+        const nb = NotebookStore.active();
+        if (!nb) return;
+        nb.cards = this.cards;
+        nb.nextId = this.nextId;
+        nb.changeVersion = this.changeVersion;
+        nb.updatedAt = Date.now();
+        NotebookStore.save();
       },
 
       restore() {
-        let raw = null;
-        try { raw = localStorage.getItem(CARDS_STORAGE_KEY); }
-        catch (e) { return; }
-        if (!raw) return;
-
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed.cards)) {
-            this.cards = parsed.cards.filter(c => c && typeof c.id !== 'undefined' && typeof c.text === 'string');
-            this.nextId = typeof parsed.nextId === 'number' ? parsed.nextId : (this.cards.length + 1);
-            // 還原 changeVersion，避免每次載入頁面就歸零、導致舊的
-            // 中斷進度永遠被誤判為已變動
-            this.changeVersion = typeof parsed.changeVersion === 'number' ? parsed.changeVersion : 0;
-          }
-        } catch (e) {
-          console.warn('還原上次卡片內容失敗，將從空白開始：', e);
-        }
+        const nb = NotebookStore.active();
+        this.cards = nb ? nb.cards : [];
+        this.nextId = nb && typeof nb.nextId === 'number' ? nb.nextId : this.cards.length + 1;
+        this.changeVersion = nb && typeof nb.changeVersion === 'number' ? nb.changeVersion : 0;
       },
 
-      clearPersisted() {
-        try { localStorage.removeItem(CARDS_STORAGE_KEY); }
-        catch (e) { /* 忽略 */ }
-      },
-
-      add(text, translation, translationLangCode) {
-        if (!text.trim()) return;
+      // 建立卡片物件（含簡繁轉換），供目前筆記與背景寫入其他筆記共用
+      makeCard(id, text, translation, translationLangCode) {
+        if (!text || !text.trim()) return null;
         let finalText = text.trim();
         const converter = this.getS2TConverter();
         if (converter) {
@@ -2886,11 +3143,18 @@
           }
         }
 
-        const card = { id: this.nextId++, text: finalText };
+        const card = { id, text: finalText };
         if (finalTranslation) {
           card.translation = finalTranslation;
           card.translationLangCode = translationLangCode || '';
         }
+        return card;
+      },
+
+      add(text, translation, translationLangCode) {
+        const card = this.makeCard(this.nextId, text, translation, translationLangCode);
+        if (!card) return;
+        this.nextId++;
         this.cards.push(card);
         this.persist();
         this.render();
@@ -2898,7 +3162,7 @@
 
         if (!this._hasShownFirstSaveToast) {
           this._hasShownFirstSaveToast = true;
-          StorageToast.show('內容已<b>自動儲存</b>在這個裝置上，切換分頁或不小心返回也不會消失。若為共用裝置，請於使用後至上方清除本機資料。');
+          StorageToast.show('內容會<b>自動存在這支手機</b>，關掉也不會不見。');
         }
       },
 
@@ -2906,7 +3170,7 @@
         const container = document.getElementById('livePreviewList');
         if (!container) return;
         if (this.cards.length === 0) {
-          container.innerHTML = '<div class="live-preview-empty">尚未有轉寫內容</div>';
+          container.innerHTML = '';
           return;
         }
         container.innerHTML = this.cards.map(c => `
@@ -2921,7 +3185,7 @@
       render() {
         const list = document.getElementById('cardsList');
         if (this.cards.length === 0) {
-          list.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">尚無卡片</div>';
+          list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎙️</div>這本筆記還沒有內容<br>按下方「🎙️ 繼續錄音」開始</div>';
           return;
         }
 
@@ -3077,7 +3341,7 @@
     };
 
     // 共享表格建立教學彈窗，手動觸發（點❓圖示）。資安提醒：本工具
-    // 僅讀取、不寫入 Sheet，但「連結可編輯」是使用者在 Google 端的
+    // 僅讀取、不寫入表格，但「連結可編輯」是使用者在 Google 端的
     // 權限選擇，選錯的話任何拿到連結的人都能改寫或刪除整份表格，
     // 這與本工具無關，需講清楚避免誤解。
     const SharedSheetGuide = {
@@ -3169,7 +3433,7 @@
       }
     };
 
-    // 讀取共享 Google Sheet 筆記（唯讀）。每一列第一個儲存格存一筆
+    // 讀取共享 Google 試算表筆記（唯讀）。每一列第一個儲存格存一筆
     // 完整 JSON：{"label","content","timestamp","type"}，不用多欄
     // 格式，避免人工貼上時欄位錯位。只讀取，不寫入，寫入交由使用者
     // 自行複製貼上。透過 CSV 匯出端點讀取第一個工作分頁：
@@ -3179,7 +3443,7 @@
       // 目前解析出來的資料列，每筆 { label, content, timestamp, type }
       rows: [],
 
-      // 從使用者貼上的各種 Google Sheet 網址格式中擷取 SHEET_ID。
+      // 從使用者貼上的各種 Google 試算表網址格式中擷取 SHEET_ID。
       // 常見格式包含：
       //   https://docs.google.com/spreadsheets/d/xxxxx/edit#gid=0
       //   https://docs.google.com/spreadsheets/d/xxxxx/edit?usp=sharing
@@ -3291,13 +3555,13 @@
         const url = urlInput.value.trim();
 
         if (!url) {
-          this.showError('請先貼上 Google Sheet 的分享連結。');
+          this.showError('請先貼上 Google 試算表的分享連結。');
           return;
         }
 
         const sheetId = this.extractSheetId(url);
         if (!sheetId) {
-          this.showError('看起來不是有效的 Google Sheet 連結，請確認網址格式（應包含 /spreadsheets/d/...）。');
+          this.showError('看起來不是有效的 Google 試算表連結，請確認網址格式（應包含 /spreadsheets/d/...）。');
           return;
         }
 
@@ -3369,7 +3633,7 @@
           try {
             parsed = JSON.parse(cellText);
           } catch (e) {
-            invalidRowNumbers.push(idx + 1); // Sheet 列號從 1 開始
+            invalidRowNumbers.push(idx + 1); // 表格列號從 1 開始
             return;
           }
 
@@ -3392,9 +3656,9 @@
 
         if (this.rows.length === 0) {
           if (invalidRowNumbers.length > 0) {
-            this.showError(`這份表格沒有任何可解析的資料。第 ${invalidRowNumbers.join('、')} 列的內容不是有效的 JSON 格式，請確認是否使用「複製成 Sheet 貼上格式」按鈕產生的內容直接貼上，貼上時不要手動修改格式。`);
+            this.showError(`這份表格沒有任何可解析的資料。第 ${invalidRowNumbers.join('、')} 列的內容不是有效的 JSON 格式，請確認是否使用「複製成表格貼上格式」按鈕產生的內容直接貼上，貼上時不要手動修改格式。`);
           } else {
-            this.showError('這份表格目前是空的，還沒有任何資料。請先用「複製成 Sheet 貼上格式」按鈕複製內容，貼到這份表格的空白儲存格。');
+            this.showError('這份表格目前是空的，還沒有任何資料。請先用「複製成表格貼上格式」按鈕複製內容，貼到這份表格的空白儲存格。');
           }
           return;
         }
@@ -3415,7 +3679,7 @@
         const list = document.getElementById('sharedNotesCheckboxList');
         list.innerHTML = this.rows.map((r, idx) => {
           // 用「第幾筆」而非「第幾列」：部分列可能因格式錯誤在 load()
-          // 被過濾，索引已不對應 Sheet 實際列號
+          // 被過濾，索引已不對應表格實際列號
           const label = r.label || `（未命名資料 ${idx + 1}）`;
           const charCount = r.content.length;
 
@@ -3482,7 +3746,7 @@
         this.renderOutput();
       },
 
-      // 依 SelectionPool 記錄的勾選順序（不是 Sheet 原始順序）回傳
+      // 依 SelectionPool 記錄的勾選順序（不是表格原始順序）回傳
       // 目前勾選的資料列，只包含屬於 'shared' 來源的項目
       getSelectedRows() {
         return SelectionPool.orderedIdsOf('shared')
@@ -3534,7 +3798,7 @@
       }
     };
 
-    // 把卡片/摘要內容打包成單一 JSON 字串複製，貼進 Sheet 只會落在
+    // 把卡片/摘要內容打包成單一 JSON 字串複製，貼進表格只會落在
     // 單一儲存格，不會被 Tab/換行誤判分欄分列。type 欄位標記逐字稿
     // ('raw')／摘要('summary')，避免其他人誤把摘要當逐字稿疊加使用。
     const CopyToSheetFormat = {
@@ -3545,24 +3809,24 @@
 
       // 通用複製方法，供「卡片複製」與「摘要複製」共用同一套詢問
       // 主題／組 JSON／寫入剪貼簿的流程，只有 content 與 type 不同
-      copyContent(content, type) {
+      async copyContent(content, type) {
         const typeLabel = getTypeMeta(type).label;
         if (!content || !content.trim()) {
-          alert(type === 'raw' ? '目前沒有任何內容可以複製，請先錄音或編輯出至少一張卡片。' : `目前沒有已生成的${typeLabel}可以複製。`);
+          Dialog.alert(type === 'raw' ? '目前沒有任何內容可以複製，請先錄音或編輯出至少一張卡片。' : `目前沒有已生成的${typeLabel}可以複製。`);
           return;
         }
 
         const now = new Date();
         const defaultLabel = this.formatTimestamp(now);
 
-        // prompt() 取消或空輸入都視為無效標籤，退回日期時間預設值，
-        // 避免空字串標籤被貼進共用表格
-        const userInput = prompt(`請輸入這筆${typeLabel}的主題名稱（留空則自動使用目前日期時間）：`, '');
+        // 按取消就中止；空白輸入退回日期時間，避免空標籤被貼進共用表格
+        const userInput = await Dialog.prompt(`幫這筆${typeLabel}取個主題名稱（不填就用現在的日期時間）：`, '', { icon: '🏷️' });
+        if (userInput === null) return;
         const label = (userInput && userInput.trim()) ? userInput.trim() : defaultLabel;
 
         // JSON.stringify 會自動把 content 裡的換行字元轉成跳脫序列
         // \n（字面上的反斜線加 n，不是真正的換行），確保整個結果是
-        // 單一行、不含真正的 Tab 或換行字元，貼到 Sheet 儲存格時
+        // 單一行、不含真正的 Tab 或換行字元，貼到表格儲存格時
         // 天生就會乖乖落在單一格，不會被誤判成要分欄或分列
         const pasteText = JSON.stringify({
           label: label,
@@ -3571,17 +3835,16 @@
           type: type
         });
 
-        // prompt() 之後緊接呼叫 clipboard API，在部分 WebKit 環境
-        // （含 iOS LINE 內建瀏覽器）會因使用者互動有效期已過而被拒絕，
-        // 與內容或格式無關。copyTextRobust() 會自動退回 execCommand。
+        // 對話框關閉後才呼叫剪貼簿，部分 WebKit 環境仍可能判定互動
+        // 已過期而拒絕；copyTextRobust() 會自動退回 execCommand。
         copyTextRobust(pasteText).then(success => {
           if (success) {
-            alert(`已複製成可直接貼上 Google Sheet 的格式（主題：${label}，類型：${typeLabel}）。\n\n請開啟共用 Sheet，點選下一個空白儲存格，直接貼上即可（會落在單一格，不會自動分欄）。`);
+            Dialog.alert(`已複製成可直接貼上 Google 試算表的格式（主題：${label}，類型：${typeLabel}）。\n\n請開啟共用表格，點選下一個空白儲存格，直接貼上即可（會落在單一格，不會自動分欄）。`);
           } else {
             // 兩種複製方式都失敗的最終回退：直接把內容顯示在提示框
             // 裡，讓使用者自己手動選取複製，確保無論如何都不會讓
             // 使用者卡在「什麼都做不了」的狀態
-            alert('自動複製失敗，請手動選取以下內容複製：\n\n' + pasteText);
+            Dialog.alert('自動複製失敗，請手動選取以下內容複製：\n\n' + pasteText);
           }
         });
       },
@@ -3667,6 +3930,12 @@
         // 會議是待辦、日常對話是約定），標籤跟著場景走比較不會誤導
         const tabBtn = document.getElementById('summaryTabBtn-actions');
         if (tabBtn) tabBtn.textContent = preset.actionLabel;
+
+        document.querySelectorAll('.scene-chip').forEach(chip => {
+          const on = chip.dataset.scene === this.currentScene;
+          chip.classList.toggle('active', on);
+          chip.setAttribute('aria-checked', String(on));
+        });
       },
 
       // 還原上次選擇的場景；使用者多半固定用同一種
@@ -3686,65 +3955,55 @@
       renderPool() {
         const hintEl = document.getElementById('summaryPoolHint');
         const listEl = document.getElementById('summaryPoolList');
-        if (!hintEl || !listEl) return; // 尚未進入摘要分頁時，這些元素可能還沒渲染
+        if (!hintEl || !listEl) return;
 
-        const items = SelectionPool.resolveItems();
-
-        if (items.length === 0) {
-          hintEl.style.display = 'block';
+        const picked = SelectionPool.resolveItems();
+        if (picked.length === 0) {
           listEl.innerHTML = '';
+          const count = CardSandbox.cards.length;
+          const chars = CardSandbox.getAllFullText().length;
+          hintEl.style.display = 'block';
+          hintEl.textContent = count > 0
+            ? `📄 會整理這本筆記的全部 ${count} 段（約 ${chars.toLocaleString()} 字）`
+            : '這本筆記還沒有內容，先錄音再來整理重點。';
           return;
         }
 
-        hintEl.style.display = 'none';
+        hintEl.style.display = 'block';
+        const totalChars = picked.reduce((sum, item) => sum + item.content.length, 0);
+        hintEl.textContent = `☑️ 只整理你挑的 ${picked.length} 段（約 ${totalChars.toLocaleString()} 字）`;
 
-        const totalChars = items.reduce((sum, item) => sum + item.content.length, 0);
-        const estTokens = Utils.estimateTokens(totalChars);
-        const hasAnyTranslation = items.some(item => item.hasTranslation);
-
-        // 字數統計把翻譯內容也算進去了（因為送給 Gemini 的就是這份含
-        // 翻譯的完整內容），這裡附註一句避免使用者誤以為字數異常偏高
-        const translationNote = hasAnyTranslation
-          ? '<span style="color:var(--ink-faint);">（已含翻譯內容）</span>'
-          : '';
-
-        const summaryLine = `<div class="shared-notes-total-count">已選 ${items.length} 筆　共 <b>${totalChars.toLocaleString()}</b> 字　約 <b>${estTokens.toLocaleString()}</b> tokens（估算值）${translationNote}</div>`;
-
-        const itemsHtml = items.map((item, i) => {
-          const sourceLabel = item.source === 'card' ? '🗂️ 卡片' : '📖 共享筆記';
-          const typeTag = item.type === 'summary' ? '📝' : '';
-          const translationTag = item.hasTranslation ? '🌏' : '';
+        listEl.innerHTML = picked.map((item, i) => {
+          const sourceLabel = item.source === 'card' ? '📝 段落' : '📖 共享';
           return `
             <div class="summary-pool-item">
               <span class="pool-order">${i + 1}</span>
-              <span class="pool-label">${typeTag}${translationTag} ${Utils.escapeHtml(item.label)}</span>
+              <span class="pool-label">${item.type === 'summary' ? '📝' : ''}${item.hasTranslation ? '🌏' : ''} ${Utils.escapeHtml(item.label)}</span>
               <span class="pool-source">${sourceLabel}</span>
-              <button class="pool-remove" title="移除" onclick="SelectionPool.remove('${item.source}', ${item.id})">✕</button>
+              <button class="pool-remove" aria-label="移除" onclick="SelectionPool.remove('${item.source}', ${item.id})">✕</button>
             </div>
           `;
         }).join('');
-
-        listEl.innerHTML = summaryLine + itemsHtml;
       },
 
       async generate() {
         if (this.isGenerating) return;
 
-        const items = SelectionPool.resolveItems();
+        const items = SelectionPool.itemsOrAll();
         if (items.length === 0) {
-          alert('目前沒有勾選任何資料。請到「查看共享筆記」勾選資料，或在「整理完成的語音卡片」切到「✅ 勾選模式」勾選卡片，再生成摘要。');
+          Dialog.alert('這本筆記還沒有內容，先錄音再來整理重點。', { icon: '🎙️' });
           return;
         }
 
         const hasSummaryType = items.some(item => item.type === 'summary' || item.type === 'mindmap');
         if (hasSummaryType) {
-          const proceed = confirm('目前勾選的資料中，有一筆或多筆本身是「摘要」或「心智圖大綱」（而不是原始逐字稿）。\n\n若不是刻意要彙整這些內容，建議先確認是否選錯了資料。\n\n按「確定」繼續生成，按「取消」返回調整勾選。');
+          const proceed = await Dialog.confirm('你挑的內容裡有「摘要」或「心智圖」，不是原始逐字稿。\n\n如果不是故意的，建議先檢查有沒有選錯。', { okText: '繼續產生', cancelText: '回去檢查' });
           if (!proceed) return;
         }
 
         const apiKey = KeyPoolManager.getActiveKeyValue('gemini');
         if (!apiKey) {
-          alert('請先到「⚙️ 設定」分頁填入 Gemini API Key，才能使用 AI 摘要功能。');
+          KeyWizard.open('gemini', () => this.generate());
           return;
         }
 
@@ -3757,7 +4016,7 @@
           this._persist(summaryData);
         } catch (err) {
           console.error('生成 AI 摘要失敗：', err);
-          this._renderError('生成摘要失敗：' + err.message);
+          this._renderError('整理重點失敗了，請稍後再試一次。\n（原因：' + err.message + '）');
         } finally {
           this.isGenerating = false;
           this._setLoadingUI(false);
@@ -3892,10 +4151,10 @@
           }
 
           if (res.status === 400 && /API key not valid/i.test(apiMessage)) {
-            throw new Error('Gemini API Key 無效，請確認貼上的 Key 是否正確。');
+            throw new Error('摘要金鑰無效，請確認貼上的金鑰是否正確。');
           }
           if (res.status === 403) {
-            throw new Error('沒有權限使用這個 Gemini API Key（可能是 Key 被限制或專案未啟用），詳細訊息：' + apiMessage);
+            throw new Error('沒有權限使用這個 摘要金鑰（可能是金鑰被限制或專案未啟用），詳細訊息：' + apiMessage);
           }
           if (res.status === 429) {
             throw new Error('已達 Gemini API 的請求額度上限，請稍後再試：' + apiMessage);
@@ -4093,36 +4352,37 @@
         const btn = document.getElementById('summaryGenerateBtn');
         const box = document.getElementById('summaryOutputBox');
         btn.disabled = loading;
-        btn.textContent = loading ? '⏳ 生成中...' : '📝 生成 AI 摘要';
+        btn.textContent = loading ? '⏳ 整理中…' : '✨ 產生重點摘要';
         if (loading) {
           box.classList.remove('empty');
           box.classList.add('loading');
-          box.textContent = '正在生成摘要，請稍候...（逐字稿較長時可能需要一些時間）';
+          box.textContent = 'AI 正在整理重點，請稍等一下…（內容越長越久）';
         }
       },
 
       _persist(data) {
-        try {
-          localStorage.setItem(SUMMARY_STORAGE_KEY, JSON.stringify(data));
-        } catch (e) {
-          console.warn('摘要自動儲存失敗（可能是儲存空間已滿或隱私模式）：', e);
-        }
+        const nb = NotebookStore.active();
+        if (!nb) return;
+        nb.summary = data || null;
+        nb.updatedAt = Date.now();
+        NotebookStore.save();
       },
 
-      // 舊版存的是純文字字串（非 JSON），JSON.parse 失敗時退回
-      // 當作純文字摘要處理，避免舊資料憑空消失
+      // 摘要跟著筆記走；舊版存的是純文字，_normalizeSummaryData 會處理
       restore() {
-        let raw = null;
-        try { raw = localStorage.getItem(SUMMARY_STORAGE_KEY); }
-        catch (e) { return; }
-        if (raw) {
-          try {
-            this.currentSummary = this._normalizeSummaryData(JSON.parse(raw));
-          } catch (e) {
-            this.currentSummary = this._normalizeSummaryData(raw);
-          }
-        }
+        const nb = NotebookStore.active();
+        this.currentSummary = nb && nb.summary ? this._normalizeSummaryData(nb.summary) : null;
+        this._activeResultTab = 'text';
         this._renderCurrentUI();
+      },
+
+      // 名詞抽取結果只存在記憶體，切換筆記時要清掉，免得顯示上一本的名詞
+      resetTerms() {
+        this.currentTerms = null;
+        const wrap = document.getElementById('termsResultWrap');
+        const genWrap = document.getElementById('termsGenerateWrap');
+        if (wrap) wrap.classList.add('hidden');
+        if (genWrap) genWrap.classList.remove('hidden');
       },
 
       // 分區塊渲染：摘要文字、待辦事項清單、心智圖大綱，找不到對應
@@ -4138,7 +4398,7 @@
           box.innerHTML = this._buildSummaryHtml(data);
         } else {
           box.classList.add('empty');
-          box.textContent = '尚未生成摘要。勾選好要納入的資料後，點上方按鈕即可生成重點摘要。';
+          box.textContent = '還沒有摘要。選好場合後，按上方的「✨ 產生重點摘要」。';
         }
 
         this._renderActionItems(data);
@@ -4303,7 +4563,7 @@
 
         const apiKey = KeyPoolManager.getActiveKeyValue('gemini');
         if (!apiKey) {
-          alert('請先到「⚙️ 設定」分頁填入 Gemini API Key，才能使用心智圖功能。');
+          KeyWizard.open('gemini');
           return;
         }
 
@@ -4340,15 +4600,15 @@
       async generateTerms() {
         if (this._isGeneratingTerms) return;
 
-        const items = SelectionPool.resolveItems();
+        const items = SelectionPool.itemsOrAll();
         if (items.length === 0) {
-          alert('目前沒有勾選任何資料，無法抽取專有名詞。');
+          Dialog.alert('這本筆記還沒有內容，無法查專有名詞。', { icon: '🔍' });
           return;
         }
 
         const apiKey = KeyPoolManager.getActiveKeyValue('gemini');
         if (!apiKey) {
-          alert('請先到「⚙️ 設定」分頁填入 Gemini API Key，才能抽取專有名詞。');
+          KeyWizard.open('gemini');
           return;
         }
 
@@ -4530,7 +4790,7 @@
       async copyTermsPrompt() {
         const prompt = this.buildTermsPrompt();
         if (!prompt) {
-          alert('目前沒有勾選任何名詞，請至少保留一個。');
+          Dialog.alert('目前沒有勾選任何名詞，請至少保留一個。');
           return;
         }
         await copyTextRobust(prompt);
@@ -4543,7 +4803,7 @@
         // 失敗時提示使用者手動開啟，不要讓按鈕看起來沒反應
         const win = window.open('https://gemini.google.com/app', '_blank', 'noopener');
         if (!win) {
-          alert('無法自動開啟，請手動前往 gemini.google.com 並貼上提問稿。');
+          Dialog.alert('無法自動開啟，請手動前往 gemini.google.com 並貼上提問稿。');
         }
       },
 
@@ -4637,7 +4897,7 @@
           a.href = dataUrl;
           a.download = `心智圖_${CopyToSheetFormat.formatTimestamp(new Date())}.png`;
           a.click();
-        }).catch(err => alert(err.message));
+        }).catch(err => Dialog.alert(err.message));
       },
 
       // 優先用 Web Share API 分享檔案，不支援時退回下載
@@ -4656,12 +4916,12 @@
               if (shareErr.name === 'AbortError') return;
             }
           }
-          alert('此環境不支援直接分享圖片，已改為下載，請從相簿手動分享。');
+          Dialog.alert('此環境不支援直接分享圖片，已改為下載，請從相簿手動分享。');
           const a = document.createElement('a');
           a.href = dataUrl;
           a.download = file.name;
           a.click();
-        }).catch(err => alert(err.message));
+        }).catch(err => Dialog.alert(err.message));
       },
 
       // 切換「檢視」／「編輯」，編輯是縮排文字框，不支援拖曳節點
@@ -4687,7 +4947,7 @@
         const newOutline = editTextarea.value;
 
         if (!newOutline.trim()) {
-          alert('心智圖內容不能是空的，請至少保留一個節點。');
+          Dialog.alert('心智圖內容不能是空的，請至少保留一個節點。');
           return;
         }
 
@@ -4711,9 +4971,9 @@
         if (!this.currentSummary) return;
         copyTextRobust(this.getPlainText()).then(success => {
           if (success) {
-            alert('已複製摘要到剪貼簿。');
+            Dialog.alert('已複製摘要到剪貼簿。');
           } else {
-            alert('複製失敗，請手動選取摘要內容複製。');
+            Dialog.alert('複製失敗，請手動選取摘要內容複製。');
           }
         });
       },
@@ -4725,7 +4985,7 @@
         CopyToSheetFormat.copyContent(this.getPlainText(), 'summary');
       },
 
-      // 心智圖獨立存 Sheet，跟摘要分開成不同 type，不合併在同一筆。
+      // 心智圖獨立存表格，跟摘要分開成不同 type，不合併在同一筆。
       // 存的是縮排大綱純文字（mindmapOutline），不是圖片。
       copyMindmapToSheet() {
         const outline = this.currentSummary && this.currentSummary.mindmapOutline;
@@ -4733,13 +4993,12 @@
         CopyToSheetFormat.copyContent(outline, 'mindmap');
       },
 
-      remove() {
+      async remove() {
         if (!this.currentSummary) return;
-        if (!confirm('確定要刪除已保存的 AI 摘要嗎？此動作無法復原（語音卡片與共享筆記內容不受影響）。')) return;
+        if (!await Dialog.confirm('確定要刪除這份摘要嗎？（逐字稿不會被刪）', { okText: '刪除', danger: true })) return;
         this.currentSummary = null;
         this._renderCurrentUI();
-        try { localStorage.removeItem(SUMMARY_STORAGE_KEY); }
-        catch (e) { /* 忽略 */ }
+        this._persist(null);
       },
 
       // 共用裝置清除本機資料時呼叫，把摘要從記憶體與畫面清掉；
@@ -4782,19 +5041,19 @@
       SUGGESTED_MAX_MB: 25,
       isUploading: false,
 
-      onFileSelected(fileList) {
+      async onFileSelected(fileList) {
         if (!fileList || fileList.length === 0) return;
         const file = fileList[0];
 
         const apiKey = KeyPoolManager.getActiveKeyValue('groq');
         if (!apiKey) {
-          alert('請先在上方輸入你的 Groq API Key，才能上傳語音檔案轉寫。');
           this._resetInput();
+          KeyWizard.open('groq');
           return;
         }
 
         if (this.isUploading) {
-          alert('目前已有一個檔案正在上傳轉寫中，請稍候完成後再上傳下一個。');
+          Dialog.alert('目前已有一個檔案正在上傳轉寫中，請稍候完成後再上傳下一個。');
           this._resetInput();
           return;
         }
@@ -4804,10 +5063,10 @@
           `已選擇：${file.name}（約 ${sizeMB.toFixed(1)} MB）`;
 
         if (sizeMB > this.SUGGESTED_MAX_MB) {
-          const proceed = confirm(
-            `這個檔案約 ${sizeMB.toFixed(1)} MB，超過建議的 ${this.SUGGESTED_MAX_MB}MB，` +
-            `Groq Whisper API 對單檔大小有上限，太大的檔案可能會上傳失敗。\n\n` +
-            `仍要嘗試上傳嗎？（若失敗，可考慮先用其他工具壓縮或剪短音檔後再試）`
+          const proceed = await Dialog.confirm(
+            `這個檔案約 ${sizeMB.toFixed(1)} MB，超過建議的 ${this.SUGGESTED_MAX_MB} MB，可能會轉換失敗。\n\n` +
+            `還是要試試看嗎？（失敗的話，可以先把錄音剪短再上傳）`,
+            { icon: '📦', okText: '試試看' }
           );
           if (!proceed) {
             this._resetInput();
@@ -4815,30 +5074,42 @@
           }
         }
 
-        this.upload(file);
+        let createdNew = false;
+        if (View.current !== 'notebook' || !NotebookStore.active()) {
+          const nb = NotebookStore.create((file.name || '').replace(/\.[^.]+$/, '') || '上傳的錄音', 'upload');
+          NotebookStore.activeId = nb.id;
+          Notebook.tab = 'cards';
+          Notebook.load();
+          createdNew = true;
+          if (View.current === 'home') Home.render();
+        }
+        this.upload(file, NotebookStore.activeId, createdNew);
       },
 
-      async upload(file) {
+      async upload(file, nbId, createdNew) {
         this.isUploading = true;
         const progressRow = document.getElementById('uploadProgressRow');
         const progressText = document.getElementById('uploadProgressText');
         const chooseLabel = document.getElementById('audioFileChooseLabel');
         progressRow.classList.add('show');
-        progressText.textContent = '上傳並轉寫中...';
+        progressText.textContent = '⏳ 正在把錄音檔轉成文字…';
         chooseLabel.style.opacity = '0.5';
         chooseLabel.style.pointerEvents = 'none';
 
         try {
           const text = await this._transcribeFile(file);
           if (text && text.trim()) {
-            CardSandbox.add(text.trim());
-            alert('轉寫完成，內容已加入語音卡片，可以到「🗂️ 筆記」分頁查看。');
+            NotebookStore.addCardTo(nbId, text.trim());
+            if (NotebookStore.activeId === nbId && View.current !== 'notebook') View.show('notebook');
+            Dialog.alert('轉好了！文字已經放進筆記裡。', { icon: '✅' });
           } else {
-            alert('轉寫完成，但沒有偵測到任何文字內容（可能是檔案本身沒有語音，或音量過小）。');
+            this._discardIfEmpty(nbId, createdNew);
+            Dialog.alert('檔案裡沒有聽到說話的聲音（可能是沒有人聲，或音量太小）。', { icon: '🔇' });
           }
         } catch (err) {
           console.error('上傳語音檔轉寫失敗：', err);
-          alert('轉寫失敗：' + err.message);
+          this._discardIfEmpty(nbId, createdNew);
+          Dialog.alert('轉成文字失敗了，請檢查網路後再試一次。\n\n（原因：' + err.message + '）');
         } finally {
           this.isUploading = false;
           progressRow.classList.remove('show');
@@ -4874,14 +5145,14 @@
             body: formData
           });
         } catch (networkErr) {
-          throw new Error('無法連線到 Groq 伺服器，請檢查網路連線：' + networkErr.message);
+          throw new Error('連不上語音辨識服務，請檢查網路：' + networkErr.message);
         }
 
         let data;
         try {
           data = await res.json();
         } catch (parseErr) {
-          throw new Error('Groq 回應格式異常，無法解析（HTTP ' + res.status + '）');
+          throw new Error('語音辨識服務回應異常（代碼 ' + res.status + '）');
         }
 
         if (!res.ok) {
@@ -4901,6 +5172,14 @@
         if (data.duration) QuotaMeter.add('groq', data.duration);
 
         return data.text || '';
+      },
+
+      // 從首頁上傳卻失敗時，不留下一本空筆記
+      _discardIfEmpty(nbId, createdNew) {
+        const nb = NotebookStore.get(nbId);
+        if (!createdNew || !nb || nb.cards.length > 0) return;
+        NotebookStore.remove(nbId);
+        if (View.current === 'home') Home.render();
       },
 
       _resetInput() {
@@ -5016,7 +5295,7 @@
     // 三家都沒有提供可從前端查詢餘額的端點，所以只能自己累加。
     //
     // 因此有兩個已知的低估情況，UI 上必須標明是估算值：
-    //   - 同一把 Key／同一個 IP 在別的裝置或別的工具用過
+    //   - 同一把金鑰／同一個 IP 在別的裝置或別的工具用過
     //   - 使用者清除瀏覽器資料後計數歸零，但服務端額度並沒有跟著重置
     //
     // 重置時間：MyMemory 官方只寫「每天 5,000 字元」，未載明時區或
@@ -5028,7 +5307,7 @@
       // 上限僅供進度條換算，取各服務免費層的公開數值。
       // 超過不會阻擋任何操作，純粹是視覺提示。
       LIMITS: {
-        // MyMemory：匿名 5,000／帶 email 50,000（字元）
+        // MyMemory：匿名 5,000／帶電子信箱 50,000（字元）
         mymemory: { anonymous: 5000, identified: 50000, unit: '字元' },
         // Gemini 免費層以 RPD（每日請求數）計；官方會隨模型調整，
         // 這裡取一個保守的參考值，僅用於畫進度條
@@ -5083,7 +5362,7 @@
         return this._load()[service] || 0;
       },
 
-      // MyMemory 的上限取決於使用者有沒有填 email，其他服務為固定值
+      // MyMemory 的上限取決於使用者有沒有填電子信箱，其他服務為固定值
       getLimit(service) {
         if (service === 'mymemory') {
           const cfg = this.LIMITS.mymemory;
@@ -5152,7 +5431,7 @@
     //
     // 選用 MyMemory 的理由（本專案是純前端頁面，沒有後端可代理）：
     //   - 明確支援 CORS，可從瀏覽器直接呼叫
-    //   - 免註冊、免 API Key、免綁信用卡
+    //   - 免註冊、免 金鑰、免綁信用卡
     //   - 匿名額度按「使用者 IP」計算，每位使用者各自 5,000 字元／天，
     //     不是所有人共用同一把金鑰的額度
     //
@@ -5162,9 +5441,9 @@
     //   - 社群建議頻率上限約每分鐘 20 次；本專案 15 秒一段（每分鐘 4
     //     段）遠低於此，但仍序列化送出避免積壓段落瞬間爆發
     //
-    // 刻意不寫死開發者自己的 email：那會讓所有使用者共用同一包
-    // 50,000 額度，反而比各自獨立的匿名 5,000 更快耗盡。email 欄位
-    // 留給使用者自行填寫，與本專案 Groq／Gemini Key 由使用者自備的
+    // 刻意不寫死開發者自己的電子信箱：那會讓所有使用者共用同一包
+    // 50,000 額度，反而比各自獨立的匿名 5,000 更快耗盡。電子信箱欄位
+    // 留給使用者自行填寫，與本專案 Groq／Gemini 金鑰由使用者自備的
     // 設計一致，成本完全外部化。
     const TranslationManager = {
       ENDPOINT: 'https://api.mymemory.translated.net/get',
@@ -5187,15 +5466,14 @@
       _queue: Promise.resolve(),
       _lastCallAt: 0,
 
-      onToggle(checked) {
+      async onToggle(checked) {
         // 首次開啟時說明額度來源與限制；使用者取消的話開關要復原，
         // 不能已經生效卻沒告知
         if (checked && !this._hasShownCostConfirm) {
-          const proceed = confirm(
-            '即時翻譯使用 MyMemory 免費翻譯服務，不需要額外申請 API Key。\n\n' +
-            '免費額度為每天 5,000 字元（依你的網路位址計算），' +
-            '到「⚙️ 設定」分頁填入 email 可提升到 50,000 字元／天。\n\n' +
-            '確定要開啟嗎？'
+          const proceed = await Dialog.confirm(
+            '翻譯使用免費的翻譯服務，不用另外申請金鑰。\n\n' +
+            '每天約可翻 5,000 字，到「⚙️ 設定」填電子信箱可以提高到 50,000 字。\n\n' +
+            '要開啟嗎？', { icon: '🌏', okText: '開啟' }
           );
           if (!proceed) {
             const checkbox = document.getElementById('translationEnabledCheckbox');
@@ -5223,7 +5501,7 @@
           if (email) localStorage.setItem('mymemoryEmail', email);
           else localStorage.removeItem('mymemoryEmail');
         } catch (e) { /* 忽略：額度提升失敗不影響翻譯本身 */ }
-        // 有無 email 會改變 MyMemory 的額度上限，進度條要跟著重畫
+        // 有無電子信箱會改變 MyMemory 的額度上限，進度條要跟著重畫
         QuotaMeter.render();
       },
 
@@ -5301,9 +5579,9 @@
           if (data.responseStatus !== 200) {
             if (/quota|limit/i.test(detail) && !this._hasWarnedQuota) {
               this._hasWarnedQuota = true;
-              alert(
+              Dialog.alert(
                 'MyMemory 今日翻譯額度已用完，原文轉寫不受影響。\n\n' +
-                '到「⚙️ 設定」分頁填入 email 可將額度從 5,000 提升到 50,000 字元／天，' +
+                '到「⚙️ 設定」分頁填入電子信箱可將額度從 5,000 提升到 50,000 字元／天，' +
                 '或等待 24 小時後重置。'
               );
             }
@@ -5351,10 +5629,33 @@
         }
       },
 
+      // 各段轉寫是平行送出的，回來的先後不固定；依錄音順序編號，
+      // 前面的段落還沒回來時先暫存，確保卡片順序跟說話順序一致
+      _seq: 0,
+      _nextCommit: 0,
+      _settled: {},
+
+      _settle(seq, payload) {
+        this._settled[seq] = payload;
+        while (this._nextCommit in this._settled) {
+          const p = this._settled[this._nextCommit];
+          delete this._settled[this._nextCommit];
+          this._nextCommit++;
+          if (p) NotebookStore.addCardTo(p.nbId, p.text, p.translation, p.lang);
+        }
+      },
+
+      _renderPending() {
+        const row = document.getElementById('pendingRow');
+        const count = this._pendingCount || 0;
+        row.classList.toggle('show', count > 0 && View.current !== 'record');
+        document.getElementById('pendingText').textContent = `還有 ${count} 段正在轉成文字…`;
+      },
+
       async start() {
         const apiKey = KeyPoolManager.getActiveKeyValue('groq');
         if (!apiKey) {
-          alert('請先在上方輸入你的 API Key！');
+          KeyWizard.open('groq');
           return;
         }
 
@@ -5378,10 +5679,11 @@
           }
 
           this.isRecording = true;
+          RecordScreen.onStarted();
           this.updateUI(true);
           this.startNewSegment();
         } catch (err) {
-          alert('無法存取麥克風：' + err.message);
+          Dialog.alert('沒辦法使用麥克風。\n\n請到手機設定允許 LINE（或瀏覽器）使用麥克風，再試一次。\n\n（原因：' + err.message + '）', { icon: '🎤' });
           LanguageManager.setSelectLocked(false);
         }
       },
@@ -5391,14 +5693,20 @@
 
         this.mediaRecorder = new MediaRecorder(this.stream, { audioBitsPerSecond: 128000 });
         this.audioChunks = [];
+        const seq = this._seq++;
+        const nbId = NotebookStore.activeId;
 
         this.mediaRecorder.ondataavailable = (e) => {
           if (e.data.size > 0) this.audioChunks.push(e.data);
         };
 
-        this.mediaRecorder.onstop = async () => {
-          const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-          this.transcribeAudio(audioBlob);
+        // iOS Safari 錄出來是 mp4，副檔名要跟實際格式一致，辨識端才不會判斷錯
+        const recorder = this.mediaRecorder;
+        recorder.onstop = async () => {
+          const mimeType = recorder.mimeType || 'audio/webm';
+          const ext = /mp4|m4a|aac/.test(mimeType) ? 'mp4' : (/ogg/.test(mimeType) ? 'ogg' : 'webm');
+          const audioBlob = new Blob(this.audioChunks, { type: mimeType });
+          this.transcribeAudio(audioBlob, seq, nbId, ext);
 
           if (this.isRecording) {
             this.startNewSegment();
@@ -5426,15 +5734,18 @@
         }
         this.updateUI(false);
         LanguageManager.setSelectLocked(false);
+        RecordScreen.onStopped();
+        this._renderPending();
       },
 
-      async transcribeAudio(audioBlob) {
+      async transcribeAudio(audioBlob, seq, nbId, ext) {
         const statusText = document.getElementById('recSubText');
 
         const silent = await this.isSegmentSilent(audioBlob);
         if (silent) {
+          this._settle(seq, null);
           if (this.isRecording && !this._pendingCount) {
-            statusText.textContent = '錄音中，卡片會陸續出現。';
+            statusText.textContent = '錄音中，文字會陸續出現';
           }
           return;
         }
@@ -5443,27 +5754,24 @@
         this._pendingCount = (this._pendingCount || 0) + 1;
         if (this.isRecording) {
           const translatingHint = TranslationManager.enabled ? '＋翻譯中' : '';
-          statusText.textContent = `⏳ 背景轉寫中${translatingHint}（${this._pendingCount} 段處理中）...`;
+          statusText.textContent = `⏳ 正在轉成文字${translatingHint}（${this._pendingCount} 段）…`;
         }
+        this._renderPending();
 
         const formData = new FormData();
-        formData.append('file', audioBlob, 'recording.webm');
+        formData.append('file', audioBlob, `recording.${ext || 'webm'}`);
         formData.append('model', 'whisper-large-v3-turbo');
 
         const langParams = LanguageManager.getParamsForSegment();
-        if (langParams) {
-          formData.append('language', langParams.languageCode);
-          formData.append('prompt', LanguageManager.buildPrompt(langParams.prompt));
-        } else {
-          formData.append('prompt', 'This is a recording of a meeting.');
-        }
+        // 自動模式的英文提示詞也可能在靜音段被原樣吐回，一併納入下方過濾
+        const sentPrompt = langParams
+          ? LanguageManager.buildPrompt(langParams.prompt)
+          : 'This is a recording of a meeting.';
+        if (langParams) formData.append('language', langParams.languageCode);
+        formData.append('prompt', sentPrompt);
 
         formData.append('response_format', 'verbose_json');
         formData.append('temperature', '0'); // 逐字稿場景不需要隨機性，降低靜音/雜訊段的幻覺機率
-
-        // Groq 免費層以音訊時長計費，這裡累加送出的秒數作為估算。
-        // 錄音分段長度固定，直接用 SEGMENT_MS 換算。
-        QuotaMeter.add('groq', this.SEGMENT_MS / 1000);
 
         const endpoint = 'https://api.groq.com/openai/v1/audio/transcriptions';
 
@@ -5488,6 +5796,9 @@
             throw new Error(apiMessage);
           }
 
+          // Groq 免費層以音訊時長計費；成功才計入，優先用回傳的實際長度
+          QuotaMeter.add('groq', data.duration || this.SEGMENT_MS / 1000);
+
           LanguageManager.onDetectedLanguage(data.language);
 
           let originalText = (data.text || '').trim();
@@ -5495,26 +5806,21 @@
           // 靜音／低資訊段常直接把 prompt 內容原樣吐回（幻覺），
           // 而非轉寫失敗或拋錯，所以 res.ok 為 true 也要過濾。
           // 送出的 prompt 完整包含輸出內容時視為無效，直接丟棄。
-          if (originalText) {
-            const sentPrompt = langParams
-              ? LanguageManager.buildPrompt(langParams.prompt)
-              : '';
-            if (sentPrompt && sentPrompt.includes(originalText)) {
-              originalText = '';
-            }
+          if (originalText && sentPrompt.includes(originalText)) {
+            originalText = '';
           }
 
           if (originalText && langParams && langParams.languageCode === 'zh') {
             LanguageManager.rememberText(originalText);
           }
 
+          let translation = null;
           if (originalText) {
             // 翻譯與原文轉寫互相獨立：翻譯呼叫失敗（額度用完、網路
             // 問題等）只會讓 translateSegment 回傳 null，不會拋出例外
             // 中斷這裡的流程，原文一定會照常顯示。等翻譯結果（無論
             // 成功或 null）回來才一起呼叫 CardSandbox.add，避免卡片
             // 內容先出現、翻譯行才補上去的閃爍感。
-            let translation = null;
             if (TranslationManager.enabled) {
               // 翻譯來源語言取自這一段實際使用的辨識語言；auto 模式下
               // 未鎖定語言時 langParams 為 null，改用 Whisper 回報的
@@ -5527,23 +5833,30 @@
                 translation = await TranslationManager.translateSegment(originalText, sourceLangCode);
               }
             }
-            CardSandbox.add(originalText, translation, TranslationManager.targetLang);
           }
+          this._settle(seq, originalText
+            ? { nbId, text: originalText, translation, lang: TranslationManager.targetLang }
+            : null);
 
           this._pendingCount = Math.max(0, this._pendingCount - 1);
           if (this.isRecording) {
             const translatingHint = TranslationManager.enabled ? '＋翻譯中' : '';
             statusText.textContent = this._pendingCount > 0
-              ? `⏳ 背景轉寫中${translatingHint}（${this._pendingCount} 段處理中）...`
-              : '錄音中，卡片會陸續出現。';
+              ? `⏳ 正在轉成文字${translatingHint}（${this._pendingCount} 段）…`
+              : '錄音中，文字會陸續出現';
           } else if (this._pendingCount === 0) {
-            statusText.textContent = '全部轉寫完成。';
+            statusText.textContent = '全部轉好了';
           }
+          this._renderPending();
         } catch (err) {
           this._pendingCount = Math.max(0, this._pendingCount - 1);
+          this._settle(seq, null);
+          this._renderPending();
           console.error('轉寫失敗:', err);
           if (this.isRecording) {
-            statusText.textContent = '⚠️ 有一段轉寫失敗，繼續錄音中（此段內容可能遺漏）';
+            statusText.textContent = '⚠️ 有一段沒轉成功，繼續錄音中（那一小段可能會漏掉）';
+          } else {
+            StorageToast.show('⚠️ 最後一段沒轉成功，筆記可能<b>少了結尾一小段</b>');
           }
         }
       },
@@ -5558,13 +5871,13 @@
           card.classList.add('recording');
           btn.className = 'btn-record-toggle stop';
           btn.textContent = '停止錄音';
-          status.textContent = '錄音中...';
-          sub.textContent = `每 ${this.SEGMENT_MS / 1000} 秒自動送出一段轉寫，卡片會陸續出現。`;
+          status.textContent = '🔴 錄音中';
+          sub.textContent = `每 ${this.SEGMENT_MS / 1000} 秒會自動轉出一段文字`;
         } else {
           card.classList.remove('recording');
           btn.className = 'btn-record-toggle start';
           btn.textContent = '開始錄音';
-          status.textContent = '尚未開始';
+          status.textContent = '準備好了';
         }
       }
     };
@@ -5610,6 +5923,668 @@
       }
     };
 
+    // ---------- 對話框（取代原生 alert/confirm/prompt）----------
+    // 以佇列串接：背景轉寫等非同步流程可能同時丟出多個提示，
+    // 一次只顯示一個，避免後來的把前一個蓋掉、使用者沒看到。
+    const Dialog = {
+      _chain: Promise.resolve(),
+
+      alert(message, opts = {}) { return this._enqueue({ ...opts, message, kind: 'alert' }); },
+      confirm(message, opts = {}) { return this._enqueue({ ...opts, message, kind: 'confirm' }); },
+      prompt(message, defaultValue = '', opts = {}) { return this._enqueue({ ...opts, message, defaultValue, kind: 'prompt' }); },
+
+      _enqueue(opts) {
+        const run = () => this._open(opts);
+        const result = this._chain.then(run, run);
+        this._chain = result.catch(() => {});
+        return result;
+      },
+
+      _guessIcon(kind, message) {
+        if (/失敗|錯誤|無法|不能/.test(message)) return '⚠️';
+        if (kind === 'confirm' && /刪除|清除/.test(message)) return '🗑️';
+        if (/^已|完成|成功/.test(message)) return '✅';
+        return kind === 'confirm' ? '❓' : '💡';
+      },
+
+      _open({ message, kind, defaultValue = '', okText, cancelText, icon, danger }) {
+        return new Promise(resolve => {
+          const msgEl = document.getElementById('dialogMsg');
+          const input = document.getElementById('dialogInput');
+          const okBtn = document.getElementById('dialogOkBtn');
+          const cancelBtn = document.getElementById('dialogCancelBtn');
+          const text = String(message == null ? '' : message);
+
+          document.getElementById('dialogIcon').textContent = icon === '' ? '' : (icon || this._guessIcon(kind, text));
+          msgEl.textContent = text;
+          input.classList.toggle('hidden', kind !== 'prompt');
+          input.value = kind === 'prompt' ? (defaultValue || '') : '';
+          cancelBtn.classList.toggle('hidden', kind === 'alert');
+          okBtn.textContent = okText || (kind === 'alert' ? '好' : '確定');
+          cancelBtn.textContent = cancelText || '取消';
+          okBtn.classList.toggle('danger', !!danger);
+
+          const finish = (ok) => {
+            okBtn.onclick = cancelBtn.onclick = null;
+            document.removeEventListener('keydown', onKey, true);
+            ModalUtil.hide('dialogModal');
+            if (kind === 'prompt') resolve(ok ? input.value : null);
+            else resolve(kind === 'alert' ? true : ok);
+          };
+          const onKey = (e) => {
+            if (e.key === 'Escape') { e.preventDefault(); finish(kind === 'alert'); }
+            else if (e.key === 'Enter' && kind === 'prompt') { e.preventDefault(); finish(true); }
+          };
+          okBtn.onclick = () => finish(true);
+          cancelBtn.onclick = () => finish(false);
+          document.addEventListener('keydown', onKey, true);
+
+          ModalUtil.show('dialogModal');
+          (kind === 'prompt' ? input : okBtn).focus();
+        });
+      }
+    };
+
+    // ---------- 畫面切換 ----------
+    // 與瀏覽器歷史紀錄同步，Android 返回鍵與 iOS 側滑才會回上一頁，
+    // 而不是直接離開整個工具。
+    const View = {
+      current: 'home',
+      _stack: [],
+      _historyOk: false,
+      NAMES: ['home', 'record', 'notebook', 'shared', 'settings'],
+
+      show(name, { replace = false } = {}) {
+        if (name === this.current) return;
+        if (!replace) this._stack.push(this.current);
+        this._apply(name);
+        try {
+          if (replace) history.replaceState({ view: name }, '');
+          else history.pushState({ view: name }, '');
+          this._historyOk = true;
+        } catch (e) { this._historyOk = false; }
+      },
+
+      back() {
+        if (this._stack.length === 0) return;
+        // 歷史紀錄寫入失敗的環境，history.back() 不會觸發 popstate，直接切換
+        if (this._historyOk) history.back();
+        else this._goBack();
+      },
+
+      _goBack() {
+        if (this.current === 'record' && DictationEngine.isRecording) {
+          // 錄音中誤觸返回：補回歷史紀錄，留在錄音畫面
+          try { history.pushState({ view: 'record' }, ''); } catch (e) { /* 忽略 */ }
+          StorageToast.show('錄音中，請先按<b>「停止錄音」</b>');
+          return;
+        }
+        const prev = this._stack.pop() || 'home';
+        this._apply(prev);
+      },
+
+      _apply(name) {
+        this.current = name;
+        this.NAMES.forEach(n => {
+          document.getElementById('view' + n.charAt(0).toUpperCase() + n.slice(1))
+            .classList.toggle('hidden', n !== name);
+        });
+        window.scrollTo(0, 0);
+        const onEnter = {
+          home: () => Home.render(),
+          notebook: () => Notebook.render(),
+          settings: () => {
+            SettingsPanel.render();
+            KeyPoolPanel.render('groq');
+            KeyPoolPanel.render('gemini');
+            QuotaMeter.render();
+          }
+        };
+        if (onEnter[name]) onEnter[name]();
+      }
+    };
+    window.addEventListener('popstate', () => View._goBack());
+
+    // 舊呼叫點（提示條、錯誤訊息）沿用 MainNav.switchTo，對應到新畫面
+    const MainNav = {
+      switchTo(tab) {
+        if (tab === 'settings' || tab === 'shared') return View.show(tab);
+        if (tab === 'record') return RecordScreen.open(false);
+        if (tab === 'cards' || tab === 'summary') {
+          if (View.current !== 'notebook') View.show('notebook');
+          Notebook.switchTab(tab);
+        }
+      }
+    };
+
+    // ---------- 筆記本資料 ----------
+    // 每次錄音存成一本。卡片與摘要直接存在筆記物件內，CardSandbox／
+    // SummaryModule 只操作「目前打開的那本」，不另外存一份草稿，
+    // 避免同一份資料存兩處而不同步。
+    const NOTEBOOKS_STORAGE_KEY = 'voice_notebooks';
+
+    const NotebookStore = {
+      list: [],
+      activeId: null,
+
+      load() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(NOTEBOOKS_STORAGE_KEY) || 'null');
+          if (Array.isArray(parsed)) {
+            this.list = parsed.filter(nb => nb && typeof nb.id === 'string' && Array.isArray(nb.cards));
+          }
+        } catch (e) {
+          console.warn('讀取筆記清單失敗，從空白開始：', e);
+        }
+        if (this.list.length === 0) this._migrateLegacy();
+      },
+
+      // 舊版只有單一份卡片草稿與摘要，轉成第一本筆記；存檔成功才刪舊鍵
+      _migrateLegacy() {
+        let cards = [], nextId = 1, summary = null;
+        try {
+          const raw = localStorage.getItem(CARDS_STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed.cards)) {
+              cards = parsed.cards.filter(c => c && typeof c.id !== 'undefined' && typeof c.text === 'string');
+              nextId = typeof parsed.nextId === 'number' ? parsed.nextId : cards.length + 1;
+            }
+          }
+        } catch (e) { /* 舊資料損毀就放棄遷移 */ }
+        try {
+          const raw = localStorage.getItem(SUMMARY_STORAGE_KEY);
+          if (raw) {
+            try { summary = JSON.parse(raw); } catch (e) { summary = raw; }
+          }
+        } catch (e) { /* 忽略 */ }
+        if (cards.length === 0 && !summary) return;
+
+        const nb = this._make('我的第一本筆記', 'record');
+        nb.cards = cards;
+        nb.nextId = nextId;
+        nb.summary = summary;
+        this.list.push(nb);
+        if (this.save()) {
+          try {
+            localStorage.removeItem(CARDS_STORAGE_KEY);
+            localStorage.removeItem(SUMMARY_STORAGE_KEY);
+          } catch (e) { /* 忽略 */ }
+        }
+      },
+
+      _make(title, source) {
+        const now = Date.now();
+        return {
+          id: 'n' + now.toString(36) + Math.random().toString(36).slice(2, 6),
+          title, source, createdAt: now, updatedAt: now,
+          cards: [], nextId: 1, changeVersion: 0, summary: null
+        };
+      },
+
+      save() {
+        try {
+          localStorage.setItem(NOTEBOOKS_STORAGE_KEY, JSON.stringify(this.list));
+          return true;
+        } catch (e) {
+          console.warn('筆記儲存失敗（可能是儲存空間已滿或隱私模式）：', e);
+          StorageToast.show('⚠️ 手機儲存空間不足，這次的內容<b>可能沒有存到</b>');
+          return false;
+        }
+      },
+
+      get(id) { return this.list.find(nb => nb.id === id) || null; },
+      active() { return this.get(this.activeId); },
+
+      create(title, source) {
+        const nb = this._make(title, source);
+        this.list.push(nb);
+        this.save();
+        return nb;
+      },
+
+      remove(id) {
+        this.list = this.list.filter(nb => nb.id !== id);
+        if (this.activeId === id) this.activeId = null;
+        this.save();
+      },
+
+      clearAll() {
+        this.list = [];
+        this.activeId = null;
+        try {
+          localStorage.removeItem(NOTEBOOKS_STORAGE_KEY);
+          localStorage.removeItem(CARDS_STORAGE_KEY);
+          localStorage.removeItem(SUMMARY_STORAGE_KEY);
+        } catch (e) { /* 忽略 */ }
+      },
+
+      // 背景轉寫回來時使用者可能已切到別本，依「錄音當下」的筆記寫入
+      addCardTo(nbId, text, translation, translationLangCode) {
+        if (nbId === this.activeId) return CardSandbox.add(text, translation, translationLangCode);
+        const nb = this.get(nbId);
+        if (!nb) return;
+        const card = CardSandbox.makeCard(nb.nextId, text, translation, translationLangCode);
+        if (!card) return;
+        nb.nextId++;
+        nb.cards.push(card);
+        nb.changeVersion = (nb.changeVersion || 0) + 1;
+        nb.updatedAt = Date.now();
+        this.save();
+        if (View.current === 'home') Home.render();
+      }
+    };
+
+    // ---------- 首頁 ----------
+    const Home = {
+      _fmtDate(ts) {
+        const d = new Date(ts);
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        if (d.toDateString() === now.toDateString()) return `今天 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        return `${d.getMonth() + 1}月${d.getDate()}日`;
+      },
+
+      render() {
+        const listEl = document.getElementById('notebookList');
+        const items = NotebookStore.list.slice().sort((a, b) => b.updatedAt - a.updatedAt);
+        document.getElementById('homeEmpty').classList.toggle('hidden', items.length > 0);
+        listEl.innerHTML = items.map(nb => `
+          <button class="nb-item ${nb.source === 'upload' ? 'upload' : ''}" onclick="Notebook.open('${nb.id}')">
+            <span class="nb-icon" aria-hidden="true">${nb.source === 'upload' ? '📁' : '🎙️'}</span>
+            <span class="nb-main">
+              <span class="nb-title">${Utils.escapeHtml(nb.title)}</span>
+              <span class="nb-meta">${nb.cards.length} 段 · ${this._fmtDate(nb.updatedAt)}${nb.summary ? ' · ✨ 已整理' : ''}</span>
+            </span>
+            <span class="nb-chev" aria-hidden="true">›</span>
+          </button>
+        `).join('');
+      },
+
+      _hasGroqKey() { return !!KeyPoolManager.getActiveKeyValue('groq'); },
+
+      startRecord() {
+        if (!this._hasGroqKey()) {
+          KeyWizard.open('groq', () => RecordScreen.open(true));
+          return;
+        }
+        RecordScreen.open(true);
+      },
+
+      // 精靈驗證金鑰要等網路回應，回來時點擊的使用者互動已失效，
+      // 無法再自動開檔案選擇器，只能請使用者再按一次
+      pickFile() {
+        if (!this._hasGroqKey()) {
+          KeyWizard.open('groq', () => Dialog.alert('設定完成！再按一次 📁 就能選擇錄音檔。', { icon: '✅' }));
+          return;
+        }
+        if (FileUploadTranscribe.isUploading) {
+          Dialog.alert('上一個檔案還在轉文字中，請等它完成再上傳下一個。', { icon: '⏳' });
+          return;
+        }
+        document.getElementById('audioFileInput').click();
+      }
+    };
+
+    // ---------- 單本筆記 ----------
+    const Notebook = {
+      tab: 'cards',
+
+      open(id) {
+        if (!NotebookStore.get(id)) return;
+        NotebookStore.activeId = id;
+        this.tab = 'cards';
+        this.load();
+        View.show('notebook');
+      },
+
+      // 切換筆記時，把依附在上一本筆記的暫時狀態一併重設
+      load() {
+        EditModeManager.current = null;
+        SelectionPool.order = SelectionPool.order.filter(k => !k.startsWith('card:'));
+        CardSandbox.restore();
+        SummaryModule.restore();
+        SummaryModule.resetTerms();
+      },
+
+      render() {
+        const nb = NotebookStore.active();
+        document.getElementById('nbTitle').textContent = nb ? nb.title : '';
+        CardSandbox.render();
+        EditModeManager.render();
+        this.switchTab(this.tab);
+      },
+
+      switchTab(tab) {
+        this.tab = tab;
+        const isCards = tab === 'cards';
+        document.getElementById('nbTabCards').classList.toggle('active', isCards);
+        document.getElementById('nbTabSummary').classList.toggle('active', !isCards);
+        document.getElementById('nbTabCards').setAttribute('aria-selected', String(isCards));
+        document.getElementById('nbTabSummary').setAttribute('aria-selected', String(!isCards));
+        document.getElementById('navPanelCards').classList.toggle('hidden', !isCards);
+        document.getElementById('navPanelSummary').classList.toggle('hidden', isCards);
+        document.getElementById('actionBar').classList.toggle('hidden', !isCards || !!EditModeManager.current);
+        if (!isCards) {
+          SummaryModule.renderPool();
+          updateKeyMissingHints();
+        }
+      },
+
+      async rename() {
+        const nb = NotebookStore.active();
+        if (!nb) return;
+        const value = await Dialog.prompt('幫這本筆記取個名字：', nb.title, { icon: '🏷️' });
+        if (!value || !value.trim()) return;
+        nb.title = value.trim().slice(0, 40);
+        nb.updatedAt = Date.now();
+        NotebookStore.save();
+        document.getElementById('nbTitle').textContent = nb.title;
+      },
+
+      async remove() {
+        const nb = NotebookStore.active();
+        if (!nb) return;
+        const ok = await Dialog.confirm(`確定要刪除「${nb.title}」嗎？\n刪除後就救不回來了。`, { okText: '刪除', danger: true });
+        if (!ok) return;
+        NotebookStore.remove(nb.id);
+        ShareResumeManager.clear();
+        View.back();
+      }
+    };
+
+    // ---------- 錄音畫面 ----------
+    // 新錄音在「真的開始錄」時才建立筆記，只是點進來看看就離開不會留下空筆記
+    const RecordScreen = {
+      _pendingNew: false,
+      _timer: null,
+
+      _defaultTitle() {
+        const d = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())} 錄音`;
+      },
+
+      open(isNew) {
+        this._pendingNew = !!isNew;
+        if (isNew) {
+          NotebookStore.activeId = null;
+          CardSandbox.restore();
+        }
+        const nb = NotebookStore.active();
+        document.getElementById('recTitle').textContent = nb ? nb.title : '新錄音';
+        document.getElementById('recTimer').textContent = '00:00';
+        CardSandbox.renderLivePreview();
+        updateKeyMissingHints();
+        View.show('record');
+      },
+
+      onStarted() {
+        if (this._pendingNew) {
+          const nb = NotebookStore.create(this._defaultTitle(), 'record');
+          NotebookStore.activeId = nb.id;
+          Notebook.tab = 'cards';
+          Notebook.load();
+          this._pendingNew = false;
+          document.getElementById('recTitle').textContent = nb.title;
+        }
+        document.getElementById('recCloseBtn').classList.add('invisible');
+        document.getElementById('recOptions').classList.add('locked');
+        const startedAt = Date.now();
+        const timerEl = document.getElementById('recTimer');
+        const pad = n => String(n).padStart(2, '0');
+        clearInterval(this._timer);
+        this._timer = setInterval(() => {
+          const sec = Math.floor((Date.now() - startedAt) / 1000);
+          timerEl.textContent = `${pad(Math.floor(sec / 60))}:${pad(sec % 60)}`;
+        }, 1000);
+      },
+
+      onStopped() {
+        clearInterval(this._timer);
+        document.getElementById('recCloseBtn').classList.remove('invisible');
+        document.getElementById('recOptions').classList.remove('locked');
+        if (View.current === 'record' && NotebookStore.active()) {
+          View.show('notebook', { replace: true });
+          Notebook.switchTab('cards');
+        }
+      }
+    };
+
+    // ---------- 金鑰設定精靈 ----------
+    const KeyWizard = {
+      type: 'groq',
+      _onDone: null,
+      _onCancel: null,
+
+      CONFIG: {
+        groq: {
+          title: '設定語音金鑰',
+          icon: '🎙️',
+          prefix: 'gsk_',
+          why: '錄音變文字需要一組「語音金鑰」，就像通行證。<b>免費、不用信用卡</b>，申請一次就能一直用。',
+          steps: `
+            <li><b>打開申請網頁</b>
+              <a class="kw-open" href="https://console.groq.com/keys" target="_blank" rel="noopener">🌐 打開申請網頁</a>
+              <span class="kw-sub">網頁是英文的沒關係，照下面找對應的按鈕就好（按鈕字樣可能略有不同）</span></li>
+            <li><b>登入</b>：點 <span class="mock-btn">Continue with Google</span>，用你的 Google 帳號登入</li>
+            <li><b>建立金鑰</b>：點 <span class="mock-btn">Create API Key</span>，名字隨便打（例如 note），再點 <span class="mock-btn">Submit</span></li>
+            <li><b>複製</b>：點 <span class="mock-btn">Copy</span> 複製那串 <code>gsk_</code> 開頭的文字。<b>它只會出現這一次</b>，先複製好再離開</li>
+            <li><b>回到這裡</b>，按下面的「📋 貼上」，再按「完成」</li>`,
+          note: '金鑰只存在這支手機裡，不會傳到本工具的任何地方。',
+          placeholder: '在這裡貼上金鑰'
+        },
+        gemini: {
+          title: '設定摘要金鑰',
+          icon: '✨',
+          prefix: 'AIza',
+          why: 'AI 整理重點需要一組 Google 的「摘要金鑰」。<b>免費、不用信用卡</b>，用你的 Google 帳號就能申請。',
+          steps: `
+            <li><b>打開申請網頁</b>
+              <a class="kw-open" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">🌐 打開申請網頁</a>
+              <span class="kw-sub">網頁可能是英文的，照下面找對應的按鈕就好（按鈕字樣可能略有不同）</span></li>
+            <li><b>登入</b>：用你平常的 Google 帳號（跟 Gmail 同一組），第一次可能要先按同意</li>
+            <li><b>建立金鑰</b>：點 <span class="mock-btn">Create API key</span>；如果問你要放在哪個專案，選 <span class="mock-btn">Create API key in new project</span></li>
+            <li><b>複製</b>：點金鑰旁邊的複製圖示，複製那串 <code>AIza</code> 開頭的文字</li>
+            <li><b>回到這裡</b>，按下面的「📋 貼上」，再按「完成」</li>`,
+          note: '提醒：Google 免費方案的內容可能被用於改善 Google 產品，機密內容建議不要做 AI 摘要。',
+          placeholder: '在這裡貼上金鑰'
+        }
+      },
+
+      open(type, onDone, onCancel) {
+        const cfg = this.CONFIG[type];
+        if (!cfg) return;
+        this.type = type;
+        this._onDone = onDone || null;
+        this._onCancel = onCancel || null;
+        document.getElementById('kwTitle').textContent = cfg.title;
+        document.getElementById('kwIcon').textContent = cfg.icon;
+        document.getElementById('kwWhy').innerHTML = cfg.why;
+        document.getElementById('kwSteps').innerHTML = cfg.steps;
+        document.getElementById('kwNote').textContent = cfg.note;
+        const input = document.getElementById('kwInput');
+        input.value = '';
+        input.placeholder = cfg.placeholder;
+        this._setStatus('', '');
+        ModalUtil.show('keyWizardModal');
+      },
+
+      close() {
+        ModalUtil.hide('keyWizardModal');
+        const cancel = this._onCancel;
+        this._onDone = this._onCancel = null;
+        if (cancel) cancel();
+      },
+
+      _setStatus(text, kind) {
+        const el = document.getElementById('kwStatus');
+        el.textContent = text;
+        el.className = 'kw-status' + (kind ? ' ' + kind : '');
+      },
+
+      // LINE 內建瀏覽器常拒絕讀剪貼簿，失敗時改教使用者長按貼上
+      async pasteFromClipboard() {
+        const input = document.getElementById('kwInput');
+        try {
+          const text = await navigator.clipboard.readText();
+          input.value = (text || '').trim();
+          this._setStatus(input.value ? '已貼上，按「完成」檢查' : '剪貼簿是空的，請先回申請網頁複製', input.value ? 'ok' : 'warn');
+        } catch (e) {
+          input.focus();
+          this._setStatus('這裡不能自動貼上，請長按上方輸入框，選「貼上」', 'warn');
+        }
+      },
+
+      // 回傳 'ok'｜'invalid'｜'unknown'（網路問題無法確認時不擋使用者）
+      async _verify(type, value) {
+        try {
+          const res = type === 'groq'
+            ? await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${value}` } })
+            : await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', { headers: { 'x-goog-api-key': value } });
+          if (res.ok) return 'ok';
+          if ([400, 401, 403].includes(res.status)) return 'invalid';
+          return 'unknown';
+        } catch (e) {
+          return 'unknown';
+        }
+      },
+
+      async submit() {
+        const cfg = this.CONFIG[this.type];
+        const type = this.type;
+        const value = document.getElementById('kwInput').value.replace(/\s+/g, '');
+        if (!value) { this._setStatus('請先貼上金鑰', 'warn'); return; }
+        if (!value.startsWith(cfg.prefix)) {
+          this._setStatus(`金鑰應該是「${cfg.prefix}」開頭，請確認有沒有複製完整`, 'err');
+          return;
+        }
+
+        const btn = document.getElementById('kwSubmitBtn');
+        btn.disabled = true;
+        this._setStatus('⏳ 正在檢查金鑰能不能用…', '');
+        const result = await this._verify(type, value);
+        btn.disabled = false;
+        if (result === 'invalid') {
+          this._setStatus('❌ 這組金鑰不能用，請回申請網頁重新複製一次', 'err');
+          return;
+        }
+
+        const existing = KeyPoolManager.list(type).find(k => k.value === value);
+        if (existing) {
+          KeyPoolManager.setActive(type, existing.id);
+        } else {
+          const added = KeyPoolManager.add(type, value, '我的金鑰');
+          if (!added.ok) {
+            this._setStatus('金鑰已經存滿了，請到設定刪掉不用的再試', 'err');
+            return;
+          }
+          KeyPoolManager.setActive(type, added.id);
+        }
+        KeyPoolPanel.render(type);
+        updateKeyMissingHints();
+
+        const done = this._onDone;
+        this._onDone = this._onCancel = null;
+        ModalUtil.hide('keyWizardModal');
+        await Dialog.alert(result === 'ok'
+          ? '設定完成！金鑰可以正常使用 🎉'
+          : '已儲存。目前網路無法確認金鑰，如果之後出現錯誤，再回來重新設定一次。', { icon: result === 'ok' ? '✅' : '💾' });
+        if (done) done();
+      }
+    };
+
+    // ---------- 新手引導 ----------
+    const ONBOARD_VERSION = '2026-09-simple';
+
+    const Onboarding = {
+      step: 1,
+
+      initOnLoad() {
+        let seen = null;
+        try { seen = localStorage.getItem('onboard_done_version'); } catch (e) { /* 忽略 */ }
+        if (seen !== ONBOARD_VERSION) this.open();
+      },
+
+      open() {
+        this.go(1);
+        ModalUtil.show('onboardModal');
+      },
+
+      go(n) {
+        this.step = n;
+        document.querySelectorAll('#onboardModal .onboard-step').forEach(el => {
+          el.classList.toggle('hidden', Number(el.dataset.step) !== n);
+        });
+        document.querySelectorAll('#onboardModal .onboard-dots i').forEach(el => {
+          el.classList.toggle('on', Number(el.dataset.dot) === n);
+        });
+        const hasKey = !!KeyPoolManager.getActiveKeyValue('groq');
+        const needsKey = n === 2 && !hasKey;
+        document.getElementById('onboardKeyDone').classList.toggle('hidden', !(n === 2 && hasKey));
+        document.getElementById('onboardKeyText').classList.toggle('hidden', n === 2 && hasKey);
+        document.getElementById('onboardLaterBtn').classList.toggle('hidden', !needsKey);
+        document.getElementById('onboardNextBtn').textContent =
+          needsKey ? '🔑 開始設定（約 2 分鐘）' : (n === 3 ? '開始使用' : '下一步');
+      },
+
+      next() {
+        if (this.step === 2 && !KeyPoolManager.getActiveKeyValue('groq')) {
+          ModalUtil.hide('onboardModal');
+          KeyWizard.open('groq',
+            () => { ModalUtil.show('onboardModal'); this.go(3); },
+            () => { ModalUtil.show('onboardModal'); this.go(2); });
+          return;
+        }
+        if (this.step < 3) this.go(this.step + 1);
+        else this.finish();
+      },
+
+      finish() {
+        try { localStorage.setItem('onboard_done_version', ONBOARD_VERSION); } catch (e) { /* 忽略 */ }
+        ModalUtil.hide('onboardModal');
+        if (View.current !== 'home') return;
+        const btn = document.getElementById('homeRecordBtn');
+        btn.classList.add('pulse');
+        setTimeout(() => btn.classList.remove('pulse'), 6000);
+      }
+    };
+
+    // ---------- 筆記「更多」選單 ----------
+    const MoreMenu = {
+      open() { ModalUtil.show('moreMenuModal'); },
+      close() { ModalUtil.hide('moreMenuModal'); },
+
+      _requireSummary(tab) {
+        if (!SummaryModule.currentSummary || !SummaryModule.currentSummary.summary) {
+          Notebook.switchTab('summary');
+          Dialog.alert('請先按「✨ 產生重點摘要」，再使用這個功能。', { icon: '✨' });
+          return;
+        }
+        Notebook.switchTab('summary');
+        SummaryModule.switchResultTab(tab);
+      },
+
+      run(action) {
+        this.close();
+        const editMode = mode => { Notebook.switchTab('cards'); EditModeManager.set(mode); };
+        const actions = {
+          edit: () => editMode('edit'),
+          merge: () => editMode('merge'),
+          reorder: () => editMode('reorder'),
+          select: () => editMode('select'),
+          upload: () => Home.pickFile(),
+          rename: () => Notebook.rename(),
+          mindmap: () => this._requireSummary('mindmap'),
+          terms: () => this._requireSummary('terms'),
+          shared: () => View.show('shared'),
+          sheet: () => CopyToSheetFormat.copy(),
+          delete: () => Notebook.remove()
+        };
+        if (actions[action]) actions[action]();
+      }
+    };
+
     // ---------- 啟動流程 ----------
     // LIFF 不再是進入頁面的關卡：網頁本身可獨立使用，liff.init() 只在
     // 背景跑，用來判斷是否在 LINE 環境內、以及之後 sendMessages 需要，
@@ -5637,24 +6612,13 @@
       },
 
       enterApp() {
+        NotebookStore.load();
         CardSandbox.restore();
-        CardSandbox.render();
-        CardSandbox.renderLivePreview();
-
         SummaryModule.restore();
-        SummaryModule.renderPool();
-
         SharedSheetNotes.resetUI();
-
-        SettingsPanel.render();
         updateKeyMissingHints();
-
-        KeyPoolPanel.render('groq');
-        KeyPoolPanel.render('gemini');
-
-        if (CardSandbox.cards.length > 0) {
-          MainNav.switchTo('cards');
-        }
+        View._apply('home');
+        Onboarding.initOnLoad();
       }
     };
 
@@ -5780,7 +6744,7 @@
     async function handleSendToRoom() {
       const fullText = CardSandbox.getAllFullText();
       if (!fullText.trim()) {
-        alert('目前沒有任何卡片內容可以發送。');
+        Dialog.alert('目前沒有任何卡片內容可以發送。');
         return;
       }
 
@@ -5823,6 +6787,7 @@
           totalBatches,
           completedBatches: 0,
           changeVersion: CardSandbox.changeVersion,
+          notebookId: NotebookStore.activeId,
           totalChars: fullText.length
         };
         this._save(record);
@@ -5854,7 +6819,7 @@
         // 核心判斷：changeVersion 不同，代表卡片內容在中斷期間被
         // 新增、刪除、編輯、合併或調整過順序，批次邊界已經不可靠，
         // 視為不可接續
-        if (record.changeVersion !== CardSandbox.changeVersion) {
+        if (record.changeVersion !== CardSandbox.changeVersion || record.notebookId !== NotebookStore.activeId) {
           this.clear();
           return null;
         }
@@ -5910,13 +6875,13 @@
           const batch = messages.slice(i, i + LINE_MAX_MESSAGES_PER_CALL);
           await liff.sendMessages(batch);
         }
-        alert(segments.length > 1
+        Dialog.alert(segments.length > 1
           ? `已分成 ${segments.length} 則訊息送回聊天室。`
           : '已送回聊天室。');
         StorageToast.show('已送出。卡片內容<b>仍保留在本機</b>，若已不需要，可至上方「清除本機資料」手動刪除。');
       } catch (err) {
         console.error('sendMessages 發送失敗：', err);
-        alert(
+        Dialog.alert(
           '發送失敗：' + err.message +
           '\n\n可能原因（請依序檢查）：\n' +
           '1. LINE Developers Console 後台，這個 LIFF app 所在的 channel 尚未開通訊息傳送（message write）權限\n' +
@@ -5931,16 +6896,17 @@
     async function handleSend() {
       const fullText = CardSandbox.getAllFullText();
       if (!fullText.trim()) {
-        alert('目前沒有任何卡片內容可以發送。');
+        Dialog.alert('目前沒有任何卡片內容可以發送。');
         return;
       }
 
       // 檢查是否有未送完的中斷進度，內容未變動過則詢問是否從中斷處繼續
       const resumeInfo = ShareResumeManager.checkResumable(fullText);
       if (resumeInfo) {
-        const wantResume = confirm(
-          `偵測到上次分享中斷在第 ${resumeInfo.completedBatches} / ${resumeInfo.totalBatches} 批（內容未變動過）。\n\n` +
-          `按「確定」從第 ${resumeInfo.completedBatches + 1} 批繼續送出，按「取消」則放棄中斷進度、改成整段重新分享。`
+        const wantResume = await Dialog.confirm(
+          `上次傳到第 ${resumeInfo.completedBatches} / ${resumeInfo.totalBatches} 批就中斷了（內容沒有改過）。\n\n` +
+          `要從第 ${resumeInfo.completedBatches + 1} 批接著傳嗎？`,
+          { okText: '接著傳', cancelText: '從頭再傳', icon: '📤' }
         );
         if (wantResume) {
           ChatPreview.show(fullText, 'LINE 好友選單（接續上次中斷）', () => doSend(fullText, resumeInfo.completedBatches));
@@ -5963,7 +6929,7 @@
         try {
           sessionStorage.setItem('pending_send_text', fullText);
         } catch (e) { /* sessionStorage 不可用時，登入完成後需使用者重新按一次發送 */ }
-        alert('需要先登入 LINE 才能選擇發送對象，即將導向登入頁面。');
+        await Dialog.alert('要先登入 LINE 才能選擇傳給誰，接下來會跳到登入畫面。', { icon: '🔐' });
         liff.login({ redirectUri: window.location.href });
         return;
       }
@@ -5999,13 +6965,13 @@
               // 務必選擇跟上一批相同的對象；使用者可以在這裡取消，
               // 若取消則視為中止後續批次，已送出的批次不會被撤回，
               // 中斷進度會保留下來，下次點分享時可以選擇接續
-              const proceed = confirm(
-                `已送出第 ${b} / ${batches.length} 批。\n\n` +
-                `內容較長，需要分成 ${batches.length} 批才能送完。請在接下來跳出的畫面中「選擇跟剛才相同的對象」，才能讓對方收到完整內容。\n\n` +
-                `按「確定」繼續送出第 ${b + 1} 批，按「取消」則停在這裡（已送出的批次不會被收回，下次點「分享出去」可以選擇從這裡接續）。`
+              const proceed = await Dialog.confirm(
+                `已傳出第 ${b} / ${batches.length} 批。\n\n` +
+                `內容比較長，要分 ${batches.length} 批傳。接下來請「選跟剛才同一個人」，對方才會收到完整內容。`,
+                { okText: `傳第 ${b + 1} 批`, cancelText: '先停在這裡', icon: '📤' }
               );
               if (!proceed) {
-                alert(`已停止發送，共送出 ${b} / ${batches.length} 批。下次點擊「分享出去 → LINE 好友分享」時，只要卡片內容沒有變動過，會詢問是否要從這裡接續；也可以改用「送回聊天室」或手動複製貼上。`);
+                Dialog.alert(`已停止發送，共送出 ${b} / ${batches.length} 批。下次點擊「分享出去 → LINE 好友分享」時，只要卡片內容沒有變動過，會詢問是否要從這裡接續；也可以改用「送回聊天室」或手動複製貼上。`);
                 return;
               }
             }
@@ -6019,10 +6985,10 @@
               // 使用者在選擇畫面中途取消。中斷進度保留在 b（尚未送出
               // 這一批），下次接續時會從這一批重新開始，不會漏掉。
               if (b === 0) {
-                alert('已取消發送。');
+                Dialog.alert('已取消發送。');
                 if (!resumeFromBatch) ShareResumeManager.clear();
               } else {
-                alert(`已取消，共送出 ${b} / ${batches.length} 批。下次點擊「分享出去 → LINE 好友分享」時，只要卡片內容沒有變動過，會詢問是否要從這裡接續。`);
+                Dialog.alert(`已取消，共送出 ${b} / ${batches.length} 批。下次點擊「分享出去 → LINE 好友分享」時，只要卡片內容沒有變動過，會詢問是否要從這裡接續。`);
               }
               return;
             }
@@ -6034,7 +7000,7 @@
           // 全部批次都送完了，清除中斷進度紀錄
           ShareResumeManager.clear();
 
-          alert(batches.length > 1
+          Dialog.alert(batches.length > 1
             ? `已分成 ${batches.length} 批（共 ${segments.length} 則訊息）送出。請自行確認每一批是否都送到了同一位對象，避免因中途選錯對象導致內容分散。`
             : (segments.length > 1
               ? `已分成 ${segments.length} 則訊息送出，請確認對方是否收到。`
@@ -6042,7 +7008,7 @@
           StorageToast.show('已送出。卡片內容<b>仍保留在本機</b>，若已不需要，可至上方「清除本機資料」手動刪除。');
         } catch (err) {
           console.error('shareTargetPicker 發送失敗：', err);
-          alert('發送失敗，中斷進度已保留，可下次重新分享時選擇接續。改為複製到剪貼簿，請手動貼上：\n' + err.message);
+          Dialog.alert('發送失敗，中斷進度已保留，可下次重新分享時選擇接續。改為複製到剪貼簿，請手動貼上：\n' + err.message);
           copyToClipboardFallback(fullText);
         }
         return;
@@ -6060,7 +7026,7 @@
         }
       } catch (e) { /* 忽略 */ }
 
-      // 還原上次填入的 MyMemory 額度提升 email
+      // 還原上次填入的 MyMemory 額度提升電子信箱
       try {
         const emailInput = document.getElementById('translationEmailInput');
         if (emailInput) emailInput.value = localStorage.getItem('mymemoryEmail') || '';
@@ -6116,9 +7082,9 @@
     function copyToClipboardFallback(text) {
       copyTextRobust(text).then(success => {
         if (success) {
-          alert('已複製全文到剪貼簿，可以貼到任何地方（LINE、Email、筆記軟體等）。\n\n提醒：內容會留在系統剪貼簿裡，若這是共用裝置，貼上後建議複製一段無關的文字覆蓋掉，避免下一位使用者貼上時看到你的筆記內容。');
+          Dialog.alert('已複製全文到剪貼簿，可以貼到任何地方（LINE、Email、筆記軟體等）。\n\n提醒：內容會留在系統剪貼簿裡，若這是共用裝置，貼上後建議複製一段無關的文字覆蓋掉，避免下一位使用者貼上時看到你的筆記內容。');
         } else {
-          alert('複製失敗，請手動選取以下內容複製：\n\n' + text);
+          Dialog.alert('複製失敗，請手動選取以下內容複製：\n\n' + text);
         }
       });
     }
@@ -6127,7 +7093,7 @@
     async function handleWebShare() {
       const fullText = CardSandbox.getAllFullText();
       if (!fullText.trim()) {
-        alert('目前沒有任何卡片內容可以發送。');
+        Dialog.alert('目前沒有任何卡片內容可以發送。');
         return;
       }
 
@@ -6152,7 +7118,7 @@
     function handleCopyToClipboard() {
       const fullText = CardSandbox.getAllFullText();
       if (!fullText.trim()) {
-        alert('目前沒有任何卡片內容可以複製。');
+        Dialog.alert('目前沒有任何卡片內容可以複製。');
         return;
       }
 
@@ -6161,7 +7127,7 @@
 
     async function doWebShare(fullText) {
       if (!navigator.share) {
-        alert('目前所在的瀏覽器環境不支援系統分享（LINE 內建瀏覽器對此功能有限制），已改為複製到剪貼簿，請手動貼上。');
+        Dialog.alert('目前所在的瀏覽器環境不支援系統分享（LINE 內建瀏覽器對此功能有限制），已改為複製到剪貼簿，請手動貼上。');
         copyToClipboardFallback(fullText);
         return;
       }
@@ -6170,7 +7136,7 @@
 
       try {
         if (navigator.canShare && !navigator.canShare(shareData)) {
-          alert('此瀏覽器不支援分享這種內容，改為複製到剪貼簿。');
+          Dialog.alert('此瀏覽器不支援分享這種內容，改為複製到剪貼簿。');
           copyToClipboardFallback(fullText);
           return;
         }
@@ -6182,7 +7148,7 @@
           return;
         }
         console.error('系統分享失敗：', err);
-        alert('分享失敗，改為複製到剪貼簿：\n' + err.message);
+        Dialog.alert('分享失敗，改為複製到剪貼簿：\n' + err.message);
         copyToClipboardFallback(fullText);
       }
     }
