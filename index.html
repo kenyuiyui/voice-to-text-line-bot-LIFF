@@ -1129,11 +1129,31 @@
       background: var(--line-green); color: #fff; font-weight: 800; font-size: 14px;
       display: flex; align-items: center; justify-content: center;
     }
+    /* 步驟圖示取代數字；順序已由上方流程條表達 */
+    .kw-steps li[data-icon] { padding-left: 56px; }
+    .kw-steps li[data-icon]::before {
+      content: attr(data-icon); width: 34px; height: 34px; top: 10px; font-size: 20px; background: var(--card-bg);
+    }
+    .kw-flow { margin: 0 0 12px; gap: 2px; }
+    .kw-flow div { font-size: 11.5px; }
+    .kw-flow span { width: 46px; height: 46px; border-radius: 14px; font-size: 24px; }
+    .kw-flow i { font-size: 18px; margin-bottom: 16px; }
+    .mock-key {
+      display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 8px 10px; border-radius: 10px;
+      background: var(--card-bg); border: 1.5px dashed var(--border); font-size: 13px;
+    }
+    .mock-key code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mock-key .mock-btn { border-color: var(--line-green); color: var(--line-green-dark); }
+    .mock-key::after { content: '👈 按這個'; font-size: 12px; font-weight: 700; white-space: nowrap; }
     .kw-open {
       display: block; margin-top: 8px; padding: 12px; text-align: center; border-radius: 12px; font-weight: 800; font-size: 15.5px;
       background: var(--ink); color: #fff; text-decoration: none;
     }
     .kw-sub { display: block; font-size: 12.5px; color: var(--ink-faint); margin-top: 4px; }
+    .kw-guard {
+      display: block; margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-size: 13.5px; line-height: 1.6;
+      background: #fff7e0; border: 1.5px solid #f0b400; color: #5a4300;
+    }
     .mock-btn {
       display: inline-block; padding: 1px 8px; margin: 0 2px; border-radius: 6px; font-family: ui-sans-serif, system-ui, sans-serif;
       font-size: 13px; font-weight: 700; background: #fff; border: 1.5px solid var(--ink); color: var(--ink); white-space: nowrap;
@@ -1150,7 +1170,7 @@
     .kw-status.ok { color: var(--line-green-dark); }
     .kw-note { font-size: 12.5px; color: var(--ink-faint); line-height: 1.6; margin: 6px 0 0; }
     .kw-note:empty { display: none; }
-    .kw-submit { width: 100%; height: 54px; border: none; border-radius: 16px; background: var(--line-green); color: #fff; font-size: 17px; font-weight: 800; cursor: pointer; }
+    .kw-submit { width: 100%; height: 54px; margin-top: 10px; border: none; border-radius: 16px; background: var(--line-green); color: #fff; font-size: 17px; font-weight: 800; cursor: pointer; }
     .kw-submit:disabled { opacity: .6; }
 
     /* ---------- 背景工作提示 ---------- */
@@ -1358,17 +1378,21 @@
         <button class="icon-btn" onclick="KeyWizard.close()" aria-label="關閉">✕</button>
       </div>
       <div class="kw-body">
+        <div class="onboard-flow kw-flow" aria-hidden="true">
+          <div><span>🌐</span>開網站</div><i>›</i>
+          <div><span>🔑</span>建金鑰</div><i>›</i>
+          <div><span>📋</span>複製</div><i>›</i>
+          <div><span>📱</span>回來貼上</div>
+        </div>
         <p class="kw-why" id="kwWhy"></p>
         <ol class="kw-steps" id="kwSteps"></ol>
         <div class="kw-paste">
-          <input type="password" id="kwInput" autocomplete="off" spellcheck="false" aria-label="貼上金鑰">
-          <button class="btn-secondary" onclick="KeyWizard.pasteFromClipboard()">📋 貼上</button>
+          <input type="password" id="kwInput" autocomplete="off" spellcheck="false" enterkeyhint="done" aria-label="貼上金鑰"
+                 oninput="KeyWizard.onInput(event)" onkeydown="if (event.key === 'Enter') KeyWizard.submit()">
         </div>
+        <button class="kw-submit" id="kwSubmitBtn" onclick="KeyWizard.pasteFromClipboard()">📋 貼上並完成</button>
         <div class="kw-status" id="kwStatus" role="status" aria-live="polite"></div>
         <p class="kw-note" id="kwNote"></p>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-confirm kw-submit" id="kwSubmitBtn" onclick="KeyWizard.submit()">✅ 完成</button>
       </div>
     </div>
   </div>
@@ -2395,6 +2419,14 @@
       // token 估算僅供參考（中文約 2.5 token/字），不同模型 tokenizer 有差異
       estimateTokens(charCount) {
         return Math.round(charCount * 2.5);
+      },
+      // LINE 內建瀏覽器會被 Google 擋登入（disallowed_useragent），需登入的外站一律開系統瀏覽器
+      openExternal(url) {
+        if (liffReady && typeof liff.openWindow === 'function') {
+          liff.openWindow({ url, external: true });
+        } else {
+          window.open(url, '_blank', 'noopener');
+        }
       }
     };
 
@@ -2709,6 +2741,12 @@
         const labelInput = document.getElementById(this.LABEL_INPUT_ID[type]);
         const valueInput = document.getElementById(this.VALUE_INPUT_ID[type]);
         if (!labelInput || !valueInput) return;
+
+        const actual = KeyWizard.detectMismatch(type, valueInput.value.trim());
+        if (actual) {
+          Dialog.alert(`這是「${KeyWizard.CONFIG[actual].name}」（${KeyWizard.CONFIG[actual].prefix} 開頭），請貼到對應的欄位。`);
+          return;
+        }
 
         const result = KeyPoolManager.add(type, valueInput.value, labelInput.value);
         if (!result.ok) {
@@ -3983,45 +4021,40 @@
       isGenerating: false,
       currentSummary: null,
 
-      // 摘要場景預設。responseSchema 三個欄位（summary／actionItems／
-      // sourceRefs）在所有場景都保持一致，渲染邏輯因此完全不用改；
-      // 差別只在 systemInstruction 怎麼要求 AI 理解這份逐字稿。
-      //
-      // actionItems 在不同場景有不同語意：課堂是作業與考試、會議是
-      // 待辦、訪談是後續追蹤、日常對話則多半是空的。刻意在每個場景
-      // 都明講「沒有就回空陣列」，避免 AI 為了填滿欄位而編造。
+      // 場景只放「與其他場景不同」的規則；共通規則寫在 _callGemini，
+      // 避免四份重複文字讓短逐字稿的 prompt 比內容還長。
       SCENE_PRESETS: {
         lecture: {
           label: '課堂／演講',
           desc: '著重知識脈絡與專有名詞，抽取作業、考試範圍與繳交期限。',
           actionLabel: '📌 作業/考試',
-          role: '你是一個課堂筆記整理助手。請針對使用者在下方 <meeting_log> 標籤內提供的課堂或演講逐字稿進行分析與整理。',
-          summaryRule: 'summary：第一行用 1-2 句話說明這堂課的主題，換行後每個知識重點各自獨立一行，每行開頭用「・」。請依照講述的邏輯脈絡組織重點，而不是按照時間順序流水帳。專有名詞、學術術語、人名地名一律保留原文用詞，若逐字稿中該詞明顯是同音誤植且從上下文可確定正確寫法，請直接使用正確寫法。講者特別強調「要記住」「會考」「重點」的部分，請優先納入。',
-          actionRule: 'actionItems：抽取課堂中提到的作業、報告、考試範圍、繳交期限或需要預習準備的事項。task 填事項內容，owner 通常填 null（除非明確指派給特定人或分組），deadline 填明確提到的日期或時間點。沒有提到任何這類事項時回傳空陣列 []。'
+          role: '課堂／演講逐字稿整理',
+          summaryRule: '依講述邏輯（非時間）排序；講者強調「會考／重點」者優先；術語保留原文，明顯同音誤植依上下文更正',
+          actionRule: '作業、報告、考試範圍、繳交期限、預習事項'
         },
         meeting: {
           label: '會議',
           desc: '著重議題與決議，抽取待辦事項、負責人與期限。',
           actionLabel: '✅ 待辦',
-          role: '你是一個會議記錄整理助手。請針對使用者在下方 <meeting_log> 標籤內提供的會議逐字稿進行分析與整理。',
-          summaryRule: 'summary：第一行是 1-2 句話整體總結會議主題，換行後每個重點各自獨立一行，每行開頭用「・」。請著重在討論的議題、各方立場與最後達成的決議。',
-          actionRule: 'actionItems：抽取逐字稿中明確提及的待辦事項、下一步行動或需要追蹤的事情。每一項包含 task（待辦內容）、owner（負責人）、deadline（期限）。owner 與 deadline 若逐字稿沒有明確指出，一律填 null，絕對不可以自行臆測或推論負責人與期限。如果逐字稿完全沒有提到任何待辦事項，回傳空陣列 []。'
+          role: '會議逐字稿整理',
+          summaryRule: '聚焦議題、各方立場、決議',
+          actionRule: '明確提及的待辦與下一步'
         },
         interview: {
           label: '訪談／對談',
           desc: '著重受訪者觀點與問答對應，保留原意不做過度概括。',
           actionLabel: '🔎 追蹤事項',
-          role: '你是一個訪談記錄整理助手。請針對使用者在下方 <meeting_log> 標籤內提供的訪談或對談逐字稿進行分析與整理。',
-          summaryRule: 'summary：第一行用 1-2 句話說明這場訪談的主題與對象，換行後每個重點各自獨立一行，每行開頭用「・」。請以受訪者實際表達的觀點為主，盡量保留其原本的立場與語意細節，不要為了精簡而過度概括或替他做結論。若逐字稿中有明顯的問答結構，請讓重點反映出「問了什麼、答了什麼」的對應關係。',
-          actionRule: 'actionItems：抽取訪談中提到需要後續追蹤、補充資料或再次確認的事項。task 填事項內容，owner 與 deadline 沒有明確提到時填 null。沒有這類事項時回傳空陣列 []。'
+          role: '訪談逐字稿整理',
+          summaryRule: '首行含對象；保留受訪者原意與立場，不替其下結論；有問答時呈現「問→答」',
+          actionRule: '需追蹤、補資料或再確認的事項'
         },
         daily: {
           label: '日常對話',
           desc: '著重講了什麼、答應了什麼，不硬找決議或待辦。',
           actionLabel: '🤝 約定事項',
-          role: '你是一個日常對話記錄整理助手。請針對使用者在下方 <meeting_log> 標籤內提供的對話逐字稿進行分析與整理。',
-          summaryRule: 'summary：第一行用 1-2 句話說明這段對話在講什麼，換行後每個重點各自獨立一行，每行開頭用「・」。這是日常對話而不是正式會議，內容可能鬆散、跳躍或沒有明確結論，這是正常的——請如實整理實際聊到的事情，不要為了讓摘要看起來完整而硬生出主題、結論或架構。提到的人名、時間、地點、金額等具體資訊請保留。',
-          actionRule: 'actionItems：只抽取對話中明確約定或答應要做的事（例如約好見面時間、答應幫忙、要買的東西）。日常對話經常完全沒有這類事項，這很正常，沒有就回傳空陣列 []，不要把單純的閒聊內容硬套成待辦事項。'
+          role: '日常對話逐字稿整理',
+          summaryRule: '內容鬆散屬正常，如實整理，不硬湊主題或結論；保留人名、時間、地點、金額',
+          actionRule: '明確約定或答應要做的事；閒聊不算'
         }
       },
 
@@ -4191,78 +4224,58 @@
           return hasMultipleItems ? `【${label}】\n${item.content}` : item.content;
         }).join('\n\n');
 
-        const sourceNote = hasMultipleItems
-          ? '\n\n這份逐字稿是由多個段落合併而成（可能來自不同人分別整理、或同一場會議的不同時段），每個段落前面用【標籤】標示來源，已按照指定順序排列。請將其視為同一場會議或討論的完整內容，整合成單一份摘要，不需要逐段分別摘要或特別區分是誰整理的。'
-          : '';
-
-        // 語音卡片若開啟即時翻譯，內容會是「原文\n語言代碼: 翻譯」的
-        // 格式（見 CardSandbox.getFullText）。這裡偵測 fullText 是否
-        // 含有這種格式的行，只有真的出現才把規則加進 prompt，避免
-        // 沒用到翻譯功能時也徒增無謂的 token 與干擾。
+        // 條件規則只在觸發時加入，沒用到的功能不佔 prompt
         const hasTranslationLines = /^(zh|en|ja|ko): /m.test(fullText);
-        const translationNote = hasTranslationLines
-          ? '\n\n逐字稿中某些行是「語言代碼: 內容」的格式（例如 "zh: 你好"），這是上一行原文的翻譯，不是新的發言或獨立內容。請以原文為準理解語意，翻譯行只是輔助對照，不要把翻譯行當成額外的重點重複摘要一次。'
-          : '';
+        const rules = [
+          `summary：首行 1-2 句點出主題，其後每個重點獨立一行、以「・」開頭；${preset.summaryRule}`,
+          `actionItems：${preset.actionRule}；owner、deadline 未明說填 null；沒有就 []`,
+          '只依 <transcript> 內容，不補充、不推論',
+          '逐字稿來自語音辨識，含同音錯字與贅詞，依上下文理解語意',
+          '重點數量隨內容長短調整，短內容 1-2 點即可，不湊數'
+        ];
+        if (hasMultipleItems) rules.push('內容由多段合併，【標籤】標示來源；整合成一份摘要；sourceRefs 的 point 抄該重點前段原文，label 填對應標籤');
+        if (hasTranslationLines) rules.push('「語言代碼: …」開頭的行是上一行的翻譯，只供對照，不重複摘要');
 
-        // 結構化輸出：待辦事項、來源引用，用 responseSchema 強制
-        // JSON，解析失敗時 fallback 成純摘要模式。
-        //
-        // 心智圖大綱不在這裡生成，改用獨立的 _callGeminiMindmap()：
-        // 心智圖要根據已生成的摘要整理，而非平行重新理解逐字稿；
-        // 且拆開後心智圖生成失敗不會拖累已產生好的摘要。
+        const actionItemsSchema = {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              task: { type: 'STRING' },
+              owner: { type: 'STRING', nullable: true },
+              deadline: { type: 'STRING', nullable: true }
+            },
+            required: ['task']
+          }
+        };
+        // sourceRefs 只在多段來源時有意義，單段時連 schema 一起省略
+        const sourceRefsSchema = {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: { point: { type: 'STRING' }, label: { type: 'STRING' } },
+            required: ['point', 'label']
+          }
+        };
+
+        // 心智圖另由 _callGeminiMindmap() 依摘要生成，失敗不拖累摘要
         const payload = {
           systemInstruction: {
             parts: [{
-              text: '<role>\n' +
-                    preset.role + '\n' +
-                    '</role>\n\n' +
-                    '<demand>\n' +
-                    '1. ' + preset.summaryRule + '直接輸出整理結果，不需要額外的開場白或結語。重點之間必須用換行字元分開，不可以把多個重點寫在同一行或同一段落裡。\n' +
-                    '2. ' + preset.actionRule + '\n' +
-                    '3. sourceRefs：列出 summary 中每一個重點對應到逐字稿的哪一個【標籤】段落（若原始逐字稿沒有分段標籤，此欄位回傳空陣列 []）。每一項包含 point（摘要中的那一點文字，簡短即可）與 label（對應的段落標籤名稱）。\n' +
-                    '4. 只根據 <meeting_log> 內的實際內容作答，不可自行補充或推論未提及的資訊。\n' +
-                    '5. 這份逐字稿由語音辨識產生，可能含有同音錯字、斷句錯誤或口語贅詞。請依上下文理解真正的語意，不要被個別錯字誤導；但也不要自行腦補逐字稿中完全沒有出現的內容。\n' +
-                    sourceNote +
-                    translationNote +
-                    '\n</demand>\n'
+              text: `<role>${preset.role}</role>\n<rules>\n${rules.map(r => '- ' + r).join('\n')}\n</rules>`
             }]
           },
           contents: [{
             role: 'user',
-            parts: [{
-              text: `<meeting_log>\n${fullText}\n</meeting_log>`
-            }]
+            parts: [{ text: `<transcript>\n${fullText}\n</transcript>` }]
           }],
           generationConfig: {
             responseMimeType: 'application/json',
             responseSchema: {
               type: 'OBJECT',
-              properties: {
-                summary: { type: 'STRING' },
-                actionItems: {
-                  type: 'ARRAY',
-                  items: {
-                    type: 'OBJECT',
-                    properties: {
-                      task: { type: 'STRING' },
-                      owner: { type: 'STRING', nullable: true },
-                      deadline: { type: 'STRING', nullable: true }
-                    },
-                    required: ['task']
-                  }
-                },
-                sourceRefs: {
-                  type: 'ARRAY',
-                  items: {
-                    type: 'OBJECT',
-                    properties: {
-                      point: { type: 'STRING' },
-                      label: { type: 'STRING' }
-                    },
-                    required: ['point', 'label']
-                  }
-                }
-              },
+              properties: hasMultipleItems
+                ? { summary: { type: 'STRING' }, actionItems: actionItemsSchema, sourceRefs: sourceRefsSchema }
+                : { summary: { type: 'STRING' }, actionItems: actionItemsSchema },
               required: ['summary', 'actionItems']
             }
           }
@@ -4393,22 +4406,17 @@
         const payload = {
           systemInstruction: {
             parts: [{
-              text: '<role>\n' +
-                    '你是一個心智圖整理助手。請針對使用者在下方 <summary_text> 標籤內提供的會議摘要文字，整理成階層式心智圖大綱。\n' +
-                    '</role>\n\n' +
-                    '<demand>\n' +
-                    '1. 只根據 <summary_text> 裡的內容整理，不可額外補充摘要沒有提到的資訊，也不可遺漏摘要中的重點。\n' +
-                    '2. 用 Markdown 格式輸出：第一行必須是 "# " 開頭的整體主題（作為心智圖的根節點），接下來每一層子項目都用清單並以縮排表示層級（每層用兩個半形空白縮排，"- " 開頭）。\n' +
-                    '3. 最多三層、最多 25 個節點，避免內容過於冗長；把摘要中相關的重點歸納到同一個子主題下。\n' +
-                    '4. 節點文字要短：主題與子主題 12 個字以內，最底層 25 個字以內。用關鍵詞或短語，不要寫成完整句子，也不要在節點裡放多個重點。\n' +
-                    '4. 直接輸出心智圖大綱本身，不需要額外的開場白、結語或程式碼區塊標記。範例格式：\n# 整體主題\n- 子主題1\n  - 細節A\n  - 細節B\n- 子主題2\n  - 細節C\n' +
-                    '\n</demand>\n'
+              text: '<role>把 <summary> 內的摘要轉成心智圖大綱</role>\n<rules>\n' +
+                    '- 只用摘要內容，不增不漏，相關重點歸到同一子主題\n' +
+                    '- 首行「# 主題」；其下用「- 」清單，每層縮排 2 個半形空白\n' +
+                    '- 最多 3 層、25 個節點；主題 ≤12 字、末層 ≤25 字，用關鍵詞不寫句子\n' +
+                    '- 只輸出大綱本身\n</rules>'
             }]
           },
           contents: [{
             role: 'user',
             parts: [{
-              text: `<summary_text>\n${summaryText}\n</summary_text>`
+              text: `<summary>\n${summaryText}\n</summary>`
             }]
           }]
         };
@@ -4825,16 +4833,11 @@
         const payload = {
           systemInstruction: {
             parts: [{
-              text: '<role>\n' +
-                    '你是一個專有名詞抽取工具。請從使用者提供的逐字稿中，找出專業術語、學術名詞、機構名稱、專有地名、法規名稱等專有名詞。\n' +
-                    '</role>\n\n' +
-                    '<demand>\n' +
-                    '1. 這份逐字稿由語音辨識產生，可能含有同音錯字。抽取時請「保留逐字稿中實際出現的原始寫法」，不要自行修正——後續會由具備搜尋能力的工具來判斷正確寫法。\n' +
-                    '2. 每個名詞附上它在逐字稿中出現的那一句或前後文（context），長度控制在 60 字以內，保留原文不要改寫。上下文是後續判斷正確寫法的唯一依據，務必忠實擷取。\n' +
-                    `3. 最多抽取 ${this.MAX_TERMS} 個。超過時，優先保留講者著墨較多、或對理解主題較關鍵的名詞。\n` +
-                    '4. 只抽真正的專有名詞。一般動詞、形容詞、常見日常詞彙不要抽。同一個名詞只出現一次，不要重複。\n' +
-                    '5. 如果逐字稿中沒有任何專有名詞，回傳空陣列 []。\n' +
-                    '</demand>\n'
+              text: '<role>從 <transcript> 抽出專有名詞（術語、學術名詞、機構、地名、法規）</role>\n<rules>\n' +
+                    '- term 保留逐字稿原寫法，不修正錯字（後續另行查證）\n' +
+                    '- context：該詞所在原句，≤60 字，不改寫\n' +
+                    `- 最多 ${this.MAX_TERMS} 個，優先講者著墨多、對主題關鍵者\n` +
+                    '- 排除一般詞彙；不重複；沒有就 []\n</rules>'
             }]
           },
           contents: [{
@@ -6810,6 +6813,7 @@
     // ---------- 金鑰設定精靈 ----------
     const KeyWizard = {
       type: 'groq',
+      _busy: false,
       _onDone: null,
       _onCancel: null,
 
@@ -6818,34 +6822,61 @@
           title: '設定語音金鑰',
           icon: '🎙️',
           prefix: 'gsk_',
-          why: '錄音變文字需要一組「語音金鑰」，就像通行證。<b>免費、不用信用卡</b>，申請一次就能一直用。',
+          name: 'Groq 語音金鑰',
+          why: '錄音變文字需要一組 <b>Groq</b> 的語音金鑰（<code>gsk_</code> 開頭）。<b>免費、不用信用卡</b>，申請一次就能一直用。' +
+               '<span class="kw-guard">⚠️ 網址要是 <b>console.groq.com</b>。如果畫面出現「Google AI Studio」或「Gemini」就是走錯了——那是另一把摘要用的金鑰，錄音不能用。</span>',
           steps: `
-            <li><b>打開申請網頁</b>
-              <a class="kw-open" href="https://console.groq.com/keys" target="_blank" rel="noopener">🌐 打開申請網頁</a>
-              <span class="kw-sub">網頁是英文的沒關係，照下面找對應的按鈕就好（按鈕字樣可能略有不同）</span></li>
-            <li><b>登入</b>：點 <span class="mock-btn">Continue with Google</span>，用你的 Google 帳號登入</li>
-            <li><b>建立金鑰</b>：點 <span class="mock-btn">Create API Key</span>，名字隨便打（例如 note），再點 <span class="mock-btn">Submit</span></li>
-            <li><b>複製</b>：點 <span class="mock-btn">Copy</span> 複製那串 <code>gsk_</code> 開頭的文字。<b>它只會出現這一次</b>，先複製好再離開</li>
-            <li><b>回到這裡</b>，按下面的「📋 貼上」，再按「完成」</li>`,
+            <li data-icon="🌐"><b>打開 Groq 網站</b>
+              <a class="kw-open" href="https://console.groq.com/keys" target="_blank" rel="noopener" onclick="Utils.openExternal(this.href); return false;">🌐 打開 Groq 申請網頁</a>
+              <span class="kw-sub">會用手機瀏覽器開啟（LINE 裡無法用 Google 登入）。網頁是英文的沒關係，照下面找按鈕就好</span></li>
+            <li data-icon="👤"><b>登入 Groq</b>：點 <span class="mock-btn">Continue with Google</span>——這只是借 Google 帳號登入 Groq，<b>不是去 Google 申請</b></li>
+            <li data-icon="🔑"><b>建立金鑰</b>：點 <span class="mock-btn">Create API Key</span>，名字隨便打（例如 note），再點 <span class="mock-btn">Submit</span></li>
+            <li data-icon="📋"><b>複製</b>：<b>金鑰只會出現這一次</b>，先複製好再離開
+              <span class="mock-key"><code>gsk_8fKq2Xr…</code><span class="mock-btn">Copy</span></span></li>
+            <li data-icon="📱"><b>切回 LINE</b>，按下面的 <span class="mock-btn">📋 貼上並完成</span> 就好</li>`,
           note: '金鑰只存在這支手機裡，不會傳到本工具的任何地方。',
-          placeholder: '在這裡貼上金鑰'
+          placeholder: '貼上 gsk_ 開頭的金鑰'
         },
         gemini: {
           title: '設定摘要金鑰',
           icon: '✨',
           prefix: 'AIza',
-          why: 'AI 整理重點需要一組 Google 的「摘要金鑰」。<b>免費、不用信用卡</b>，用你的 Google 帳號就能申請。',
+          name: 'Google 摘要金鑰',
+          why: 'AI 整理重點需要一組 <b>Google AI Studio</b> 的摘要金鑰（<code>AIza</code> 開頭）。<b>免費、不用信用卡</b>。' +
+               '<span class="kw-guard">⚠️ 這把只給 AI 摘要用，<b>錄音用不到</b>。錄音要的是 Groq 語音金鑰（<code>gsk_</code> 開頭）。</span>',
           steps: `
-            <li><b>打開申請網頁</b>
-              <a class="kw-open" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">🌐 打開申請網頁</a>
-              <span class="kw-sub">網頁可能是英文的，照下面找對應的按鈕就好（按鈕字樣可能略有不同）</span></li>
-            <li><b>登入</b>：用你平常的 Google 帳號（跟 Gmail 同一組），第一次可能要先按同意</li>
-            <li><b>建立金鑰</b>：點 <span class="mock-btn">Create API key</span>；如果問你要放在哪個專案，選 <span class="mock-btn">Create API key in new project</span></li>
-            <li><b>複製</b>：點金鑰旁邊的複製圖示，複製那串 <code>AIza</code> 開頭的文字</li>
-            <li><b>回到這裡</b>，按下面的「📋 貼上」，再按「完成」</li>`,
+            <li data-icon="🌐"><b>打開 Google AI Studio</b>
+              <a class="kw-open" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" onclick="Utils.openExternal(this.href); return false;">🌐 打開 Google 申請網頁</a>
+              <span class="kw-sub">會用手機瀏覽器開啟（LINE 裡無法用 Google 登入）。網頁可能是英文的，照下面找按鈕就好</span></li>
+            <li data-icon="👤"><b>登入</b>：用你平常的 Google 帳號（跟 Gmail 同一組），第一次可能要先按同意</li>
+            <li data-icon="🔑"><b>建立金鑰</b>：點 <span class="mock-btn">Create API key</span>；如果問你要放在哪個專案，選 <span class="mock-btn">Create API key in new project</span></li>
+            <li data-icon="📋"><b>複製</b>：點金鑰旁邊的複製圖示
+              <span class="mock-key"><code>AIzaSyB3k…</code><span class="mock-btn">⧉</span></span></li>
+            <li data-icon="📱"><b>切回 LINE</b>，按下面的 <span class="mock-btn">📋 貼上並完成</span> 就好</li>`,
           note: '提醒：Google 免費方案的內容可能被用於改善 Google 產品，機密內容建議不要做 AI 摘要。',
-          placeholder: '在這裡貼上金鑰'
+          placeholder: '貼上 AIza 開頭的金鑰'
         }
+      },
+
+      // 貼錯種類時回傳該金鑰實際所屬的 type，否則 null；設定頁手動新增也共用
+      detectMismatch(type, value) {
+        const other = type === 'groq' ? 'gemini' : 'groq';
+        return value.startsWith(this.CONFIG[other].prefix) ? other : null;
+      },
+
+      // 存入金鑰池並設為使用中；已存在就只切換。回傳是否成功
+      _store(type, value) {
+        const existing = KeyPoolManager.list(type).find(k => k.value === value);
+        if (existing) {
+          KeyPoolManager.setActive(type, existing.id);
+        } else {
+          const added = KeyPoolManager.add(type, value, '我的金鑰');
+          if (!added.ok) return false;
+          KeyPoolManager.setActive(type, added.id);
+        }
+        KeyPoolPanel.render(type);
+        updateKeyMissingHints();
+        return true;
       },
 
       open(type, onDone, onCancel) {
@@ -6880,16 +6911,21 @@
       },
 
       // LINE 內建瀏覽器常拒絕讀剪貼簿，失敗時改教使用者長按貼上
+      // 剪貼簿優先（使用者可能重新複製過）；讀不到才用輸入框裡已貼的內容
       async pasteFromClipboard() {
         const input = document.getElementById('kwInput');
-        try {
-          const text = await navigator.clipboard.readText();
-          input.value = (text || '').trim();
-          this._setStatus(input.value ? '已貼上，按「完成」檢查' : '剪貼簿是空的，請先回申請網頁複製', input.value ? 'ok' : 'warn');
-        } catch (e) {
-          input.focus();
-          this._setStatus('這裡不能自動貼上，請長按上方輸入框，選「貼上」', 'warn');
-        }
+        let text = '';
+        try { text = (await navigator.clipboard.readText() || '').trim(); } catch (e) { /* LINE 內常被拒 */ }
+        if (text) input.value = text;
+        if (input.value.trim()) { this.submit(); return; }
+        input.focus();
+        this._setStatus('請長按上方輸入框選「貼上」，貼上後會自動檢查', 'warn');
+      },
+
+      // 長按貼上後自動送出，省掉再按一次；39 字是最短金鑰（AIza）長度
+      onInput(e) {
+        const len = e.target.value.replace(/\s+/g, '').length;
+        if (e.inputType === 'insertFromPaste' || len >= 39) this.submit();
       },
 
       // 回傳 'ok'｜'invalid'｜'unknown'（網路問題無法確認時不擋使用者）
@@ -6911,34 +6947,39 @@
         const type = this.type;
         const value = document.getElementById('kwInput').value.replace(/\s+/g, '');
         if (!value) { this._setStatus('請先貼上金鑰', 'warn'); return; }
+        // 走錯網站申請到另一種金鑰時，不讓心血白費：直接存到正確位置
+        const actual = this.detectMismatch(type, value);
+        if (actual) {
+          const saved = this._store(actual, value);
+          this._setStatus(
+            `這是「${this.CONFIG[actual].name}」，不是這裡要的「${cfg.name}」。` +
+            (saved ? '已幫你存到正確位置，之後會用到。' : '') +
+            `請照上面第 1 步重新申請 ${cfg.prefix} 開頭的金鑰。`, 'err');
+          return;
+        }
         if (!value.startsWith(cfg.prefix)) {
           this._setStatus(`金鑰應該是「${cfg.prefix}」開頭，請確認有沒有複製完整`, 'err');
           return;
         }
 
+        if (this._busy) return;
+        this._busy = true;
         const btn = document.getElementById('kwSubmitBtn');
         btn.disabled = true;
         this._setStatus('⏳ 正在檢查金鑰能不能用…', '');
         const result = await this._verify(type, value);
         btn.disabled = false;
+        this._busy = false;
         if (result === 'invalid') {
+          document.getElementById('kwInput').value = '';
           this._setStatus('❌ 這組金鑰不能用，請回申請網頁重新複製一次', 'err');
           return;
         }
 
-        const existing = KeyPoolManager.list(type).find(k => k.value === value);
-        if (existing) {
-          KeyPoolManager.setActive(type, existing.id);
-        } else {
-          const added = KeyPoolManager.add(type, value, '我的金鑰');
-          if (!added.ok) {
-            this._setStatus('金鑰已經存滿了，請到設定刪掉不用的再試', 'err');
-            return;
-          }
-          KeyPoolManager.setActive(type, added.id);
+        if (!this._store(type, value)) {
+          this._setStatus('金鑰已經存滿了，請到設定刪掉不用的再試', 'err');
+          return;
         }
-        KeyPoolPanel.render(type);
-        updateKeyMissingHints();
 
         const done = this._onDone;
         this._onDone = this._onCancel = null;
@@ -7538,11 +7579,7 @@
       },
       goAddFriend() {
         this.close();
-        if (liffReady && typeof liff.openWindow === 'function') {
-          liff.openWindow({ url: OFFICIAL_ACCOUNT_URL, external: true });
-        } else {
-          window.open(OFFICIAL_ACCOUNT_URL, '_blank', 'noopener');
-        }
+        Utils.openExternal(OFFICIAL_ACCOUNT_URL);
       }
     };
 
