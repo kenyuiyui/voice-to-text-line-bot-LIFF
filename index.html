@@ -2488,7 +2488,7 @@
 
       // 取得某服務的 key 池，不存在時觸發舊版資料遷移
       _load(type) {
-        if (this._pools[type]) return this._pools[type];
+        if (this._pools[type]) return this._reviveQuota(this._pools[type]);
 
         let pool = null;
         try {
@@ -2514,6 +2514,15 @@
         }
 
         this._pools[type] = pool;
+        return this._reviveQuota(pool);
+      },
+
+      // 額度每日重置；隔天仍標「額度用完」會讓自動切換永遠跳過這把
+      _reviveQuota(pool) {
+        const today = QuotaMeter._today();
+        pool.keys.forEach(k => {
+          if (k.status === 'quota_exceeded' && k.failedDay !== today) k.status = 'ok';
+        });
         return pool;
       },
 
@@ -2628,16 +2637,27 @@
       // 由各處 API 呼叫失敗時回報。errorType 為 'invalid'（key 失效）
       // 或 'quota_exceeded'（額度用完，可能自行恢復）。回傳
       // { switched, newActiveLabel, failedLabel, mode } 供呼叫端組出提醒文字。
-      reportFailure(type, errorType) {
+      // keyValue 為該次請求實際使用的金鑰。平行請求（錄音多段、上傳分段）
+      // 可能在切換後才回報，若以「目前使用中」判定會把健康的新金鑰也標成失效
+      reportFailure(type, errorType, keyValue) {
         const pool = this._load(type);
-        const failedKey = pool.keys.find(k => k.id === pool.activeId);
+        const failedKey = keyValue
+          ? pool.keys.find(k => k.value === keyValue)
+          : pool.keys.find(k => k.id === pool.activeId);
         if (!failedKey) {
           return { switched: false, newActiveLabel: null, failedLabel: null, mode: pool.switchMode };
         }
 
         failedKey.status = errorType;
+        failedKey.failedDay = QuotaMeter._today();
         const failedLabel = failedKey.label;
         const mode = pool.switchMode;
+
+        // 已經被先回來的同批請求切走了，只記狀態、不再切換或提醒
+        if (failedKey.id !== pool.activeId) {
+          this._persist(type);
+          return { switched: false, newActiveLabel: null, failedLabel: null, mode };
+        }
 
         if (mode === 'auto') {
           const nextKey = pool.keys.find(k => k.id !== failedKey.id && k.status === 'ok');
@@ -2796,10 +2816,10 @@
       NOTIFY_COOLDOWN_MS: 60000,
 
       // 統一失效提醒入口。serviceLabel 用於提醒文字（'Groq'／'Gemini'）
-      notifyFailure(type, errorType, serviceLabel) {
+      notifyFailure(type, errorType, serviceLabel, keyValue) {
         const activeIdBeforeReport = KeyPoolManager.getActiveId(type);
 
-        const result = KeyPoolManager.reportFailure(type, errorType);
+        const result = KeyPoolManager.reportFailure(type, errorType, keyValue);
         this.render(type);
 
         if (!result.failedLabel) return;
@@ -2853,10 +2873,18 @@
           // 分享斷點依附於卡片內容，卡片清空後這筆記錄會變孤兒資料，一併清除
           localStorage.removeItem(SHARE_RESUME_STORAGE_KEY);
           sessionStorage.removeItem('pending_send_text');
+          // 提示文字寫「已清除設定」，電子信箱屬個人資料，必須一起清掉
+          localStorage.removeItem('mymemoryEmail');
+          localStorage.removeItem('summaryScene');
+          localStorage.removeItem(QuotaMeter.STORAGE_KEY);
         } catch (e) {
           console.warn('清除本機資料時發生問題：', e);
         }
         try { localStorage.removeItem('onboard_done_version'); } catch (e) { /* 忽略 */ }
+        const emailInput = document.getElementById('translationEmailInput');
+        if (emailInput) emailInput.value = '';
+        QuotaMeter._cache = null;
+        QuotaMeter.render();
         NotebookStore.clearAll();
         CardSandbox.restore();
 
@@ -3274,7 +3302,9 @@
       makeCard(id, text, translation, translationLangCode) {
         if (!text || !text.trim()) return null;
         let finalText = text.trim();
-        const converter = this.getS2TConverter();
+        const s2t = this.getS2TConverter();
+        // 日文漢字被轉成繁體就變錯字；含假名即視為日文，不轉換
+        const converter = s2t && (t => /[\u3040-\u30ff]/.test(t) ? t : s2t(t));
         if (converter) {
           try {
             finalText = converter(finalText);
@@ -3436,14 +3466,17 @@
         count.textContent = total === 0 ? '目前沒有卡片' : `已勾選 ${selected} / ${total} 張`;
       },
 
-      update(id, newText) {        const card = this.cards.find(c => c.id === id);
-        if (card) {
-          card.text = newText.trim();
-          // 原文被手動編輯後，舊翻譯不再對應這句話的實際內容，
-          // 清掉比留著顯示過時/誤導的翻譯更安全
-          delete card.translation;
-          delete card.translationLangCode;
-        }
+      // onblur 只要點進去再離開就會觸發；沒改字不能清掉翻譯，也不能
+      // 遞增 changeVersion（會讓分享接續誤判內容已變動）
+      update(id, newText) {
+        const card = this.cards.find(c => c.id === id);
+        if (!card) return;
+        const text = (newText || '').trim();
+        if (text === card.text) return;
+        if (!text) { this.remove(id); return; }
+        card.text = text;
+        delete card.translation;
+        delete card.translationLangCode;
         this.persist();
         this.render();
       },
@@ -3459,7 +3492,7 @@
       mergeWithNext(id) {
         const idx = this.cards.findIndex(c => c.id === id);
         if (idx === -1 || idx === this.cards.length - 1) return;
-        this.cards[idx].text = this.cards[idx].text.replace(/[。！？]$/, '') + '，' + this.cards[idx + 1].text;
+        this.cards[idx].text = this.cards[idx].text.replace(/[。！？，、,.!?]$/, '') + '，' + this.cards[idx + 1].text;
         // 合併後的原文是兩句話拼接而成，任一邊原本的翻譯都不再對應
         // 合併後的完整內容，一併清掉
         delete this.cards[idx].translation;
@@ -4160,12 +4193,15 @@
         this.isGenerating = true;
         this._genAbort = new AbortController();
         this._setLoadingUI(true);
+        // 生成最久 3 分鐘，期間可能切到別本筆記；結果要存回發起的那本
+        const nbId = NotebookStore.activeId;
 
         try {
           const summaryData = await this._callGemini(items, apiKey, this._genAbort.signal);
           if (!summaryData || !summaryData.summary) throw new Error('AI 沒有回傳摘要內容');
-          this._renderSummary(summaryData);
-          this._persist(summaryData);
+          this._persist(summaryData, nbId);
+          if (NotebookStore.activeId === nbId) this._renderSummary(summaryData);
+          else StorageToast.show('✨ 另一本筆記的重點整理好了，打開那本就能看到');
         } catch (err) {
           if (err.name === 'AbortError') {
             this._renderError('已取消整理。');
@@ -4208,9 +4244,9 @@
           // 「key 無效」常見於 400 + 特定訊息，不只是 401
           const badKeyMsg = res.status === 400 && /API key not valid/i.test(apiMessage);
           if (badKeyMsg || res.status === 401 || res.status === 403) {
-            KeyPoolPanel.notifyFailure('gemini', 'invalid', 'Gemini');
+            KeyPoolPanel.notifyFailure('gemini', 'invalid', 'Gemini', apiKey);
           } else if (res.status === 429) {
-            KeyPoolPanel.notifyFailure('gemini', 'quota_exceeded', 'Gemini');
+            KeyPoolPanel.notifyFailure('gemini', 'quota_exceeded', 'Gemini', apiKey);
           }
 
           if (badKeyMsg) throw new Error('摘要金鑰無效，請確認貼上的金鑰是否正確。');
@@ -4485,8 +4521,8 @@
         if (this._genAbort) this._genAbort.abort();
       },
 
-      _persist(data) {
-        const nb = NotebookStore.active();
+      _persist(data, nbId) {
+        const nb = nbId === undefined ? NotebookStore.active() : NotebookStore.get(nbId);
         if (!nb) return;
         nb.summary = data || null;
         nb.updatedAt = Date.now();
@@ -4708,11 +4744,14 @@
         if (btn) { btn.disabled = true; btn.textContent = '⏳ 生成中...'; }
         if (hint) { hint.textContent = '正在根據摘要內容整理心智圖，請稍候...'; }
 
+        // 生成期間切換筆記會換掉 currentSummary，先鎖定目標
+        const nbId = NotebookStore.activeId;
+        const target = this.currentSummary;
         try {
-          const outline = await this._callGeminiMindmap(this.currentSummary.summary, apiKey, null);
-          this.currentSummary.mindmapOutline = outline;
-          this._persist(this.currentSummary);
-          this._renderMindmap(this.currentSummary);
+          const outline = await this._callGeminiMindmap(target.summary, apiKey, null);
+          target.mindmapOutline = outline;
+          this._persist(target, nbId);
+          if (NotebookStore.activeId === nbId) this._renderMindmap(target);
         } catch (err) {
           console.error('生成心智圖失敗：', err);
           if (hint) { hint.textContent = '生成心智圖失敗：' + err.message; }
@@ -4753,8 +4792,11 @@
         if (btn) { btn.disabled = true; btn.textContent = '⏳ 抽取中...'; }
         if (hint) { hint.textContent = '正在從逐字稿中抽取專有名詞與上下文，請稍候...'; }
 
+        const nbId = NotebookStore.activeId;
         try {
           const terms = await this._callGeminiTerms(items, apiKey, null);
+          // 名詞只存在記憶體，已切到別本筆記就不顯示，免得套到錯的筆記
+          if (NotebookStore.activeId !== nbId) return;
           if (!terms.length) {
             if (hint) { hint.textContent = '這份逐字稿中沒有抽取到明顯的專有名詞。'; }
             return;
@@ -5127,8 +5169,8 @@
         try { data = await res.json(); } catch (e) { /* 非 JSON */ }
 
         if (!res.ok) {
-          if (res.status === 401 || res.status === 403) KeyPoolPanel.notifyFailure('groq', 'invalid', 'Groq');
-          else if (res.status === 429) KeyPoolPanel.notifyFailure('groq', 'quota_exceeded', 'Groq');
+          if (res.status === 401 || res.status === 403) KeyPoolPanel.notifyFailure('groq', 'invalid', 'Groq', apiKey);
+          else if (res.status === 429) KeyPoolPanel.notifyFailure('groq', 'quota_exceeded', 'Groq', apiKey);
           const apiMessage = (data && data.error && data.error.message) || ('代碼 ' + res.status);
           const err = new Error(res.status === 429 ? '今天（或這一小時）的免費額度用完了' : apiMessage);
           err.status = res.status;
@@ -5139,9 +5181,11 @@
         LanguageManager.onDetectedLanguage(data && data.language);
         if (data && data.duration) QuotaMeter.add('groq', data.duration);
 
-        // 靜音段常把 prompt 原樣吐回（幻覺），被 prompt 完整包含的輸出視為無效
+        // 靜音段常把 prompt 原樣吐回（幻覺）。prompt 含上一段結尾，
+        // 短句（如「對」「好」）本來就可能重複出現，只在夠長或屬於固定引導語時才丟棄
         let text = ((data && data.text) || '').trim();
-        if (text && sentPrompt.includes(text)) text = '';
+        const basePrompt = langParams ? langParams.prompt : sentPrompt;
+        if (text && sentPrompt.includes(text) && (text.length >= 10 || basePrompt.includes(text))) text = '';
 
         return { text, language: data && data.language, langParams };
       }
@@ -5229,6 +5273,8 @@
       },
 
       async run(file, nbId, createdNew) {
+        // 上一次錄音的結尾會被當成 prompt 接續，混進無關的檔案
+        LanguageManager.resetAutoState();
         this.isUploading = true;
         this._abort = new AbortController();
         this._useMuLaw = true;
@@ -5953,20 +5999,23 @@
       SILENCE_RMS_THRESHOLD: 0.01,
 
       async isSegmentSilent(audioBlob) {
+        // iOS 同時可開的 AudioContext 有限，解碼失敗也一定要關，否則每 15 秒漏一個
+        let audioCtx = null;
         try {
           const arrayBuffer = await audioBlob.arrayBuffer();
           const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          const audioCtx = new AudioCtx();
+          audioCtx = new AudioCtx();
           const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
           const data = audioBuffer.getChannelData(0);
           let sumSquares = 0;
           for (let i = 0; i < data.length; i++) sumSquares += data[i] * data[i];
           const rms = Math.sqrt(sumSquares / data.length);
-          audioCtx.close();
           return rms < this.SILENCE_RMS_THRESHOLD;
         } catch (e) {
           console.warn('靜音偵測失敗，改為照常送出轉寫：', e);
           return false;
+        } finally {
+          if (audioCtx) audioCtx.close().catch(() => {});
         }
       },
 
@@ -5999,6 +6048,11 @@
           KeyWizard.open('groq');
           return;
         }
+        // 兩邊同時寫同一本筆記會讓段落順序交錯，也會一起吃同一把金鑰的額度
+        if (FileUploadTranscribe.isUploading) {
+          Dialog.alert('錄音檔還在轉文字中，請等它完成再開始錄音。', { icon: '⏳' });
+          return;
+        }
 
         LanguageManager.resetAutoState();
         LanguageManager.setSelectLocked(true);
@@ -6024,6 +6078,8 @@
 
       startNewSegment() {
         if (!this.isRecording || !this.stream) return;
+        // 避免切回畫面時與舊錄音器的 onstop 各自再開一段，形成兩條並行錄音
+        if (this.mediaRecorder && this.mediaRecorder.state === 'recording') return;
 
         this.mediaRecorder = new MediaRecorder(this.stream, { audioBitsPerSecond: 128000 });
         this.audioChunks = [];
@@ -6042,7 +6098,8 @@
           const audioBlob = new Blob(this.audioChunks, { type: mimeType });
           this.transcribeAudio(audioBlob, seq, nbId, ext);
 
-          if (this.isRecording) {
+          // 背景中麥克風已被收回，等回到畫面由 _resumeIfNeeded 接手
+          if (this.isRecording && !document.hidden) {
             this.startNewSegment();
           }
         };
@@ -6050,8 +6107,11 @@
         try {
           this.mediaRecorder.start();
         } catch (e) {
-          // 麥克風已被系統收回（例如在背景），等回到畫面由 _resumeIfNeeded 接手
+          // 麥克風已被系統收回（例如在背景），等回到畫面由 _resumeIfNeeded 接手。
+          // 這個序號永遠不會有結果，必須先結清，否則後面所有卡片都會卡住
           console.warn('無法開始錄音片段：', e);
+          this.mediaRecorder = null;
+          this._settle(seq, null);
           return;
         }
 
@@ -7599,6 +7659,8 @@
         }
         let cutAt = remaining.lastIndexOf('\n', maxChars);
         if (cutAt <= 0) cutAt = maxChars;
+        // 切在 emoji 等代理對中間會產生亂碼，往前退一格
+        if (/[\uD800-\uDBFF]/.test(remaining[cutAt - 1])) cutAt--;
         segments.push(remaining.slice(0, cutAt));
         remaining = remaining.slice(cutAt).replace(/^\n/, '');
       }
@@ -7613,10 +7675,10 @@
 
     const ShareResumeManager = {
       // 分享登記時記下目前的 changeVersion，checkResumable 比對用
-      register(fullText, totalBatches) {
+      register(fullText, totalBatches, completedBatches) {
         const record = {
           totalBatches,
-          completedBatches: 0,
+          completedBatches: completedBatches || 0,
           changeVersion: CardSandbox.changeVersion,
           notebookId: NotebookStore.activeId,
           totalChars: fullText.length
@@ -7714,9 +7776,7 @@
         console.error('sendMessages 發送失敗：', err);
         Dialog.alert(
           '發送失敗：' + err.message +
-          '\n\n可能原因（請依序檢查）：\n' +
-          '1. LINE Developers Console 後台，這個 LIFF app 所在的 channel 尚未開通訊息傳送（message write）權限\n' +
-          '2. 若你是從「最近使用」列表重新打開這個頁面，請改為直接從跟機器人的聊天室重新點一次連結後再試\n\n' +
+          '\n\n如果你是從「最近使用」列表打開這個頁面，請回到官方帳號的聊天室，重新點一次連結後再試。\n\n' +
           '已改為複製到剪貼簿，請手動貼上。\n' +
           '（注意：若失敗發生在分段送出過程中，前面幾段可能已經成功送達，剪貼簿內容為完整全文，請自行比對避免重複貼上。）'
         );
@@ -7757,9 +7817,6 @@
       }
 
       if (typeof liff.isLoggedIn === 'function' && !liff.isLoggedIn()) {
-        try {
-          sessionStorage.setItem('pending_send_text', fullText);
-        } catch (e) { /* sessionStorage 不可用時，登入完成後需使用者重新按一次發送 */ }
         await Dialog.alert('要先登入 LINE 才能選擇傳給誰，接下來會跳到登入畫面。', { icon: '🔐' });
         liff.login({ redirectUri: window.location.href });
         return;
@@ -7787,7 +7844,8 @@
         // 從中斷處接續時指定起始批次；每送完一批即更新進度到
         // localStorage，供下次 checkResumable 偵測
         const startBatch = resumeFromBatch || 0;
-        ShareResumeManager.register(fullText, batches.length);
+        // 接續時保留已完成批數，否則中途再取消會退回從頭開始
+        ShareResumeManager.register(fullText, batches.length, startBatch);
 
         try {
           for (let b = startBatch; b < batches.length; b++) {
@@ -7849,14 +7907,6 @@
     }
 
     window.addEventListener('load', () => {
-      try {
-        const pending = sessionStorage.getItem('pending_send_text');
-        if (pending) {
-          sessionStorage.removeItem('pending_send_text');
-          console.log('偵測到登入前暫存的卡片內容，請重新確認卡片並再次點擊發送。');
-        }
-      } catch (e) { /* 忽略 */ }
-
       // 還原上次填入的 MyMemory 額度提升電子信箱
       try {
         const emailInput = document.getElementById('translationEmailInput');
