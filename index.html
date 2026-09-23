@@ -4185,6 +4185,60 @@
       // 思考模式本來就慢，逾時放寬到 3 分鐘；等待期間畫面會顯示秒數並可取消。
       GEMINI_TIMEOUT_MS: 180000,
 
+      // 三種 Gemini 呼叫共用：記帳、送出、錯誤分類、取出文字。
+      // taskName 只用於錯誤訊息（摘要／心智圖／名詞）
+      async _requestGemini(payload, apiKey, signal, taskName) {
+        const modelName = this.GEMINI_MODEL;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
+
+        // 免費層以每日請求數（RPD）計；送出前記帳，失敗的請求對方通常仍會計入
+        QuotaMeter.add('gemini', 1);
+
+        const res = await this._fetchGemini(endpoint, payload, apiKey, signal);
+
+        let data;
+        try {
+          data = await res.json();
+        } catch (parseErr) {
+          throw new Error('Gemini 回應格式異常，無法解析（HTTP ' + res.status + '）');
+        }
+
+        if (!res.ok) {
+          const apiMessage = (data && data.error && data.error.message) || ('HTTP ' + res.status);
+          // 「key 無效」常見於 400 + 特定訊息，不只是 401
+          const badKeyMsg = res.status === 400 && /API key not valid/i.test(apiMessage);
+          if (badKeyMsg || res.status === 401 || res.status === 403) {
+            KeyPoolPanel.notifyFailure('gemini', 'invalid', 'Gemini');
+          } else if (res.status === 429) {
+            KeyPoolPanel.notifyFailure('gemini', 'quota_exceeded', 'Gemini');
+          }
+
+          if (badKeyMsg) throw new Error('摘要金鑰無效，請確認貼上的金鑰是否正確。');
+          if (res.status === 403) throw new Error('沒有權限使用這組摘要金鑰（可能是金鑰被限制或專案未啟用）：' + apiMessage);
+          if (res.status === 429) throw new Error('已達 Gemini API 的請求額度上限，請稍後再試：' + apiMessage);
+          if (res.status === 404) throw new Error('找不到指定的 Gemini 模型（' + modelName + '），可能已被下架或名稱錯誤：' + apiMessage);
+          if (res.status === 400 && /(token|context|too long|exceed)/i.test(apiMessage)) {
+            throw new Error('內容量可能超過模型單次可處理的長度上限：' + apiMessage + '\n\n可以嘗試減少勾選的資料筆數，或分批處理。');
+          }
+          throw new Error(apiMessage);
+        }
+
+        const candidate = data && data.candidates && data.candidates[0];
+        if (!candidate) throw new Error('Gemini 沒有回傳任何結果，請稍後再試一次。');
+        if (candidate.finishReason === 'SAFETY') throw new Error(`這段內容被 Gemini 的安全機制擋下，無法生成${taskName}。`);
+        if (candidate.finishReason === 'MAX_TOKENS') {
+          throw new Error(`內容過長，${taskName}在完成前就被截斷了。可以減少勾選的資料筆數後再試一次。`);
+        }
+
+        const text = this._extractText(candidate);
+        if (!text) {
+          throw new Error(candidate.finishReason
+            ? `Gemini 沒有回傳內容（狀態：${candidate.finishReason}），請稍後再試一次。`
+            : 'Gemini 回傳了空白結果，請稍後再試一次。');
+        }
+        return text;
+      },
+
       async _fetchGemini(endpoint, payload, apiKey, userSignal) {
         const timeout = AbortSignal.timeout ? AbortSignal.timeout(this.GEMINI_TIMEOUT_MS) : null;
         const signal = (userSignal && timeout && AbortSignal.any)
@@ -4208,13 +4262,7 @@
       },
 
       async _callGemini(items, apiKey, signal) {
-        const modelName = this.GEMINI_MODEL || 'gemini-2.5-flash';
         const preset = this.SCENE_PRESETS[this.currentScene] || this.SCENE_PRESETS.meeting;
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
-
-        // Gemini 免費層以每日請求數（RPD）計，一次呼叫記一次。
-        // 送出前記帳，失敗的請求對方通常仍會計入配額。
-        QuotaMeter.add('gemini', 1);
 
         // 多筆來源時每段前加【標籤】，幫助 Gemini 判斷段落邊界並
         // 整合成單一份摘要，而非逐段分別摘要
@@ -4281,63 +4329,7 @@
           }
         };
 
-        const res = await this._fetchGemini(endpoint, payload, apiKey, signal);
-
-        let data;
-        try {
-          data = await res.json();
-        } catch (parseErr) {
-          throw new Error('Gemini 回應格式異常，無法解析（HTTP ' + res.status + '）');
-        }
-
-        if (!res.ok) {
-          const apiMessage = (data && data.error && data.error.message) || ('HTTP ' + res.status);
-          // Gemini 的「key 無效」常見於 400 + 特定訊息內容，不只是 401
-          const isInvalidKey = (res.status === 400 && /API key not valid/i.test(apiMessage))
-            || res.status === 401 || res.status === 403;
-          const isQuotaExceeded = res.status === 429;
-          if (isInvalidKey) {
-            KeyPoolPanel.notifyFailure('gemini', 'invalid', 'Gemini');
-          } else if (isQuotaExceeded) {
-            KeyPoolPanel.notifyFailure('gemini', 'quota_exceeded', 'Gemini');
-          }
-
-          if (res.status === 400 && /API key not valid/i.test(apiMessage)) {
-            throw new Error('摘要金鑰無效，請確認貼上的金鑰是否正確。');
-          }
-          if (res.status === 403) {
-            throw new Error('沒有權限使用這組摘要金鑰（可能是金鑰被限制或專案未啟用）：' + apiMessage);
-          }
-          if (res.status === 429) {
-            throw new Error('已達 Gemini API 的請求額度上限，請稍後再試：' + apiMessage);
-          }
-          if (res.status === 404) {
-            throw new Error('找不到指定的 Gemini 模型（' + modelName + '），可能已被下架或名稱錯誤：' + apiMessage);
-          }
-          if (res.status === 400 && /(token|context|too long|exceed)/i.test(apiMessage)) {
-            throw new Error('這份逐字稿內容量可能超過模型單次可處理的長度上限，導致生成失敗：' + apiMessage + '\n\n可以嘗試減少勾選的資料筆數，或將內容分批生成摘要。');
-          }
-          throw new Error(apiMessage);
-        }
-
-        const candidate = data && data.candidates && data.candidates[0];
-        if (!candidate) {
-          throw new Error('Gemini 沒有回傳任何結果，請稍後再試一次。');
-        }
-        if (candidate.finishReason === 'SAFETY') {
-          throw new Error('這段內容被 Gemini 的安全機制擋下，無法生成摘要。');
-        }
-        if (candidate.finishReason === 'MAX_TOKENS') {
-          throw new Error('輸入內容過長，Gemini 生成的摘要在完成前就被截斷了。可以嘗試減少勾選的資料筆數後再試一次。');
-        }
-
-        const text = SummaryModule._extractText(candidate);
-
-        if (!text) {
-          throw new Error(candidate.finishReason
-            ? `Gemini 沒有回傳內容（狀態：${candidate.finishReason}），請稍後再試一次。`
-            : 'Gemini 回傳了空白結果，請稍後再試一次。');
-        }
+        const text = await this._requestGemini(payload, apiKey, signal, '摘要');
 
         // 預期收到結構化 JSON（summary/actionItems/sourceRefs）。
         // Gemini 若未遵守 responseSchema 吐出非 JSON，fallback 成純
@@ -4396,12 +4388,6 @@
       // 與摘要呈現內容一致。只在使用者切到心智圖分頁時才觸發，不隨
       // 摘要生成自動執行。
       async _callGeminiMindmap(summaryText, apiKey, signal) {
-        const modelName = this.GEMINI_MODEL || 'gemini-2.5-flash';
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
-
-        // Gemini 免費層以每日請求數（RPD）計，一次呼叫記一次。
-        // 送出前記帳，失敗的請求對方通常仍會計入配額。
-        QuotaMeter.add('gemini', 1);
 
         const payload = {
           systemInstruction: {
@@ -4421,51 +4407,15 @@
           }]
         };
 
-        const res = await this._fetchGemini(endpoint, payload, apiKey, signal);
-
-        let data;
-        try {
-          data = await res.json();
-        } catch (parseErr) {
-          throw new Error('Gemini 回應格式異常，無法解析（HTTP ' + res.status + '）');
-        }
-
-        if (!res.ok) {
-          const apiMessage = (data && data.error && data.error.message) || ('HTTP ' + res.status);
-          // 跟 _callGemini 用同一套判斷規則
-          const isInvalidKey = (res.status === 400 && /API key not valid/i.test(apiMessage))
-            || res.status === 401 || res.status === 403;
-          const isQuotaExceeded = res.status === 429;
-          if (isInvalidKey) {
-            KeyPoolPanel.notifyFailure('gemini', 'invalid', 'Gemini');
-          } else if (isQuotaExceeded) {
-            KeyPoolPanel.notifyFailure('gemini', 'quota_exceeded', 'Gemini');
-          }
-          throw new Error(apiMessage);
-        }
-
-        const candidate = data && data.candidates && data.candidates[0];
-        if (!candidate) {
-          throw new Error('Gemini 沒有回傳任何結果，請稍後再試一次。');
-        }
-        if (candidate.finishReason === 'SAFETY') {
-          throw new Error('這段內容被 Gemini 的安全機制擋下，無法生成心智圖。');
-        }
-
-        const text = SummaryModule._extractText(candidate);
-
-        if (!text) {
-          throw new Error(candidate.finishReason
-            ? `Gemini 沒有回傳內容（狀態：${candidate.finishReason}），請稍後再試一次。`
-            : 'Gemini 回傳了空白結果，請稍後再試一次。');
-        }
+        const text = await this._requestGemini(payload, apiKey, signal, '心智圖');
 
         // 第一行要是 "# 主題" 才解析得出根節點，模型未依格式輸出時修正一次
         let outline = text.trim();
         outline = this._stripCodeFence(outline);
         if (!outline.startsWith('#')) {
-          const firstLine = outline.split('\n')[0].replace(/^[-*]\s*/, '');
-          outline = `# ${firstLine}\n` + outline;
+          // 首行升格為根節點，而非在前面再補一行（否則主題會重複出現）
+          const [firstLine, ...rest] = outline.split('\n');
+          outline = `# ${firstLine.replace(/^[-*]\s*/, '')}\n` + rest.join('\n');
         }
 
         return outline;
@@ -4646,18 +4596,19 @@
           data.sourceRefs.forEach(r => { refMap[r.point] = r.label; });
         }
 
-        // 用「包含」比對容錯：Gemini 複述的字句可能跟摘要內文不完全一致
+        // prompt 要求 point 抄重點前段原文，因此用「開頭相符」比對；
+        // 空字串或過短的 point 會誤配到任意行，直接排除
+        const points = Object.keys(refMap).filter(pt => pt.trim().length >= 2);
+        const stripBullet = t => t.replace(/^[・•\-\s]+/, '');
         const lines = summaryText.split('\n');
         const rendered = lines.map(line => {
           const trimmed = line.trim();
           if (!trimmed) return '';
-          const matchedPoint = Object.keys(refMap).find(point => {
-            const escapedPoint = Utils.escapeHtml(point);
-            return trimmed.includes(escapedPoint) || escapedPoint.includes(trimmed);
-          });
+          const body = stripBullet(trimmed);
+          const matchedPoint = points.find(pt => body.startsWith(stripBullet(Utils.escapeHtml(pt.trim()))));
           if (matchedPoint) {
             const label = Utils.escapeHtml(refMap[matchedPoint]);
-            return `<div class="summary-line">${line} <span class="summary-source-tag" role="button" tabindex="0" data-label="${label}" onclick="SummaryModule.jumpToSource(this.dataset.label)" title="點擊查看來源段落">📍${label}</span></div>`;
+            return `<div class="summary-line">${line} <span class="summary-source-tag" role="button" tabindex="0" data-label="${label}" onclick="SummaryModule.jumpToSource(this.dataset.label)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }" title="點擊查看來源段落">📍${label}</span></div>`;
           }
           return `<div class="summary-line">${line}</div>`;
         });
@@ -4823,10 +4774,6 @@
       currentTerms: null,
 
       async _callGeminiTerms(items, apiKey, signal) {
-        const modelName = this.GEMINI_MODEL || 'gemini-2.5-flash';
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
-
-        QuotaMeter.add('gemini', 1);
 
         const fullText = items.map(item => item.content).join('\n\n');
 
@@ -4860,28 +4807,7 @@
           }
         };
 
-        const res = await this._fetchGemini(endpoint, payload, apiKey, signal);
-
-        let data;
-        try {
-          data = await res.json();
-        } catch (parseErr) {
-          throw new Error('Gemini 回應格式異常，無法解析（HTTP ' + res.status + '）');
-        }
-
-        if (!res.ok) {
-          const apiMessage = (data && data.error && data.error.message) || ('HTTP ' + res.status);
-          if (res.status === 400 && /API key not valid/i.test(apiMessage)) {
-            KeyPoolPanel.notifyFailure('gemini', 'invalid', 'Gemini');
-          } else if (res.status === 429) {
-            KeyPoolPanel.notifyFailure('gemini', 'quota_exceeded', 'Gemini');
-          }
-          throw new Error(apiMessage);
-        }
-
-        const candidate = data.candidates && data.candidates[0];
-        const text = this._extractText(candidate);
-        if (!text) throw new Error('Gemini 回傳了空白結果，請稍後再試一次。');
+        const text = await this._requestGemini(payload, apiKey, signal, '名詞清單');
 
         let parsed;
         try {
@@ -5151,6 +5077,76 @@
     // 音質接近 16-bit、檔案只有一半，上傳時間是長檔案的主要瓶頸。
     // 約每 10 分鐘在最安靜的地方切一刀，同時送 3 段。全程只用瀏覽器
     // 內建 Web Audio，不需要任何套件。
+    // 即時錄音與檔案上傳共用的 Whisper 呼叫。
+    // 錯誤帶 status／retryable 供上傳流程決定是否重試。
+    const GroqWhisper = {
+      ENDPOINT: 'https://api.groq.com/openai/v1/audio/transcriptions',
+      MODEL: 'whisper-large-v3-turbo',
+
+      async transcribe(blob, filename, userSignal, timeoutMs) {
+        const apiKey = KeyPoolManager.getActiveKeyValue('groq');
+        if (!apiKey) throw new Error('沒有可用的語音金鑰');
+
+        const langParams = LanguageManager.getParamsForSegment();
+        const sentPrompt = langParams
+          ? LanguageManager.buildPrompt(langParams.prompt)
+          : 'This is a recording of a meeting.';
+
+        const formData = new FormData();
+        formData.append('file', blob, filename);
+        formData.append('model', this.MODEL);
+        if (langParams) formData.append('language', langParams.languageCode);
+        formData.append('prompt', sentPrompt);
+        formData.append('response_format', 'verbose_json');
+        formData.append('temperature', '0'); // 降低靜音／雜訊段的幻覺機率
+
+        // 沒逾時的話，一段卡住會讓即時錄音後面所有卡片都等不到
+        const hasTimeout = typeof AbortSignal.timeout === 'function';
+        const timeout = hasTimeout ? AbortSignal.timeout(timeoutMs) : null;
+        const signal = (userSignal && timeout && typeof AbortSignal.any === 'function')
+          ? AbortSignal.any([userSignal, timeout])
+          : (userSignal || timeout || undefined);
+
+        let res;
+        try {
+          res = await fetch(this.ENDPOINT, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+            body: formData,
+            signal
+          });
+        } catch (networkErr) {
+          if (userSignal && userSignal.aborted) throw networkErr;
+          const err = new Error(networkErr.name === 'TimeoutError' ? '伺服器太久沒回應' : '連不上語音辨識服務，請檢查網路');
+          err.retryable = true;
+          throw err;
+        }
+
+        // 5xx 可能回 HTML 錯誤頁，解析失敗時改用狀態碼判斷
+        let data = null;
+        try { data = await res.json(); } catch (e) { /* 非 JSON */ }
+
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) KeyPoolPanel.notifyFailure('groq', 'invalid', 'Groq');
+          else if (res.status === 429) KeyPoolPanel.notifyFailure('groq', 'quota_exceeded', 'Groq');
+          const apiMessage = (data && data.error && data.error.message) || ('代碼 ' + res.status);
+          const err = new Error(res.status === 429 ? '今天（或這一小時）的免費額度用完了' : apiMessage);
+          err.status = res.status;
+          err.retryable = res.status >= 500;
+          throw err;
+        }
+
+        LanguageManager.onDetectedLanguage(data && data.language);
+        if (data && data.duration) QuotaMeter.add('groq', data.duration);
+
+        // 靜音段常把 prompt 原樣吐回（幻覺），被 prompt 完整包含的輸出視為無效
+        let text = ((data && data.text) || '').trim();
+        if (text && sentPrompt.includes(text)) text = '';
+
+        return { text, language: data && data.language, langParams };
+      }
+    };
+
     const FileUploadTranscribe = {
       DIRECT_MAX_MB: 25,          // Groq 免費方案單檔上限
       MAX_MB: 500,                // 解碼後約佔 4 倍記憶體，再大電腦也吃不消
@@ -5459,60 +5455,8 @@
       },
 
       async _transcribeFile(file, filename, userSignal) {
-        const apiKey = KeyPoolManager.getActiveKeyValue('groq');
-        if (!apiKey) throw new Error('沒有可用的語音金鑰');
-        const formData = new FormData();
-        formData.append('file', file, filename || 'upload.audio');
-        formData.append('model', 'whisper-large-v3-turbo');
-
-        const langParams = LanguageManager.getParamsForSegment();
-        if (langParams) {
-          formData.append('language', langParams.languageCode);
-          formData.append('prompt', LanguageManager.buildPrompt(langParams.prompt));
-        } else {
-          formData.append('prompt', 'This is a recording of a meeting.');
-        }
-        formData.append('response_format', 'verbose_json');
-        formData.append('temperature', '0');
-
-        // 單段逾時與使用者取消合併；舊瀏覽器沒有 AbortSignal.any 時只保留取消
-        const signal = (typeof AbortSignal.any === 'function' && typeof AbortSignal.timeout === 'function')
-          ? AbortSignal.any([userSignal, AbortSignal.timeout(this.REQUEST_TIMEOUT_MS)])
-          : userSignal;
-
-        let res;
-        try {
-          res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey}` },
-            body: formData,
-            signal
-          });
-        } catch (networkErr) {
-          if (userSignal.aborted) throw networkErr;
-          const err = new Error(networkErr.name === 'TimeoutError'
-            ? '伺服器太久沒回應'
-            : '連不上語音辨識服務，請檢查網路');
-          err.retryable = true;
-          throw err;
-        }
-
-        let data = null;
-        try { data = await res.json(); } catch (e) { /* 非 JSON 回應，下面依狀態碼處理 */ }
-
-        if (!res.ok) {
-          if (res.status === 401) KeyPoolPanel.notifyFailure('groq', 'invalid', 'Groq');
-          else if (res.status === 429) KeyPoolPanel.notifyFailure('groq', 'quota_exceeded', 'Groq');
-          const apiMessage = (data && data.error && data.error.message) || ('代碼 ' + res.status);
-          const err = new Error(res.status === 429 ? '今天（或這一小時）的免費額度用完了' : apiMessage);
-          err.status = res.status;
-          err.retryable = res.status >= 500;
-          throw err;
-        }
-
-        LanguageManager.onDetectedLanguage(data && data.language);
-        if (data && data.duration) QuotaMeter.add('groq', data.duration);
-        return (data && data.text) || '';
+        const result = await GroqWhisper.transcribe(file, filename || 'upload.audio', userSignal, this.REQUEST_TIMEOUT_MS);
+        return result.text;
       },
 
       // 從首頁上傳卻完全沒轉出內容時，不留下一本空筆記
@@ -5953,7 +5897,9 @@
         QuotaMeter.add('mymemory', this._truncateToBytes(text, this.MAX_QUERY_BYTES).length);
 
         try {
-          const res = await fetch(`${this.ENDPOINT}?${params}`);
+          // 翻譯結果回來才寫卡片，卡住會連帶擋住後面的段落
+          const signal = typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(15000) : undefined;
+          const res = await fetch(`${this.ENDPOINT}?${params}`, { signal });
           if (!res.ok) return null;
 
           const data = await res.json();
@@ -5994,6 +5940,8 @@
       isRecording: false,
       segmentTimer: null,
       SEGMENT_MS: 15000,
+      // 15 秒一段的音檔正常數秒內回來，60 秒仍沒回應就放棄該段
+      REQUEST_TIMEOUT_MS: 60000,
       AUDIO_CONSTRAINTS: {
         echoCancellation: false,
         noiseSuppression: false,
@@ -6144,7 +6092,6 @@
           return;
         }
 
-        const apiKey = KeyPoolManager.getActiveKeyValue('groq');
         this._pendingCount = (this._pendingCount || 0) + 1;
         if (this.isRecording) {
           const translatingHint = TranslationManager.enabled ? '＋翻譯中' : '';
@@ -6152,57 +6099,9 @@
         }
         this._renderPending();
 
-        const formData = new FormData();
-        formData.append('file', audioBlob, `recording.${ext || 'webm'}`);
-        formData.append('model', 'whisper-large-v3-turbo');
-
-        const langParams = LanguageManager.getParamsForSegment();
-        // 自動模式的英文提示詞也可能在靜音段被原樣吐回，一併納入下方過濾
-        const sentPrompt = langParams
-          ? LanguageManager.buildPrompt(langParams.prompt)
-          : 'This is a recording of a meeting.';
-        if (langParams) formData.append('language', langParams.languageCode);
-        formData.append('prompt', sentPrompt);
-
-        formData.append('response_format', 'verbose_json');
-        formData.append('temperature', '0'); // 逐字稿場景不需要隨機性，降低靜音/雜訊段的幻覺機率
-
-        const endpoint = 'https://api.groq.com/openai/v1/audio/transcriptions';
-
         try {
-          const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey}` },
-            body: formData
-          });
-
-          const data = await res.json();
-
-          // Groq 錯誤回應仍是合法 JSON，res.json() 不會拋例外，
-          // 必須明確檢查 res.ok，否則 401/429 會被誤判成功
-          if (!res.ok) {
-            const apiMessage = (data && data.error && data.error.message) || ('HTTP ' + res.status);
-            if (res.status === 401) {
-              KeyPoolPanel.notifyFailure('groq', 'invalid', 'Groq');
-            } else if (res.status === 429) {
-              KeyPoolPanel.notifyFailure('groq', 'quota_exceeded', 'Groq');
-            }
-            throw new Error(apiMessage);
-          }
-
-          // Groq 免費層以音訊時長計費；成功才計入，優先用回傳的實際長度
-          QuotaMeter.add('groq', data.duration || this.SEGMENT_MS / 1000);
-
-          LanguageManager.onDetectedLanguage(data.language);
-
-          let originalText = (data.text || '').trim();
-
-          // 靜音／低資訊段常直接把 prompt 內容原樣吐回（幻覺），
-          // 而非轉寫失敗或拋錯，所以 res.ok 為 true 也要過濾。
-          // 送出的 prompt 完整包含輸出內容時視為無效，直接丟棄。
-          if (originalText && sentPrompt.includes(originalText)) {
-            originalText = '';
-          }
+          const { text: originalText, language: detectedLang, langParams } =
+            await GroqWhisper.transcribe(audioBlob, `recording.${ext || 'webm'}`, null, this.REQUEST_TIMEOUT_MS);
 
           if (originalText && langParams && langParams.languageCode === 'zh') {
             LanguageManager.rememberText(originalText);
@@ -6222,7 +6121,7 @@
               const detectedMap = { chinese: 'zh', english: 'en', japanese: 'ja', korean: 'ko' };
               const sourceLangCode = langParams
                 ? langParams.languageCode
-                : detectedMap[String(data.language || '').toLowerCase()];
+                : detectedMap[String(detectedLang || '').toLowerCase()];
               if (sourceLangCode) {
                 translation = await TranslationManager.translateSegment(originalText, sourceLangCode);
               }
