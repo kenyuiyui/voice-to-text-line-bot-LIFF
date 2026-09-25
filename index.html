@@ -2118,7 +2118,7 @@
           <div class="keypool-list" id="geminiKeyPoolList"></div>
           <div class="keypool-add-row">
             <input type="text" id="geminiKeyPoolLabelInput" class="keypool-label-input" placeholder="名稱（可不填）" aria-label="金鑰名稱">
-            <input type="password" id="geminiKeyPoolValueInput" placeholder="貼上 AIza 開頭的金鑰" aria-label="摘要金鑰">
+            <input type="password" id="geminiKeyPoolValueInput" placeholder="貼上 AQ. 或 AIza 開頭的金鑰" aria-label="摘要金鑰">
             <button class="keypool-add-btn" onclick="KeyPoolPanel.addKey('gemini')">加入</button>
           </div>
           <div class="keypool-count-hint" id="geminiKeyPoolCountHint"></div>
@@ -2764,7 +2764,7 @@
 
         const actual = KeyWizard.detectMismatch(type, valueInput.value.trim());
         if (actual) {
-          Dialog.alert(`這是「${KeyWizard.CONFIG[actual].name}」（${KeyWizard.CONFIG[actual].prefix} 開頭），請貼到對應的欄位。`);
+          Dialog.alert(`這是「${KeyWizard.CONFIG[actual].name}」（${KeyWizard.CONFIG[actual].prefixLabel} 開頭），請貼到對應的欄位。`);
           return;
         }
 
@@ -6780,7 +6780,8 @@
         groq: {
           title: '設定語音金鑰',
           icon: '🎙️',
-          prefix: 'gsk_',
+          prefixes: ['gsk_'],
+          prefixLabel: 'gsk_',
           name: 'Groq 語音金鑰',
           why: '錄音變文字需要一組 <b>Groq</b> 的語音金鑰（<code>gsk_</code> 開頭）。<b>免費、不用信用卡</b>，申請一次就能一直用。' +
                '<span class="kw-guard">⚠️ 網址要是 <b>console.groq.com</b>。如果畫面出現「Google AI Studio」或「Gemini」就是走錯了——那是另一把摘要用的金鑰，錄音不能用。</span>',
@@ -6799,9 +6800,11 @@
         gemini: {
           title: '設定摘要金鑰',
           icon: '✨',
-          prefix: 'AIza',
+          // Google 2026 起新申請的金鑰改為 AQ. 開頭，舊的 AIza 仍有效；兩者都走 x-goog-api-key
+          prefixes: ['AQ.', 'AIza'],
+          prefixLabel: 'AQ. 或 AIza',
           name: 'Google 摘要金鑰',
-          why: 'AI 整理重點需要一組 <b>Google AI Studio</b> 的摘要金鑰（<code>AIza</code> 開頭）。<b>免費、不用信用卡</b>。' +
+          why: 'AI 整理重點需要一組 <b>Google AI Studio</b> 的摘要金鑰（<code>AQ.</code> 或 <code>AIza</code> 開頭）。<b>免費、不用信用卡</b>。' +
                '<span class="kw-guard">⚠️ 這把只給 AI 摘要用，<b>錄音用不到</b>。錄音要的是 Groq 語音金鑰（<code>gsk_</code> 開頭）。</span>',
           steps: `
             <li data-icon="🌐"><b>打開 Google AI Studio</b>
@@ -6810,17 +6813,21 @@
             <li data-icon="👤"><b>登入</b>：用你平常的 Google 帳號（跟 Gmail 同一組），第一次可能要先按同意</li>
             <li data-icon="🔑"><b>建立金鑰</b>：點 <span class="mock-btn">Create API key</span>；如果問你要放在哪個專案，選 <span class="mock-btn">Create API key in new project</span></li>
             <li data-icon="📋"><b>複製</b>：點金鑰旁邊的複製圖示
-              <span class="mock-key"><code>AIzaSyB3k…</code><span class="mock-btn">⧉</span></span></li>
+              <span class="mock-key"><code>AQ.Ab8RN6k…</code><span class="mock-btn">⧉</span></span></li>
             <li data-icon="📱"><b>切回 LINE</b>，按下面的 <span class="mock-btn">📋 貼上並完成</span> 就好</li>`,
           note: '提醒：Google 免費方案的內容可能被用於改善 Google 產品，機密內容建議不要做 AI 摘要。',
-          placeholder: '貼上 AIza 開頭的金鑰'
+          placeholder: '貼上 AQ. 或 AIza 開頭的金鑰'
         }
       },
 
       // 貼錯種類時回傳該金鑰實際所屬的 type，否則 null；設定頁手動新增也共用
       detectMismatch(type, value) {
         const other = type === 'groq' ? 'gemini' : 'groq';
-        return value.startsWith(this.CONFIG[other].prefix) ? other : null;
+        return this.hasPrefix(other, value) ? other : null;
+      },
+
+      hasPrefix(type, value) {
+        return this.CONFIG[type].prefixes.some(p => value.startsWith(p));
       },
 
       // 存入金鑰池並設為使用中；已存在就只切換。回傳是否成功
@@ -6881,7 +6888,7 @@
         this._setStatus('請長按上方輸入框選「貼上」，貼上後會自動檢查', 'warn');
       },
 
-      // 長按貼上後自動送出，省掉再按一次；39 字是最短金鑰（AIza）長度
+      // 長按貼上後自動送出，省掉再按一次；39 字是舊版 AIza 金鑰長度，新版 AQ. 更長
       onInput(e) {
         const len = e.target.value.replace(/\s+/g, '').length;
         if (e.inputType === 'insertFromPaste' || len >= 39) this.submit();
@@ -6913,11 +6920,11 @@
           this._setStatus(
             `這是「${this.CONFIG[actual].name}」，不是這裡要的「${cfg.name}」。` +
             (saved ? '已幫你存到正確位置，之後會用到。' : '') +
-            `請照上面第 1 步重新申請 ${cfg.prefix} 開頭的金鑰。`, 'err');
+            `請照上面第 1 步重新申請 ${cfg.prefixLabel} 開頭的金鑰。`, 'err');
           return;
         }
-        if (!value.startsWith(cfg.prefix)) {
-          this._setStatus(`金鑰應該是「${cfg.prefix}」開頭，請確認有沒有複製完整`, 'err');
+        if (!this.hasPrefix(type, value)) {
+          this._setStatus(`金鑰應該是「${cfg.prefixLabel}」開頭，請確認有沒有複製完整`, 'err');
           return;
         }
 
