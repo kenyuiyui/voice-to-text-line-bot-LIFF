@@ -4064,7 +4064,7 @@
           desc: '著重知識脈絡與專有名詞，抽取作業、考試範圍與繳交期限。',
           actionLabel: '📌 作業/考試',
           role: '課堂／演講逐字稿整理',
-          summaryRule: '依講述邏輯（非時間）排序；講者強調「會考／重點」者優先；術語保留原文，明顯同音誤植依上下文更正',
+          summaryRule: '依講述單元分段，每段以「【單元名稱】」獨立一行開頭；著重講者口頭補充、講義上不會寫的內容：舉例、實測結果、經驗、建議做法、常見錯誤與注意事項，概念定義一句帶過；講者強調「會考／重點」者優先；術語保留原文，明顯同音誤植依上下文更正',
           actionRule: '作業、報告、考試範圍、繳交期限、預習事項'
         },
         meeting: {
@@ -4312,12 +4312,14 @@
 
         // 條件規則只在觸發時加入，沒用到的功能不佔 prompt
         const hasTranslationLines = /^(zh|en|ja|ko): /m.test(fullText);
+        // 沒有篇幅目標時，模型會把兩小時的課壓成幾行標題；約取逐字稿的 8%
+        const targetChars = Math.round(Math.min(3000, Math.max(150, fullText.length * 0.08)));
         const rules = [
           `summary：首行 1-2 句點出主題，其後每個重點獨立一行、以「・」開頭；${preset.summaryRule}`,
           `actionItems：${preset.actionRule}；owner、deadline 未明說填 null；沒有就 []`,
           '只依 <transcript> 內容，不補充、不推論',
           '逐字稿來自語音辨識，含同音錯字與贅詞，依上下文理解語意',
-          '重點數量隨內容長短調整，短內容 1-2 點即可，不湊數'
+          `summary 篇幅約 ${targetChars} 字；每點寫出具體內容，不只寫標題或定義；內容短時 1-2 點即可，不湊數`
         ];
         if (hasMultipleItems) rules.push('內容由多段合併，【標籤】標示來源；整合成一份摘要；sourceRefs 的 point 抄該重點前段原文，label 填對應標籤');
         if (hasTranslationLines) rules.push('「語言代碼: …」開頭的行是上一行的翻譯，只供對照，不重複摘要');
