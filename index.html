@@ -1808,7 +1808,7 @@
           <span aria-hidden="true">🎙️</span>開始錄音
         </button>
       </div>
-      <input type="file" id="audioFileInput" accept="audio/*,.m4a,.mp3,.wav,.ogg,.webm,.flac,.mp4,.mpeg,.mpga" hidden onchange="FileUploadTranscribe.onFileSelected(this.files)">
+      <input type="file" id="audioFileInput" accept="audio/*,.m4a,.aac,.mp3,.wav,.ogg,.webm,.flac,.mp4,.mpeg,.mpga" hidden onchange="FileUploadTranscribe.onFileSelected(this.files)">
     </section>
 
     <!-- ============ 錄音畫面 ============ -->
@@ -2183,6 +2183,7 @@
               <li>修正：網路較慢或開啟翻譯時，逐字稿段落可能順序錯亂</li>
               <li>修正：iPhone 錄音的檔案格式標示錯誤，可能導致轉寫失敗</li>
               <li><b>長錄音自動切段</b>：超過 25 MB 的錄音檔會在手機／電腦上自動壓縮、切成約 10 分鐘一段，同時送出，並顯示進度條與剩餘時間</li>
+              <li>支援上傳 <b>.aac</b> 檔（LINE 語音訊息另存的格式），會先在手機／電腦上轉換再送出</li>
               <li>錄音時螢幕保持亮著；切出畫面時先保存手上那段，回來會自動接著錄</li>
               <li>電腦版改成左右兩欄，並可直接把錄音檔拖進視窗</li>
               <li><b>心智圖重畫</b>：改成彩色節點、字變大、自動換行，加上放大縮小與全螢幕按鈕；下載的圖片改成高解析度並帶上筆記標題</li>
@@ -5195,7 +5196,9 @@
       DIRECT_MAX_MB: 25,          // Groq 免費方案單檔上限
       MAX_MB: 500,                // 解碼後約佔 4 倍記憶體，再大電腦也吃不消
       MOBILE_WARN_MB: 60,         // 約 1～2 小時；手機解碼可能被系統強制關閉分頁
-      ALLOWED_EXT: ['flac', 'mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'webm'],
+      ALLOWED_EXT: ['flac', 'mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'webm', 'aac'],
+      // Groq 不收裸 AAC（ADTS），小檔也要先在瀏覽器解碼轉成 WAV 再送
+      DECODE_FIRST_EXT: ['aac'],
       SAMPLE_RATE: 16000,
       CHUNK_SEC: 600,
       CUT_SEARCH_SEC: 5,
@@ -5234,7 +5237,7 @@
 
         const ext = ((file.name || '').split('.').pop() || '').toLowerCase();
         if (!this.ALLOWED_EXT.includes(ext)) {
-          Dialog.alert(`這個檔案格式（.${ext || '未知'}）沒辦法轉文字。\n\n支援：m4a、mp3、wav、ogg、webm、flac、mp4。\n\nLINE 語音訊息存下來是 m4a，可以直接上傳；手機錄音 App 的檔案多半也是 m4a。`, { icon: '📁' });
+          Dialog.alert(`這個檔案格式（.${ext || '未知'}）沒辦法轉文字。\n\n支援：m4a、aac、mp3、wav、ogg、webm、flac、mp4。\n\nLINE 語音訊息存下來是 aac 或 m4a，都可以直接上傳；手機錄音 App 的檔案多半是 m4a。`, { icon: '📁' });
           return;
         }
         if (file.size === 0) {
@@ -5286,7 +5289,9 @@
         let total = 1;
         let failure = null;
         try {
-          if (file.size <= this.DIRECT_MAX_MB * 1024 * 1024) {
+          const ext = ((file.name || '').split('.').pop() || '').toLowerCase();
+          const mustDecode = this.DECODE_FIRST_EXT.includes(ext);
+          if (!mustDecode && file.size <= this.DIRECT_MAX_MB * 1024 * 1024) {
             UploadProgress.set({ stage: '正在轉成文字…', indeterminate: true });
             const text = await this._transcribeWithRetry(() => file, file.name, signal, false);
             if (text.trim()) { NotebookStore.addCardTo(nbId, text.trim()); added++; }
