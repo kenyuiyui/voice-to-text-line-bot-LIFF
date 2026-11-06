@@ -2183,7 +2183,8 @@
               <li>修正：網路較慢或開啟翻譯時，逐字稿段落可能順序錯亂</li>
               <li>修正：iPhone 錄音的檔案格式標示錯誤，可能導致轉寫失敗</li>
               <li><b>長錄音自動切段</b>：超過 25 MB 的錄音檔會在手機／電腦上自動壓縮、切成約 10 分鐘一段，同時送出，並顯示進度條與剩餘時間</li>
-              <li>支援上傳 <b>.aac</b> 檔（LINE 語音訊息另存的格式），會先在手機／電腦上轉換再送出</li>
+              <li>支援上傳 <b>.aac</b> 檔（LINE 語音訊息另存的格式）</li>
+              <li>m4a／aac 長錄音改成一次只讀 10 分鐘，<b>2 小時以上的錄音手機也處理得動</b></li>
               <li>錄音時螢幕保持亮著；切出畫面時先保存手上那段，回來會自動接著錄</li>
               <li>電腦版改成左右兩欄，並可直接把錄音檔拖進視窗</li>
               <li><b>心智圖重畫</b>：改成彩色節點、字變大、自動換行，加上放大縮小與全螢幕按鈕；下載的圖片改成高解析度並帶上筆記標題</li>
@@ -5192,12 +5193,196 @@
       }
     };
 
+    // LINE 另存的 .aac、手機錄音的 .m4a 都是 MP4 容器。長錄音不整檔解碼（2 小時會展開成
+    // 1 GB 以上），改依 MP4 索引逐段取出 AAC 音框、補上 ADTS 標頭，各段獨立解碼。
+    // Blob.slice 只讀需要的位元組，記憶體只佔一段。
+    const Mp4Audio = {
+      FREQS: [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350],
+
+      async isMp4(blob) {
+        const head = new Uint8Array(await blob.slice(4, 8).arrayBuffer());
+        return String.fromCharCode(...head) === 'ftyp';
+      },
+
+      _type(view, at) {
+        return String.fromCharCode(view.getUint8(at), view.getUint8(at + 1), view.getUint8(at + 2), view.getUint8(at + 3));
+      },
+
+      _children(view, start, end) {
+        const boxes = [];
+        let pos = start;
+        while (pos + 8 <= end) {
+          let size = view.getUint32(pos);
+          let hdr = 8;
+          if (size === 1) { size = Number(view.getBigUint64(pos + 8)); hdr = 16; }
+          else if (size === 0) size = end - pos;
+          if (size < hdr || pos + size > end) break;
+          boxes.push({ type: this._type(view, pos + 4), start: pos + hdr, end: pos + size });
+          pos += size;
+        }
+        return boxes;
+      },
+
+      _child(view, box, type) {
+        return this._children(view, box.start, box.end).find(b => b.type === type);
+      },
+
+      // moov 可能在檔頭或檔尾，逐一跳過頂層 box 找它，不讀中間的音訊資料
+      async _readMoov(blob) {
+        let pos = 0;
+        while (pos + 8 <= blob.size) {
+          const view = new DataView(await blob.slice(pos, pos + 16).arrayBuffer());
+          let size = view.getUint32(0);
+          let hdr = 8;
+          if (size === 1 && view.byteLength >= 16) { size = Number(view.getBigUint64(8)); hdr = 16; }
+          else if (size === 0) size = blob.size - pos;
+          if (size < hdr) break;
+          if (this._type(view, 4) === 'moov') return new DataView(await blob.slice(pos + hdr, pos + size).arrayBuffer());
+          pos += size;
+        }
+        throw new Error('找不到 MP4 索引');
+      },
+
+      // QuickTime 格式的 esds 會包在 wave 裡
+      _findEsds(view, start, end) {
+        for (const box of this._children(view, start, end)) {
+          if (box.type === 'esds') return box;
+          if (box.type === 'wave') {
+            const inner = this._findEsds(view, box.start, box.end);
+            if (inner) return inner;
+          }
+        }
+        return null;
+      },
+
+      // 只取 ADTS 標頭需要的三個欄位：物件類型、取樣率索引、聲道設定
+      _readAsc(view, esds) {
+        let pos = esds.start + 4;
+        const readDesc = () => {
+          const tag = view.getUint8(pos++);
+          let len = 0;
+          for (let i = 0; i < 4; i++) {
+            const b = view.getUint8(pos++);
+            len = (len << 7) | (b & 0x7f);
+            if (!(b & 0x80)) break;
+          }
+          return { tag, len };
+        };
+        if (readDesc().tag !== 0x03) return null;
+        const flags = view.getUint8(pos + 2);
+        pos += 3;
+        if (flags & 0x80) pos += 2;
+        if (flags & 0x40) pos += 1 + view.getUint8(pos);
+        if (flags & 0x20) pos += 2;
+        if (readDesc().tag !== 0x04) return null;
+        pos += 13;
+        const asc = readDesc();
+        if (asc.tag !== 0x05 || asc.len < 2) return null;
+        const b0 = view.getUint8(pos);
+        const b1 = view.getUint8(pos + 1);
+        return { objectType: b0 >> 3, freqIndex: ((b0 & 7) << 1) | (b1 >> 7), channels: (b1 >> 3) & 0x0f };
+      },
+
+      async parse(blob) {
+        const moov = await this._readMoov(blob);
+        for (const trak of this._children(moov, 0, moov.byteLength).filter(b => b.type === 'trak')) {
+          const stbl = ['mdia', 'minf', 'stbl'].reduce((box, t) => box && this._child(moov, box, t), trak);
+          const stsd = stbl && this._child(moov, stbl, 'stsd');
+          const entry = stsd && this._children(moov, stsd.start + 8, stsd.end)[0];
+          if (!entry || entry.type !== 'mp4a') continue;
+
+          // mp4a 固定欄位 28 bytes；QuickTime v1／v2 另有 16／36 bytes
+          const version = moov.getUint16(entry.start + 8);
+          const esds = this._findEsds(moov, entry.start + 28 + (version === 1 ? 16 : version === 2 ? 36 : 0), entry.end);
+          const asc = esds && this._readAsc(moov, esds);
+          // HE-AAC（5、29）以 LC 標頭送出，解碼器會自行偵測 SBR；聲道 0 需要 PCE，不支援
+          if (!asc || ![1, 2, 3, 4, 5, 29].includes(asc.objectType) || asc.freqIndex > 12 || asc.channels < 1 || asc.channels > 7) {
+            throw new Error('不支援的 AAC 編碼設定');
+          }
+
+          const stsz = this._child(moov, stbl, 'stsz');
+          const stsc = this._child(moov, stbl, 'stsc');
+          const stco = this._child(moov, stbl, 'stco');
+          const co64 = this._child(moov, stbl, 'co64');
+          if (!stsz || !stsc || !(stco || co64)) throw new Error('MP4 索引不完整');
+
+          const fixedSize = moov.getUint32(stsz.start + 4);
+          const count = moov.getUint32(stsz.start + 8);
+          if (count === 0) throw new Error('檔案裡沒有音訊');
+          const sizes = new Uint32Array(count);
+          for (let i = 0; i < count; i++) sizes[i] = fixedSize || moov.getUint32(stsz.start + 12 + i * 4);
+
+          const co = stco || co64;
+          const chunkCount = moov.getUint32(co.start + 4);
+          const chunkOffset = c => stco
+            ? moov.getUint32(co.start + 8 + c * 4)
+            : Number(moov.getBigUint64(co.start + 8 + c * 8));
+
+          const offsets = new Float64Array(count);
+          const entryCount = moov.getUint32(stsc.start + 4);
+          let s = 0;
+          for (let e = 0; e < entryCount && s < count; e++) {
+            const at = stsc.start + 8 + e * 12;
+            const firstChunk = moov.getUint32(at) - 1;
+            const perChunk = moov.getUint32(at + 4);
+            const lastChunk = e + 1 < entryCount ? moov.getUint32(at + 12) - 1 : chunkCount;
+            for (let c = firstChunk; c < lastChunk && s < count; c++) {
+              let off = chunkOffset(c);
+              for (let k = 0; k < perChunk && s < count; k++) { offsets[s] = off; off += sizes[s]; s++; }
+            }
+          }
+          if (s < count) throw new Error('MP4 索引不完整');
+
+          return {
+            sizes, offsets,
+            profile: (asc.objectType === 5 || asc.objectType === 29) ? 1 : asc.objectType - 1,
+            freqIndex: asc.freqIndex,
+            channels: asc.channels,
+            sampleRate: this.FREQS[asc.freqIndex]
+          };
+        }
+        throw new Error('檔案裡找不到 AAC 音軌');
+      },
+
+      _adtsHeader(info, payloadSize) {
+        const len = payloadSize + 7;
+        return new Uint8Array([
+          0xff, 0xf1,
+          (info.profile << 6) | (info.freqIndex << 2) | (info.channels >> 2),
+          ((info.channels & 3) << 6) | (len >> 11),
+          (len >> 3) & 0xff,
+          ((len & 7) << 5) | 0x1f,
+          0xfc
+        ]);
+      },
+
+      // 取出第 from～to 個音框組成 ADTS；相鄰音框合併成一次讀取
+      async readFrames(blob, info, from, to) {
+        const parts = [];
+        let i = from;
+        while (i < to) {
+          const runStart = info.offsets[i];
+          let j = i;
+          let runEnd = runStart + info.sizes[i];
+          while (j + 1 < to && info.offsets[j + 1] === runEnd) { j++; runEnd += info.sizes[j]; }
+          const bytes = new Uint8Array(await blob.slice(runStart, runEnd).arrayBuffer());
+          if (bytes.length !== runEnd - runStart) throw new Error('檔案不完整，可能還沒下載完');
+          for (let k = i; k <= j; k++) {
+            const rel = info.offsets[k] - runStart;
+            parts.push(this._adtsHeader(info, info.sizes[k]), bytes.subarray(rel, rel + info.sizes[k]));
+          }
+          i = j + 1;
+        }
+        return new Blob(parts, { type: 'audio/aac' });
+      }
+    };
+
     const FileUploadTranscribe = {
       DIRECT_MAX_MB: 25,          // Groq 免費方案單檔上限
       MAX_MB: 500,                // 解碼後約佔 4 倍記憶體，再大電腦也吃不消
       MOBILE_WARN_MB: 60,         // 約 1～2 小時；手機解碼可能被系統強制關閉分頁
       ALLOWED_EXT: ['flac', 'mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'webm', 'aac'],
-      // Groq 不收裸 AAC（ADTS），小檔也要先在瀏覽器解碼轉成 WAV 再送
+      // Groq 不收裸 AAC（ADTS），要先解碼成 WAV；MP4 容器的 .aac 不在此限
       DECODE_FIRST_EXT: ['aac'],
       SAMPLE_RATE: 16000,
       CHUNK_SEC: 600,
@@ -5245,12 +5430,14 @@
           return;
         }
 
+        // MP4 容器逐段讀取，不受整檔解碼的記憶體限制
+        const isMp4 = await Mp4Audio.isMp4(file).catch(() => false);
         const sizeMB = file.size / (1024 * 1024);
-        if (sizeMB > this.MAX_MB) {
+        if (!isMp4 && sizeMB > this.MAX_MB) {
           Dialog.alert(`這個檔案約 ${sizeMB.toFixed(0)} MB，太大了處理不動（上限 ${this.MAX_MB} MB）。\n\n請先剪成兩三段，再到筆記裡「⋯ → 📁 加入錄音檔」一段一段加進去。`, { icon: '📦' });
           return;
         }
-        if (sizeMB > this.MOBILE_WARN_MB && this._isMobile()) {
+        if (!isMp4 && sizeMB > this.MOBILE_WARN_MB && this._isMobile()) {
           const ok = await Dialog.confirm(
             `這個檔案約 ${sizeMB.toFixed(0)} MB（大約 1 小時以上）。手機記憶體可能不夠，處理到一半頁面可能會被關掉。\n\n建議改用電腦打開本工具上傳。還是要在手機上試試看嗎？`,
             { icon: '📱', okText: '試試看', cancelText: '改用電腦' });
@@ -5266,7 +5453,7 @@
           createdNew = true;
           Home.render();
         }
-        this.run(file, NotebookStore.activeId, createdNew);
+        this.run(file, NotebookStore.activeId, createdNew, isMp4);
       },
 
       async cancel() {
@@ -5275,7 +5462,7 @@
         if (ok && this._abort) this._abort.abort();
       },
 
-      async run(file, nbId, createdNew) {
+      async run(file, nbId, createdNew, isMp4) {
         // 上一次錄音的結尾會被當成 prompt 接續，混進無關的檔案
         LanguageManager.resetAutoState();
         this.isUploading = true;
@@ -5290,18 +5477,33 @@
         let failure = null;
         try {
           const ext = ((file.name || '').split('.').pop() || '').toLowerCase();
-          const mustDecode = this.DECODE_FIRST_EXT.includes(ext);
+          const mustDecode = !isMp4 && this.DECODE_FIRST_EXT.includes(ext);
           if (!mustDecode && file.size <= this.DIRECT_MAX_MB * 1024 * 1024) {
             UploadProgress.set({ stage: '正在轉成文字…', indeterminate: true });
-            const text = await this._transcribeWithRetry(() => file, file.name, signal, false);
+            // 辨識端依副檔名判斷格式，MP4 容器的 .aac 要以 .m4a 送出才認得
+            const name = isMp4 ? (file.name || 'upload').replace(/\.[^.]*$/, '') + '.m4a' : file.name;
+            const body = isMp4 ? new Blob([file], { type: 'audio/mp4' }) : file;
+            const text = await this._transcribeWithRetry(() => body, name, signal, false);
             if (text.trim()) { NotebookStore.addCardTo(nbId, text.trim()); added++; }
           } else {
-            UploadProgress.set({ stage: '正在讀取錄音檔…（長檔案約需 10～60 秒）', indeterminate: true });
-            const pcm = await this._decode(file);
-            if (signal.aborted) throw new DOMException('aborted', 'AbortError');
-            const ranges = this._planChunks(pcm);
-            total = ranges.length;
-            const result = await this._runChunks(pcm, ranges, nbId, signal);
+            let plan = null;
+            if (isMp4) {
+              UploadProgress.set({ stage: '正在讀取錄音檔…', indeterminate: true });
+              try {
+                plan = await this._planMp4(file);
+              } catch (e) {
+                console.warn('MP4 逐段讀取失敗，改用整檔解碼：', e);
+              }
+            }
+            if (!plan) {
+              UploadProgress.set({ stage: '正在讀取錄音檔…（長檔案約需 10～60 秒）', indeterminate: true });
+              const pcm = await this._decode(file);
+              if (signal.aborted) throw new DOMException('aborted', 'AbortError');
+              const ranges = this._planChunks(pcm);
+              plan = { total: ranges.length, getSamples: i => pcm.subarray(ranges[i][0], ranges[i][1]) };
+            }
+            total = plan.total;
+            const result = await this._runChunks(plan.total, plan.getSamples, nbId, signal);
             added = result.added;
             failure = result.failure;
           }
@@ -5381,8 +5583,24 @@
         return ranges;
       },
 
-      async _runChunks(pcm, ranges, nbId, signal) {
-        const total = ranges.length;
+      // 依音框數切成約 CHUNK_SEC 秒一段（沒有整檔波形可找靜音點）
+      async _planMp4(file) {
+        const info = await Mp4Audio.parse(file);
+        const frameCount = info.sizes.length;
+        const perSegment = Math.max(1, Math.round(this.CHUNK_SEC * info.sampleRate / 1024));
+        // 一次只解碼一段：多段同時解碼在手機上會吃光記憶體
+        let chain = Promise.resolve();
+        const getSamples = i => {
+          const job = async () => this._decode(await Mp4Audio.readFrames(
+            file, info, i * perSegment, Math.min(frameCount, (i + 1) * perSegment)));
+          const p = chain.then(job, job);
+          chain = p.catch(() => {});
+          return p;
+        };
+        return { total: Math.ceil(frameCount / perSegment), getSamples };
+      },
+
+      async _runChunks(total, getSamples, nbId, signal) {
         const results = new Array(total);
         let next = 0;
         let committed = 0;
@@ -5409,8 +5627,8 @@
         const worker = async () => {
           while (next < total && !failure && !signal.aborted) {
             const i = next++;
-            const samples = pcm.subarray(ranges[i][0], ranges[i][1]);
             try {
+              const samples = await getSamples(i);
               results[i] = await this._transcribeWithRetry(
                 () => this._encodeWav(samples, this._useMuLaw), `part${i + 1}.wav`, signal, true);
             } catch (err) {
