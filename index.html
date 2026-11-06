@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  語音筆記 by kenyuiyui
+  語音卡片筆記 by kenyuiyui
   https://github.com/kenyuiyui/voice-to-text-line-bot-LIFF
   Released under the MIT License.
 -->
@@ -17,21 +17,29 @@
     - liffsdk.line-scdn.net：LIFF SDK 初始化會抓多語系 manifest，
       不放行雖不影響功能（本頁固定繁中）但會在 console 噴錯。
   -->
+  <!-- ⚠️ CSP 用 SHA-256 鎖定下方主程式 <script> 的內容：改了主程式任何一個字，
+       都要更新 script-src 裡的 'sha256-…'，否則瀏覽器會擋下整段程式。
+       取得新雜湊：用電腦版 Chrome 開啟修改後的檔案 → F12 → Console 的
+       CSP 錯誤訊息會列出正確的 'sha256-…'，複製取代即可。
+       HTML 不能再寫 onclick= 等 inline 事件，改用 data-click（見 ActionDispatcher）。
+       script-src 不放 'self'：同網域（kenyuiyui.github.io）下的其他 repo 不該能被載入。
+       LIFF SDK 刻意用自動更新的 edge/2（LINE 會推資安修補），只放行 /liff/ 路徑。
+       connect-src 的 docs.google.com 只放行 /spreadsheets/，避免被拿來送資料到 Google 表單。 -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
-    script-src 'self' https://cdn.jsdelivr.net https://static.line-scdn.net 'unsafe-inline';
+    script-src https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/cn2t.js https://static.line-scdn.net/liff/ 'sha256-MJtt6KiANw3vZtjaR3RaZMaLuoYuYIoV7o/4HxKbpxE=';
     style-src 'self' 'unsafe-inline';
     img-src 'self' data:;
     manifest-src 'self';
     worker-src 'self';
-    connect-src 'self' https://api.groq.com https://api.line.me https://access.line.me https://generativelanguage.googleapis.com https://api.mymemory.translated.net https://docs.google.com https://*.googleusercontent.com https://liffsdk.line-scdn.net;
+    connect-src 'self' https://api.groq.com https://api.line.me https://access.line.me https://generativelanguage.googleapis.com https://api.mymemory.translated.net https://docs.google.com/spreadsheets/ https://*.googleusercontent.com https://liffsdk.line-scdn.net;
     frame-src https://access.line.me;
     base-uri 'self';
     form-action 'none';
   ">
-  <title>語音筆記｜說話自動變文字</title>
+  <title>語音卡片筆記｜說話自動變文字</title>
   <meta name="author" content="kenyuiyui">
-  <meta name="description" content="語音卡片筆記：透過 LINE 官方帳號即可使用的語音轉文字筆記工具。支援錄音、共享 Google Sheet 筆記、AI 摘要（中英日韓混雜語音辨識），不用另外安裝 App，加好友就能用。">
+  <meta name="description" content="語音卡片筆記：打開就能用的語音轉文字筆記工具，在 LINE 或任何瀏覽器都能用。支援即時錄音轉文字、即時翻譯、AI 重點摘要與心智圖（中英日韓混雜語音辨識），不用安裝 App、不用註冊。">
 
   <!-- Open Graph：讓 LINE /社群分享連結時顯示正確標題與描述。
        不加 canonical／結構化資料：頁面有 LIFF 登入閘門
@@ -1298,6 +1306,15 @@
     }
     .mindmap-edit-textarea { font-size: 15px; line-height: 1.8; min-height: 240px; }
     @media (min-width: 900px) { .mm-stage { height: 56vh; } }
+    /* 主程式被 CSP 擋下時的保險提示：預設透明，1.5 秒後才顯示；
+       主程式正常執行時第一行就會移除它，所以平常看不到 */
+    .csp-guard {
+      position: fixed; inset: auto 16px 16px 16px; z-index: 99999;
+      padding: 14px 16px; border-radius: 12px; background: #fff4e5; color: #6b3a00;
+      border: 1px solid #f0b46a; font-size: 14px; line-height: 1.6;
+      opacity: 0; animation: cspGuardShow 0s linear 1.5s forwards;
+    }
+    @keyframes cspGuardShow { to { opacity: 1; } }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/cn2t.js"
           integrity="sha384-9JmxkgxoKE5gP14V/eBemUAwCKh8QSb5IFEJje/JNxxh8cn9hKsIs/q5Ho+mfVau"
@@ -1305,6 +1322,10 @@
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
+  <div class="csp-guard" id="cspGuard" role="alert">
+    頁面程式沒有載入成功，請重新整理再試一次。<br>
+    <small>網站維護者：通常是改了主程式但沒更新 CSP 的 sha256，請開 Console 查看錯誤訊息。</small>
+  </div>
   <!-- 對話框：取代原生 alert/confirm/prompt。原生框在 LINE 內建瀏覽器
        會顯示網址當標題、無法中文化，prompt() 還會破壞剪貼簿時序。 -->
   <div class="modal-overlay hidden" id="dialogModal" role="alertdialog" aria-modal="true" aria-labelledby="dialogMsg">
@@ -1323,7 +1344,7 @@
        第一眼，改成一行可展開的連結，先讓使用者看到能做什麼。 -->
   <div class="modal-overlay hidden" id="onboardModal" role="dialog" aria-modal="true" aria-label="新手教學">
     <div class="modal-box onboard-box">
-      <button class="onboard-skip" onclick="Onboarding.finish()">跳過</button>
+      <button class="onboard-skip" data-click="Onboarding.finish">跳過</button>
 
       <div class="onboard-step" data-step="1">
         <div class="onboard-flow" aria-hidden="true">
@@ -1331,12 +1352,12 @@
           <div><span>📝</span>變文字</div><i>›</i>
           <div><span>✨</span>整理重點</div>
         </div>
-        <h2>歡迎使用語音筆記</h2>
+        <h2>歡迎使用語音卡片筆記</h2>
         <p>上課、開會、聊天，<b>按一下就能把聲音變成文字筆記</b>，還能請 AI 幫你整理重點。</p>
         <div class="onboard-trust">
           <div>🆓 免費使用</div><div>🙅 不用註冊</div><div>📱 資料只存在你的手機</div>
         </div>
-        <button class="link-btn" onclick="openTrustPanel()">🛡️ 想知道資料怎麼處理？點這裡</button>
+        <button class="link-btn" data-click="openTrustPanel">🛡️ 想知道資料怎麼處理？點這裡</button>
       </div>
 
       <div class="onboard-step hidden" data-step="2">
@@ -1362,8 +1383,8 @@
 
       <div class="onboard-foot">
         <div class="onboard-dots" aria-hidden="true"><i data-dot="1"></i><i data-dot="2"></i><i data-dot="3"></i></div>
-        <button class="btn-confirm onboard-next" id="onboardNextBtn" onclick="Onboarding.next()">下一步</button>
-        <button class="link-btn hidden" id="onboardLaterBtn" onclick="Onboarding.go(3)">先逛逛，晚點再設定</button>
+        <button class="btn-confirm onboard-next" id="onboardNextBtn" data-click="Onboarding.next">下一步</button>
+        <button class="link-btn hidden" id="onboardLaterBtn" data-click="Onboarding.go" data-args='[3]'>先逛逛，晚點再設定</button>
       </div>
     </div>
   </div>
@@ -1375,7 +1396,7 @@
       <div class="kw-head">
         <span class="kw-icon" id="kwIcon" aria-hidden="true">🔑</span>
         <h2 id="kwTitle">設定金鑰</h2>
-        <button class="icon-btn" onclick="KeyWizard.close()" aria-label="關閉">✕</button>
+        <button class="icon-btn" data-click="KeyWizard.close" aria-label="關閉">✕</button>
       </div>
       <div class="kw-body">
         <div class="onboard-flow kw-flow" aria-hidden="true">
@@ -1388,11 +1409,12 @@
         <ol class="kw-steps" id="kwSteps"></ol>
         <div class="kw-paste">
           <input type="password" id="kwInput" autocomplete="off" spellcheck="false" enterkeyhint="done" aria-label="貼上金鑰"
-                 oninput="KeyWizard.onInput(event)" onkeydown="if (event.key === 'Enter') KeyWizard.submit()">
+                 data-input="KeyWizard.onInput" data-args='["$event"]' data-enter="KeyWizard.submit">
         </div>
-        <button class="kw-submit" id="kwSubmitBtn" onclick="KeyWizard.pasteFromClipboard()">📋 貼上並完成</button>
+        <button class="kw-submit" id="kwSubmitBtn" data-click="KeyWizard.pasteFromClipboard">📋 貼上並完成</button>
         <div class="kw-status" id="kwStatus" role="status" aria-live="polite"></div>
         <p class="kw-note" id="kwNote"></p>
+        <p class="kw-note">🔒 只在 <b>kenyuiyui.github.io</b> 這個網址貼上金鑰，其他網址就算畫面一樣也可能是仿冒。懷疑外洩時，到剛剛的申請網頁刪除這把金鑰，再申請一把新的。</p>
       </div>
     </div>
   </div>
@@ -1498,33 +1520,33 @@
           </div>
       </div>
       <div class="modal-footer">
-        <button onclick="ModalUtil.hide('trustModal')">我知道了</button>
+        <button data-click="ModalUtil.hide" data-args='["trustModal"]'>我知道了</button>
       </div>
     </div>
   </div>
 
   <!-- 筆記的「更多」選單：進階功能收在這裡，新手畫面只留最常用的 -->
-  <div class="modal-overlay sheet-overlay hidden" id="moreMenuModal" onclick="if (event.target === this) MoreMenu.close()">
+  <div class="modal-overlay sheet-overlay hidden" id="moreMenuModal" data-click="MoreMenu.close" data-self-only>
     <div class="sheet" role="dialog" aria-modal="true" aria-label="更多功能">
       <div class="sheet-handle" aria-hidden="true"></div>
       <div class="sheet-title">整理這本筆記</div>
       <div class="tile-grid">
-        <button class="tile" onclick="MoreMenu.run('edit')"><span>✏️</span>改文字</button>
-        <button class="tile" onclick="MoreMenu.run('merge')"><span>🔗</span>合併句子</button>
-        <button class="tile" onclick="MoreMenu.run('reorder')"><span>↕️</span>調整順序</button>
-        <button class="tile" onclick="MoreMenu.run('select')"><span>☑️</span>挑段落摘要</button>
-        <button class="tile" onclick="MoreMenu.run('upload')"><span>📁</span>加入錄音檔</button>
-        <button class="tile" onclick="MoreMenu.run('rename')"><span>🏷️</span>改名稱</button>
+        <button class="tile" data-click="MoreMenu.run" data-args='["edit"]'><span>✏️</span>改文字</button>
+        <button class="tile" data-click="MoreMenu.run" data-args='["merge"]'><span>🔗</span>合併句子</button>
+        <button class="tile" data-click="MoreMenu.run" data-args='["reorder"]'><span>↕️</span>調整順序</button>
+        <button class="tile" data-click="MoreMenu.run" data-args='["select"]'><span>☑️</span>挑段落摘要</button>
+        <button class="tile" data-click="MoreMenu.run" data-args='["upload"]'><span>📁</span>加入錄音檔</button>
+        <button class="tile" data-click="MoreMenu.run" data-args='["rename"]'><span>🏷️</span>改名稱</button>
       </div>
       <div class="sheet-title">進階</div>
       <div class="tile-grid">
-        <button class="tile" onclick="MoreMenu.run('mindmap')"><span>🧠</span>心智圖</button>
-        <button class="tile" onclick="MoreMenu.run('terms')"><span>🔍</span>名詞查證</button>
-        <button class="tile" onclick="MoreMenu.run('shared')"><span>📖</span>共享筆記</button>
-        <button class="tile" onclick="MoreMenu.run('sheet')"><span>📋</span>存到共享表格</button>
+        <button class="tile" data-click="MoreMenu.run" data-args='["mindmap"]'><span>🧠</span>心智圖</button>
+        <button class="tile" data-click="MoreMenu.run" data-args='["terms"]'><span>🔍</span>名詞查證</button>
+        <button class="tile" data-click="MoreMenu.run" data-args='["shared"]'><span>📖</span>共享筆記</button>
+        <button class="tile" data-click="MoreMenu.run" data-args='["sheet"]'><span>📋</span>存到共享表格</button>
       </div>
-      <button class="sheet-danger" onclick="MoreMenu.run('delete')">🗑️ 刪除這本筆記</button>
-      <button class="sheet-cancel" onclick="MoreMenu.close()">關閉</button>
+      <button class="sheet-danger" data-click="MoreMenu.run" data-args='["delete"]'>🗑️ 刪除這本筆記</button>
+      <button class="sheet-cancel" data-click="MoreMenu.close">關閉</button>
     </div>
   </div>
 
@@ -1547,7 +1569,7 @@
       </div>
       <div class="modal-footer">
         <div class="chat-preview-actions">
-          <button class="btn-cancel" onclick="ChatPreview.cancel()">取消</button>
+          <button class="btn-cancel" data-click="ChatPreview.cancel">取消</button>
           <button class="btn-confirm" id="chatPreviewConfirmBtn">確認發送</button>
         </div>
       </div>
@@ -1581,12 +1603,12 @@
       </div>
       <div class="modal-footer">
         <label>
-          <input type="checkbox" id="recordConsentCheckbox" onchange="RecordNotice.onConsentChange(this.checked)">
+          <input type="checkbox" id="recordConsentCheckbox" data-change="RecordNotice.onConsentChange" data-args='["$checked"]'>
           我已閱讀並同意以上內容
         </label>
         <div class="chat-preview-actions">
-          <button class="btn-cancel" onclick="RecordNotice.cancel()">取消</button>
-          <button class="btn-confirm" id="recordConsentConfirmBtn" disabled onclick="RecordNotice.confirm()">同意，開始錄音</button>
+          <button class="btn-cancel" data-click="RecordNotice.cancel">取消</button>
+          <button class="btn-confirm" id="recordConsentConfirmBtn" disabled data-click="RecordNotice.confirm">同意，開始錄音</button>
         </div>
       </div>
     </div>
@@ -1610,8 +1632,8 @@
       </div>
       <div class="modal-footer">
         <div class="chat-preview-actions">
-          <button class="btn-cancel" onclick="ClearLocalData.cancel()">取消</button>
-          <button class="btn-confirm" style="background:var(--danger);" onclick="ClearLocalData.confirm()">確定清除</button>
+          <button class="btn-cancel" data-click="ClearLocalData.cancel">取消</button>
+          <button class="btn-confirm" style="background:var(--danger);" data-click="ClearLocalData.confirm">確定清除</button>
         </div>
       </div>
     </div>
@@ -1672,7 +1694,7 @@
         </p>
       </div>
       <div class="modal-footer">
-        <button onclick="SharedSheetGuide.close()">我知道了</button>
+        <button data-click="SharedSheetGuide.close">我知道了</button>
       </div>
     </div>
   </div>
@@ -1685,7 +1707,7 @@
         選一個和實際講話不同的語言，常會直接得到該語言的翻譯結果，但只有翻譯、沒有原文，且非官方保證行為。
       </div>
       <div class="modal-footer">
-        <button onclick="LangTranslationGuide.close()">我知道了</button>
+        <button data-click="LangTranslationGuide.close">我知道了</button>
       </div>
     </div>
   </div>
@@ -1700,7 +1722,7 @@
         翻譯失敗或額度用完時，原文轉寫不受影響，只是該段不顯示翻譯。
       </div>
       <div class="modal-footer">
-        <button onclick="LiveTranslationGuide.close()">我知道了</button>
+        <button data-click="LiveTranslationGuide.close">我知道了</button>
       </div>
     </div>
   </div>
@@ -1718,8 +1740,8 @@
       </div>
       <div class="modal-footer">
         <div class="chat-preview-actions">
-          <button class="btn-cancel" onclick="FriendGate.close()">取消</button>
-          <button class="btn-confirm" onclick="FriendGate.goAddFriend()">前往加好友</button>
+          <button class="btn-cancel" data-click="FriendGate.close">取消</button>
+          <button class="btn-confirm" data-click="FriendGate.goAddFriend">前往加好友</button>
         </div>
       </div>
     </div>
@@ -1738,7 +1760,7 @@
       <div class="modal-body" id="notInLiffBody"></div>
       <div class="modal-footer">
         <div class="chat-preview-actions">
-          <button class="btn-cancel" onclick="NotInLiffGate.close()">取消</button>
+          <button class="btn-cancel" data-click="NotInLiffGate.close">取消</button>
           <button class="btn-confirm" id="notInLiffConfirmBtn">前往官方帳號</button>
         </div>
       </div>
@@ -1756,7 +1778,7 @@
       <div class="up-stage" id="upStage"></div>
       <div class="up-meta"><span id="upElapsed"></span><span id="upEta"></span></div>
       <div class="up-keep">📱 處理中請<b>保持畫面開著</b>，不要切出 LINE 或鎖定螢幕</div>
-      <button class="btn-cancel up-cancel" onclick="FileUploadTranscribe.cancel()">停止</button>
+      <button class="btn-cancel up-cancel" data-click="FileUploadTranscribe.cancel">停止</button>
     </div>
   </div>
 
@@ -1779,14 +1801,14 @@
     <!-- ============ 首頁：筆記本清單 ============ -->
     <section class="view" id="viewHome" aria-label="我的筆記">
       <header class="home-header">
-        <div class="brand"><span class="brand-icon" aria-hidden="true">🎙️</span><h1>語音筆記</h1></div>
+        <div class="brand"><span class="brand-icon" aria-hidden="true">🎙️</span><h1>語音卡片筆記</h1></div>
         <div class="header-actions">
-          <button class="icon-btn" onclick="Onboarding.open()" aria-label="使用教學" title="使用教學">❓</button>
-          <button class="icon-btn" onclick="View.show('settings')" aria-label="設定" title="設定">⚙️</button>
+          <button class="icon-btn" data-click="Onboarding.open" aria-label="使用教學" title="使用教學">❓</button>
+          <button class="icon-btn" data-click="View.show" data-args='["settings"]' aria-label="設定" title="設定">⚙️</button>
         </div>
       </header>
 
-      <div class="setup-banner hidden" id="homeKeyBanner" role="button" tabindex="0" onclick="KeyWizard.open('groq')">
+      <div class="setup-banner hidden" id="homeKeyBanner" role="button" tabindex="0" data-click="KeyWizard.open" data-args='["groq"]'>
         <span class="setup-banner-icon" aria-hidden="true">🔑</span>
         <div class="setup-banner-text"><b>還差一步就能開始</b><span>設定免費的語音金鑰（約 2 分鐘）</span></div>
         <span class="chev" aria-hidden="true">›</span>
@@ -1801,26 +1823,26 @@
       </div>
 
       <div class="home-dock">
-        <button class="dock-round" id="audioFileChooseLabel" onclick="Home.pickFile()" aria-label="上傳錄音檔">
+        <button class="dock-round" id="audioFileChooseLabel" data-click="Home.pickFile" aria-label="上傳錄音檔">
           <span aria-hidden="true">📁</span><small>上傳</small>
         </button>
-        <button class="dock-main" id="homeRecordBtn" onclick="Home.startRecord()">
+        <button class="dock-main" id="homeRecordBtn" data-click="Home.startRecord">
           <span aria-hidden="true">🎙️</span>開始錄音
         </button>
       </div>
-      <input type="file" id="audioFileInput" accept="audio/*,.m4a,.aac,.mp3,.wav,.ogg,.webm,.flac,.mp4,.mpeg,.mpga" hidden onchange="FileUploadTranscribe.onFileSelected(this.files)">
+      <input type="file" id="audioFileInput" accept="audio/*,.m4a,.aac,.mp3,.wav,.ogg,.webm,.flac,.mp4,.mpeg,.mpga" hidden data-change="FileUploadTranscribe.onFileSelected" data-args='["$files"]'>
     </section>
 
     <!-- ============ 錄音畫面 ============ -->
     <section class="view hidden" id="viewRecord" aria-label="錄音">
       <div class="topbar">
-        <button class="icon-btn" id="recCloseBtn" onclick="View.back()" aria-label="關閉">✕</button>
+        <button class="icon-btn" id="recCloseBtn" data-click="View.back" aria-label="關閉">✕</button>
         <div class="topbar-title" id="recTitle">新錄音</div>
         <span class="icon-btn-spacer"></span>
       </div>
 
       <div class="rec-body">
-        <div class="key-missing-hint hidden" id="recordKeyMissingHint" role="button" tabindex="0" onclick="KeyWizard.open('groq')">
+        <div class="key-missing-hint hidden" id="recordKeyMissingHint" role="button" tabindex="0" data-click="KeyWizard.open" data-args='["groq"]'>
           🔑 還沒設定語音金鑰，點這裡設定
         </div>
 
@@ -1830,28 +1852,28 @@
           <div class="opt-row">
             <span class="opt-icon" aria-hidden="true">🗣️</span>
             <label class="opt-label" for="langSelect">說的語言</label>
-            <select id="langSelect" onchange="LanguageManager.onUserSelect(this.value)">
+            <select id="langSelect" data-change="LanguageManager.onUserSelect" data-args='["$value"]'>
               <option value="zh" selected>中文</option>
               <option value="en">英文</option>
               <option value="ja">日文</option>
               <option value="ko">韓文</option>
               <option value="auto">自動（中英日韓混著講）</option>
             </select>
-            <button class="btn-help-icon" onclick="LangTranslationGuide.open()" aria-label="語言說明">?</button>
+            <button class="btn-help-icon" data-click="LangTranslationGuide.open" aria-label="語言說明">?</button>
           </div>
           <div class="opt-row">
             <span class="opt-icon" aria-hidden="true">🌏</span>
             <label class="opt-label opt-switch">
-              <input type="checkbox" role="switch" id="translationEnabledCheckbox" onchange="TranslationManager.onToggle(this.checked)">
+              <input type="checkbox" role="switch" id="translationEnabledCheckbox" data-change="TranslationManager.onToggle" data-args='["$checked"]'>
               同時翻譯成
             </label>
-            <select id="translationTargetSelect" disabled onchange="TranslationManager.onTargetChange(this.value)" aria-label="翻譯成哪種語言">
+            <select id="translationTargetSelect" disabled data-change="TranslationManager.onTargetChange" data-args='["$value"]' aria-label="翻譯成哪種語言">
               <option value="zh">中文</option>
               <option value="en">英文</option>
               <option value="ja">日文</option>
               <option value="ko">韓文</option>
             </select>
-            <button class="btn-help-icon" onclick="LiveTranslationGuide.open()" aria-label="翻譯說明">?</button>
+            <button class="btn-help-icon" data-click="LiveTranslationGuide.open" aria-label="翻譯說明">?</button>
           </div>
           <div class="translation-cost-hint" id="translationCostHint" style="display:none;">
             ℹ️ 免費翻譯每天約 5,000 字，可到「⚙️ 設定」提高到 50,000 字
@@ -1869,7 +1891,7 @@
       </div>
 
       <div class="rec-footer">
-        <button class="btn-record-toggle start" id="recordToggleBtn" onclick="toggleMeetingRecording()">開始錄音</button>
+        <button class="btn-record-toggle start" id="recordToggleBtn" data-click="toggleMeetingRecording">開始錄音</button>
         <div class="quota-mini">
           <span id="quotaMiniText">今日轉寫約 0 分鐘</span>
           <div class="quota-mini-bar"><div class="quota-mini-fill" id="quotaMiniFill"></div></div>
@@ -1880,30 +1902,30 @@
     <!-- ============ 單本筆記 ============ -->
     <section class="view hidden" id="viewNotebook" aria-label="筆記內容">
       <div class="topbar">
-        <button class="icon-btn" onclick="View.back()" aria-label="返回">←</button>
-        <button class="topbar-title as-btn" id="nbTitle" onclick="Notebook.rename()" title="點一下改名稱"></button>
-        <button class="icon-btn" onclick="MoreMenu.open()" aria-label="更多功能" title="更多功能">⋯</button>
+        <button class="icon-btn" data-click="View.back" aria-label="返回">←</button>
+        <button class="topbar-title as-btn" id="nbTitle" data-click="Notebook.rename" title="點一下改名稱"></button>
+        <button class="icon-btn" data-click="MoreMenu.open" aria-label="更多功能" title="更多功能">⋯</button>
       </div>
       <div class="seg" role="tablist">
-        <button role="tab" id="nbTabCards" class="active" onclick="Notebook.switchTab('cards')">📝 逐字稿</button>
-        <button role="tab" id="nbTabSummary" onclick="Notebook.switchTab('summary')">✨ 重點摘要</button>
+        <button role="tab" id="nbTabCards" class="active" data-click="Notebook.switchTab" data-args='["cards"]'>📝 逐字稿</button>
+        <button role="tab" id="nbTabSummary" data-click="Notebook.switchTab" data-args='["summary"]'>✨ 重點摘要</button>
       </div>
 
       <main>
         <div id="navPanelCards" class="nav-panel">
           <div class="edit-mode-hint" id="editModeHint">
             <span id="editModeHintText"></span>
-            <button class="edit-done-btn" onclick="EditModeManager.set(null)">✓ 完成</button>
+            <button class="edit-done-btn" data-click="EditModeManager.set" data-args='[null]'>✓ 完成</button>
           </div>
           <div class="select-all-row hidden" id="selectAllRow">
-            <button id="selectAllBtn" onclick="CardSandbox.toggleSelectAll()">☑️ 全選</button>
+            <button id="selectAllBtn" data-click="CardSandbox.toggleSelectAll">☑️ 全選</button>
             <span class="select-all-count" id="selectAllCount"></span>
           </div>
           <div class="cards" id="cardsList"></div>
         </div>
 
         <div id="navPanelSummary" class="nav-panel hidden">
-          <div class="setup-card hidden" id="summaryKeyMissingHint" role="button" tabindex="0" onclick="KeyWizard.open('gemini')">
+          <div class="setup-card hidden" id="summaryKeyMissingHint" role="button" tabindex="0" data-click="KeyWizard.open" data-args='["gemini"]'>
             <span class="setup-banner-icon" aria-hidden="true">✨</span>
             <div class="setup-banner-text"><b>想讓 AI 自動整理重點？</b><span>設定免費的摘要金鑰（約 2 分鐘）</span></div>
             <span class="chev" aria-hidden="true">›</span>
@@ -1911,26 +1933,26 @@
           <div class="summary-panel" id="summaryPanel">
             <div class="field-title">這是什麼場合？</div>
             <div class="scene-chips" role="radiogroup" aria-label="場合">
-              <button class="scene-chip" data-scene="lecture" role="radio" onclick="SummaryModule.onSceneChange('lecture')"><span>📚</span>上課</button>
-              <button class="scene-chip" data-scene="meeting" role="radio" onclick="SummaryModule.onSceneChange('meeting')"><span>💼</span>開會</button>
-              <button class="scene-chip" data-scene="interview" role="radio" onclick="SummaryModule.onSceneChange('interview')"><span>🎤</span>訪談</button>
-              <button class="scene-chip" data-scene="daily" role="radio" onclick="SummaryModule.onSceneChange('daily')"><span>💬</span>聊天</button>
+              <button class="scene-chip" data-scene="lecture" role="radio" data-click="SummaryModule.onSceneChange" data-args='["lecture"]'><span>📚</span>上課</button>
+              <button class="scene-chip" data-scene="meeting" role="radio" data-click="SummaryModule.onSceneChange" data-args='["meeting"]'><span>💼</span>開會</button>
+              <button class="scene-chip" data-scene="interview" role="radio" data-click="SummaryModule.onSceneChange" data-args='["interview"]'><span>🎤</span>訪談</button>
+              <button class="scene-chip" data-scene="daily" role="radio" data-click="SummaryModule.onSceneChange" data-args='["daily"]'><span>💬</span>聊天</button>
             </div>
             <div class="summary-scene-desc" id="summarySceneDesc"></div>
             <div class="summary-pool-hint" id="summaryPoolHint"></div>
             <div class="summary-pool-list" id="summaryPoolList"></div>
 
-            <button class="btn-summary-generate" id="summaryGenerateBtn" onclick="SummaryModule.generate()">✨ 產生重點摘要</button>
-            <button class="link-btn hidden" id="summaryCancelBtn" onclick="SummaryModule.cancel()">取消</button>
+            <button class="btn-summary-generate" id="summaryGenerateBtn" data-click="SummaryModule.generate">✨ 產生重點摘要</button>
+            <button class="link-btn hidden" id="summaryCancelBtn" data-click="SummaryModule.cancel">取消</button>
 
           <!-- 摘要結果的次級分頁：摘要／待辦事項／心智圖同層切換，
                固定在同一個區塊高度內，不需要滑動穿越三塊內容。
                待辦事項／心智圖分頁按鈕沒有對應資料時停用。 -->
           <div class="summary-result-tabs hidden" id="summaryResultTabs">
-            <button class="summary-result-tab active" id="summaryTabBtn-text" onclick="SummaryModule.switchResultTab('text')">📄 重點</button>
-            <button class="summary-result-tab" id="summaryTabBtn-actions" onclick="SummaryModule.switchResultTab('actions')">✅ 待辦</button>
-            <button class="summary-result-tab adv-tab" id="summaryTabBtn-mindmap" onclick="SummaryModule.switchResultTab('mindmap')">🧠 心智圖</button>
-            <button class="summary-result-tab adv-tab" id="summaryTabBtn-terms" onclick="SummaryModule.switchResultTab('terms')">📖 名詞</button>
+            <button class="summary-result-tab active" id="summaryTabBtn-text" data-click="SummaryModule.switchResultTab" data-args='["text"]'>📄 重點</button>
+            <button class="summary-result-tab" id="summaryTabBtn-actions" data-click="SummaryModule.switchResultTab" data-args='["actions"]'>✅ 待辦</button>
+            <button class="summary-result-tab adv-tab" id="summaryTabBtn-mindmap" data-click="SummaryModule.switchResultTab" data-args='["mindmap"]'>🧠 心智圖</button>
+            <button class="summary-result-tab adv-tab" id="summaryTabBtn-terms" data-click="SummaryModule.switchResultTab" data-args='["terms"]'>📖 名詞</button>
           </div>
 
           <div class="summary-output empty" id="summaryOutputBox">
@@ -1946,13 +1968,13 @@
                大綱文字框，改完重新渲染即可調整結構。 -->
           <div class="summary-result-panel hidden" id="summaryMindmapSection">
             <div class="mindmap-edit-toggle-row hidden" id="mindmapViewToggleRow">
-              <button class="mindmap-toggle-btn active" id="mindmapViewBtnView" onclick="SummaryModule.switchMindmapView('view')">檢視</button>
-              <button class="mindmap-toggle-btn" id="mindmapViewBtnEdit" onclick="SummaryModule.switchMindmapView('edit')">編輯</button>
+              <button class="mindmap-toggle-btn active" id="mindmapViewBtnView" data-click="SummaryModule.switchMindmapView" data-args='["view"]'>檢視</button>
+              <button class="mindmap-toggle-btn" id="mindmapViewBtnEdit" data-click="SummaryModule.switchMindmapView" data-args='["edit"]'>編輯</button>
             </div>
 
             <div id="mindmapGenerateWrap" class="mindmap-generate-wrap">
               <div class="mindmap-generate-hint" id="mindmapGenerateHint">心智圖會根據上方已生成的摘要內容另外整理，需要再呼叫一次 Gemini。</div>
-              <button class="btn-mindmap-rerender" id="mindmapGenerateBtn" onclick="SummaryModule.generateMindmap()">🧠 產生心智圖</button>
+              <button class="btn-mindmap-rerender" id="mindmapGenerateBtn" data-click="SummaryModule.generateMindmap">🧠 產生心智圖</button>
             </div>
 
             <div id="mindmapViewWrap" class="hidden">
@@ -1960,23 +1982,23 @@
                 <svg id="mindmapSvg" class="mindmap-svg" role="img" aria-label="心智圖"></svg>
                 <div class="mm-hint">拖曳移動・兩指縮放・⛶ 全螢幕</div>
                 <div class="mm-ctrl">
-                  <button onclick="Mindmap.zoomBy(1.25)" aria-label="放大">＋</button>
-                  <button onclick="Mindmap.zoomBy(0.8)" aria-label="縮小">－</button>
-                  <button onclick="Mindmap.fit()" aria-label="看全部">🎯</button>
-                  <button id="mmFullBtn" onclick="Mindmap.toggleFull()" aria-label="全螢幕">⛶</button>
+                  <button data-click="Mindmap.zoomBy" data-args='[1.25]' aria-label="放大">＋</button>
+                  <button data-click="Mindmap.zoomBy" data-args='[0.8]' aria-label="縮小">－</button>
+                  <button data-click="Mindmap.fit" aria-label="看全部">🎯</button>
+                  <button id="mmFullBtn" data-click="Mindmap.toggleFull" aria-label="全螢幕">⛶</button>
                 </div>
               </div>
               <div class="mindmap-view-toolbar">
-                <button onclick="SummaryModule.downloadMindmapImage()" title="下載成高解析度圖片">⬇️ 下載圖片</button>
-                <button onclick="SummaryModule.shareMindmapImage()" title="分享圖片">🔗 分享圖片</button>
-                <button onclick="SummaryModule.copyMindmapToSheet()" title="存成文字大綱到共用表格">📤 存表格</button>
+                <button data-click="SummaryModule.downloadMindmapImage" title="下載成高解析度圖片">⬇️ 下載圖片</button>
+                <button data-click="SummaryModule.shareMindmapImage" title="分享圖片">🔗 分享圖片</button>
+                <button data-click="SummaryModule.copyMindmapToSheet" title="存成文字大綱到共用表格">📤 存表格</button>
               </div>
             </div>
             <div id="mindmapEditWrap" class="hidden">
               <textarea id="mindmapEditTextarea" class="mindmap-edit-textarea" spellcheck="false"
                         placeholder="# 整體主題&#10;- 子主題&#10;  - 細節"></textarea>
               <div class="mindmap-edit-hint">第一行「# 」表示根節點，其餘用縮排清單「- 」表示子項目層級。改完文字後按下方按鈕重新渲染。</div>
-              <button class="btn-mindmap-rerender" onclick="SummaryModule.applyMindmapEdit()">🔄 套用並重新渲染</button>
+              <button class="btn-mindmap-rerender" data-click="SummaryModule.applyMindmapEdit">🔄 套用並重新渲染</button>
             </div>
           </div>
 
@@ -1991,15 +2013,15 @@
                 抽出逐字稿中的專有名詞與上下文，產生一份可以直接貼到 Gemini 網頁版的提問稿，
                 讓它幫你查證、修正辨識錯字並補充說明。需要再呼叫一次 Gemini。
               </div>
-              <button class="btn-mindmap-rerender" id="termsGenerateBtn" onclick="SummaryModule.generateTerms()">📖 抽取專有名詞</button>
+              <button class="btn-mindmap-rerender" id="termsGenerateBtn" data-click="SummaryModule.generateTerms">📖 抽取專有名詞</button>
             </div>
 
             <div id="termsResultWrap" class="hidden">
               <div class="terms-hint">勾選要保留的名詞，取消勾選的不會出現在提問稿中。</div>
               <div class="terms-list" id="termsList"></div>
               <div class="terms-actions">
-                <button class="btn-mindmap-rerender" onclick="SummaryModule.copyTermsPrompt()">📋 複製提問稿</button>
-                <button class="btn-mindmap-rerender" onclick="SummaryModule.openGeminiWeb()">🚀 開啟 Gemini 網頁版</button>
+                <button class="btn-mindmap-rerender" data-click="SummaryModule.copyTermsPrompt">📋 複製提問稿</button>
+                <button class="btn-mindmap-rerender" data-click="SummaryModule.openGeminiWeb">🚀 開啟 Gemini 網頁版</button>
               </div>
               <div class="terms-hint" id="termsCopyHint">先按「複製提問稿」，再開啟 Gemini 網頁版貼上即可。</div>
             </div>
@@ -2008,10 +2030,10 @@
           <div class="summary-actions-row hidden" id="summaryActionsRow">
             <span class="summary-saved-hint">💾 已保存在本機</span>
             <div class="summary-actions-inline">
-              <button class="copy" onclick="SummaryModule.copy()" title="複製摘要文字">📋 複製</button>
-              <button class="share" onclick="SummaryModule.share()" title="分享摘要">🔗 分享</button>
-              <button class="copysheet" onclick="SummaryModule.copyToSheet()" title="複製成可貼進共用表格的格式">📤 存回表格</button>
-              <button class="del" onclick="SummaryModule.remove()" title="刪除已保存的摘要">✕ 刪除</button>
+              <button class="copy" data-click="SummaryModule.copy" title="複製摘要文字">📋 複製</button>
+              <button class="share" data-click="SummaryModule.share" title="分享摘要">🔗 分享</button>
+              <button class="copysheet" data-click="SummaryModule.copyToSheet" title="複製成可貼進共用表格的格式">📤 存回表格</button>
+              <button class="del" data-click="SummaryModule.remove" title="刪除已保存的摘要">✕ 刪除</button>
             </div>
           </div>
           </div>
@@ -2020,8 +2042,8 @@
 
       <div class="action-bar" id="actionBar">
         <div class="send-btn-row">
-          <button class="btn-secondary" onclick="RecordScreen.open(false)">🎙️ 繼續錄音</button>
-          <button class="btn-primary" id="shareOutBtn" onclick="ShareMenu.open()">📤 傳送</button>
+          <button class="btn-secondary" data-click="RecordScreen.open" data-args='[false]'>🎙️ 繼續錄音</button>
+          <button class="btn-primary" id="shareOutBtn" data-click="ShareMenu.open">📤 傳送</button>
         </div>
       </div>
     </section>
@@ -2036,22 +2058,22 @@
     <!-- ============ 共享筆記（進階） ============ -->
     <section class="view hidden" id="viewShared" aria-label="共享筆記">
       <div class="topbar">
-        <button class="icon-btn" onclick="View.back()" aria-label="返回">←</button>
+        <button class="icon-btn" data-click="View.back" aria-label="返回">←</button>
         <div class="topbar-title">📖 共享筆記</div>
-        <button class="icon-btn" onclick="SharedSheetGuide.open()" aria-label="教學">?</button>
+        <button class="icon-btn" data-click="SharedSheetGuide.open" aria-label="教學">?</button>
       </div>
       <main id="navPanelShared">
         <div class="shared-notes-panel" id="sharedNotesPanel">
           <div class="shared-notes-panel-label">
             讀取共用 Google 試算表
-            <button class="btn-help-icon" onclick="SharedSheetGuide.open()" title="怎麼建立共用表格？點這裡看圖文教學">❓</button>
+            <button class="btn-help-icon" data-click="SharedSheetGuide.open" title="怎麼建立共用表格？點這裡看圖文教學">❓</button>
           </div>
           <div class="shared-notes-panel-desc">
             貼上共用 Google 試算表的分享連結，讀取後可勾選要查看（或用來生成摘要）的資料，可複選，勾選順序即為送去生成摘要時的順序。這裡只能「查看」，不會修改表格本身。還沒建立共用表格？點上面的❓看圖文教學。
           </div>
           <div class="shared-notes-input-row">
             <input type="text" id="sharedSheetUrlInput" placeholder="貼上 Google 試算表分享連結">
-            <button class="btn-shared-notes-load" id="sharedNotesLoadBtn" onclick="SharedSheetNotes.load()">讀取</button>
+            <button class="btn-shared-notes-load" id="sharedNotesLoadBtn" data-click="SharedSheetNotes.load">讀取</button>
           </div>
           <div class="shared-notes-error" id="sharedNotesError"></div>
           <div class="shared-notes-loading" id="sharedNotesLoading">
@@ -2061,7 +2083,7 @@
           <div class="shared-notes-select-row" id="sharedNotesSelectRow">
             <div class="shared-notes-select-header">
               <label>勾選要查看（或納入摘要）的資料，順序即點選順序</label>
-              <button class="shared-notes-select-all-btn" onclick="SharedSheetNotes.toggleSelectAll()" id="sharedNotesSelectAllBtn">全選</button>
+              <button class="shared-notes-select-all-btn" data-click="SharedSheetNotes.toggleSelectAll" id="sharedNotesSelectAllBtn">全選</button>
             </div>
             <div class="shared-notes-checkbox-list" id="sharedNotesCheckboxList"></div>
             <div class="shared-notes-total-count" id="sharedNotesTotalCount"></div>
@@ -2071,23 +2093,23 @@
             ⚠️ 這份表格每一格存放一整包資料，請不要手動編輯格式或自行輸入內容，一律使用「複製成表格貼上格式」按鈕產生內容，貼到下一個空白儲存格即可；對方表格需設為「知道連結的使用者可檢視」才讀得到；僅讀取第一個工作分頁；多人同時手動貼上時沒有鎖定機制，貼上前請先確認自己要貼在空白儲存格，避免覆蓋他人資料。
           </div>
         </div>
-        <button class="btn-summary-generate" style="margin-top:14px;" onclick="View.back(); Notebook.switchTab('summary');">✨ 用勾選的內容做摘要</button>
+        <button class="btn-summary-generate" style="margin-top:14px;" data-click="Notebook.summarizeSelected">✨ 用勾選的內容做摘要</button>
       </main>
     </section>
 
     <!-- ============ 設定 ============ -->
     <section class="view hidden" id="viewSettings" aria-label="設定">
       <div class="topbar">
-        <button class="icon-btn" onclick="View.back()" aria-label="返回">←</button>
+        <button class="icon-btn" data-click="View.back" aria-label="返回">←</button>
         <div class="topbar-title">⚙️ 設定</div>
         <span class="icon-btn-spacer"></span>
       </div>
       <main id="navPanelSettings">
         <div class="tile-grid settings-quick">
-          <button class="tile" onclick="Onboarding.open()"><span>🎓</span>使用教學</button>
-          <button class="tile" onclick="openTrustPanel()"><span>🛡️</span>資料安全</button>
-          <button class="tile" onclick="KeyWizard.open('groq')"><span>🎙️</span>設定語音金鑰</button>
-          <button class="tile" onclick="KeyWizard.open('gemini')"><span>✨</span>設定摘要金鑰</button>
+          <button class="tile" data-click="Onboarding.open"><span>🎓</span>使用教學</button>
+          <button class="tile" data-click="openTrustPanel"><span>🛡️</span>資料安全</button>
+          <button class="tile" data-click="KeyWizard.open" data-args='["groq"]'><span>🎙️</span>設定語音金鑰</button>
+          <button class="tile" data-click="KeyWizard.open" data-args='["gemini"]'><span>✨</span>設定摘要金鑰</button>
         </div>
 
         <div class="settings-section-label">🔑 我的金鑰</div>
@@ -2099,17 +2121,17 @@
           <div class="keypool-add-row">
             <input type="text" id="groqKeyPoolLabelInput" class="keypool-label-input" placeholder="名稱（可不填）" aria-label="金鑰名稱">
             <input type="password" id="groqKeyPoolValueInput" placeholder="貼上 gsk_ 開頭的金鑰" aria-label="語音金鑰">
-            <button class="keypool-add-btn" onclick="KeyPoolPanel.addKey('groq')">加入</button>
+            <button class="keypool-add-btn" data-click="KeyPoolPanel.addKey" data-args='["groq"]'>加入</button>
           </div>
           <div class="keypool-count-hint" id="groqKeyPoolCountHint"></div>
           <div class="keypool-switch-mode-row">
             <div class="keypool-switch-mode-label">金鑰失效或額度用完時：</div>
             <div class="keypool-switch-mode-toggle" id="groqSwitchModeToggle">
-              <button id="groqSwitchModeManual" onclick="KeyPoolPanel.setSwitchMode('groq', 'manual')">只提醒我</button>
-              <button id="groqSwitchModeAuto" onclick="KeyPoolPanel.setSwitchMode('groq', 'auto')">自動換下一組</button>
+              <button id="groqSwitchModeManual" data-click="KeyPoolPanel.setSwitchMode" data-args='["groq", "manual"]'>只提醒我</button>
+              <button id="groqSwitchModeAuto" data-click="KeyPoolPanel.setSwitchMode" data-args='["groq", "auto"]'>自動換下一組</button>
             </div>
           </div>
-          <button class="link-btn" onclick="KeyWizard.open('groq')">🧭 還沒有金鑰？一步步帶你申請</button>
+          <button class="link-btn" data-click="KeyWizard.open" data-args='["groq"]'>🧭 還沒有金鑰？一步步帶你申請</button>
         </div>
 
         <div class="key-panel">
@@ -2119,23 +2141,23 @@
           <div class="keypool-add-row">
             <input type="text" id="geminiKeyPoolLabelInput" class="keypool-label-input" placeholder="名稱（可不填）" aria-label="金鑰名稱">
             <input type="password" id="geminiKeyPoolValueInput" placeholder="貼上 AQ. 或 AIza 開頭的金鑰" aria-label="摘要金鑰">
-            <button class="keypool-add-btn" onclick="KeyPoolPanel.addKey('gemini')">加入</button>
+            <button class="keypool-add-btn" data-click="KeyPoolPanel.addKey" data-args='["gemini"]'>加入</button>
           </div>
           <div class="keypool-count-hint" id="geminiKeyPoolCountHint"></div>
           <div class="keypool-switch-mode-row">
             <div class="keypool-switch-mode-label">金鑰失效或額度用完時：</div>
             <div class="keypool-switch-mode-toggle" id="geminiSwitchModeToggle">
-              <button id="geminiSwitchModeManual" onclick="KeyPoolPanel.setSwitchMode('gemini', 'manual')">只提醒我</button>
-              <button id="geminiSwitchModeAuto" onclick="KeyPoolPanel.setSwitchMode('gemini', 'auto')">自動換下一組</button>
+              <button id="geminiSwitchModeManual" data-click="KeyPoolPanel.setSwitchMode" data-args='["gemini", "manual"]'>只提醒我</button>
+              <button id="geminiSwitchModeAuto" data-click="KeyPoolPanel.setSwitchMode" data-args='["gemini", "auto"]'>自動換下一組</button>
             </div>
           </div>
-          <button class="link-btn" onclick="KeyWizard.open('gemini')">🧭 還沒有金鑰？一步步帶你申請</button>
+          <button class="link-btn" data-click="KeyWizard.open" data-args='["gemini"]'>🧭 還沒有金鑰？一步步帶你申請</button>
         </div>
 
         <div class="settings-section-label">🌏 翻譯額度</div>
         <div class="keypool-block">
           <input type="email" id="translationEmailInput" placeholder="你的電子信箱（可不填）" aria-label="電子信箱"
-            onchange="TranslationManager.onEmailChange(this.value)">
+            data-change="TranslationManager.onEmailChange" data-args='["$value"]'>
 
           <details>
             <summary>填電子信箱有什麼用？</summary>
@@ -2167,7 +2189,7 @@
           <div class="danger-desc">
             一次清除這支手機上的所有金鑰、筆記與設定。<b>刪了就救不回來</b>，適合在借來的手機用完後執行。
           </div>
-          <button class="btn-danger-full" onclick="ClearLocalData.open()">🗑️ 刪除全部資料</button>
+          <button class="btn-danger-full" data-click="ClearLocalData.open">🗑️ 刪除全部資料</button>
         </div>
 
         <details class="changelog-details">
@@ -2346,7 +2368,7 @@
         </details>
 
         <div class="settings-app-info">
-          語音筆記 · 作者 <b>kenyuiyui</b><br>
+          語音卡片筆記 · 作者 <b>kenyuiyui</b><br>
           <a href="https://github.com/kenyuiyui/voice-to-text-line-bot-LIFF" target="_blank" rel="noopener">原始碼（MIT 授權）</a><br>
           版本：<span id="settingsAppVersion"></span>
         </div>
@@ -2359,19 +2381,19 @@
     <div class="modal-box" style="max-width:380px;">
       <div class="modal-tabs"><button class="active" style="cursor:default;">📤 傳送這本筆記</button></div>
       <div class="modal-body" style="padding:12px;">
-        <div class="share-option" id="sendToRoomBtn" role="button" tabindex="0" onclick="ShareMenu.selectRoom()">
+        <div class="share-option" id="sendToRoomBtn" role="button" tabindex="0" data-click="ShareMenu.selectRoom">
           <div class="share-option-title">💬 傳回這個 LINE 聊天室</div>
           <div class="share-option-desc">從 LINE 聊天室打開本頁時可用，需要先加官方帳號好友。</div>
         </div>
-        <div class="share-option" role="button" tabindex="0" onclick="ShareMenu.selectLineFriend()">
+        <div class="share-option" role="button" tabindex="0" data-click="ShareMenu.selectLineFriend">
           <div class="share-option-title">👥 傳給 LINE 好友</div>
           <div class="share-option-desc">跳出好友／群組清單，挑一個人傳送。需要登入 LINE。</div>
         </div>
-        <div class="share-option" role="button" tabindex="0" onclick="ShareMenu.selectOtherApp()">
+        <div class="share-option" role="button" tabindex="0" data-click="ShareMenu.selectOtherApp">
           <div class="share-option-title">📲 用其他 App 分享</div>
           <div class="share-option-desc">打開手機的分享選單（簡訊、Email 等）。電腦上會自動改成複製。</div>
         </div>
-        <div class="share-option" role="button" tabindex="0" onclick="ShareMenu.selectCopy()">
+        <div class="share-option" role="button" tabindex="0" data-click="ShareMenu.selectCopy">
           <div class="share-option-title">📋 複製全部文字</div>
           <div class="share-option-desc">複製後可以貼到任何地方。<b>用電腦時建議選這個</b>。</div>
         </div>
@@ -2380,7 +2402,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-cancel sheet-cancel" onclick="ShareMenu.close()">取消</button>
+        <button class="btn-cancel sheet-cancel" data-click="ShareMenu.close">取消</button>
       </div>
     </div>
   </div>
@@ -2390,11 +2412,11 @@
     <div class="modal-box" style="max-width:380px;">
       <div class="modal-tabs"><button class="active" style="cursor:default;">🔗 分享摘要</button></div>
       <div class="modal-body" style="padding:12px;">
-        <div class="share-option" onclick="SummaryModule.shareViaLineFriend()">
+        <div class="share-option" data-click="SummaryModule.shareViaLineFriend">
           <div class="share-option-title">📤 LINE 好友分享</div>
           <div class="share-option-desc">跳出 LINE 好友／群組清單，挑一個對象發送摘要文字。<b>需要先登入 LINE</b>。</div>
         </div>
-        <div class="share-option" onclick="SummaryModule.shareViaWebShare()">
+        <div class="share-option" data-click="SummaryModule.shareViaWebShare">
           <div class="share-option-title">📲 分享至其他應用程式</div>
           <div class="share-option-desc">跳出手機系統的分享選單。<b>在 LINE 內開啟此頁面時無法使用</b>，會自動改用「LINE 好友分享」。</div>
         </div>
@@ -2403,12 +2425,15 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-cancel" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card-bg); color:var(--ink-soft); cursor:pointer;" onclick="SummaryModule.closeShareMenu()">取消</button>
+        <button class="btn-cancel" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card-bg); color:var(--ink-soft); cursor:pointer;" data-click="SummaryModule.closeShareMenu">取消</button>
       </div>
     </div>
   </div>
 
   <script>
+    // 能執行到這行代表 CSP 雜湊正確，移除保險提示
+    document.getElementById('cspGuard')?.remove();
+
     // 共用工具，零依賴，放檔案最前面。escapeHtml 被多個模組呼叫，
     // 不屬於任何單一業務模組，避免因暫時性死區被提前呼叫而中斷 script。
     const Utils = {
@@ -2722,16 +2747,16 @@
             <div class="keypool-item ${isActive ? 'active' : ''}" data-key-id="${k.id}">
               <input type="radio" class="keypool-item-radio" name="keypool-active-${type}"
                      ${isActive ? 'checked' : ''}
-                     onchange="KeyPoolPanel.setActive('${type}', '${k.id}')"
+                     data-change="KeyPoolPanel.setActive" data-args="${Utils.escapeHtml(JSON.stringify([type, k.id]))}"
                      title="設為目前使用中">
               <div class="keypool-item-main">
                 <input type="text" class="keypool-item-label" value="${Utils.escapeHtml(k.label)}"
-                       onblur="KeyPoolPanel.renameKey('${type}', '${k.id}', this.value)"
+                       data-blur="KeyPoolPanel.renameKey" data-args="${Utils.escapeHtml(JSON.stringify([type, k.id, '$value']))}"
                        maxlength="20">
                 <div class="keypool-item-value">${masked}</div>
               </div>
               <span class="keypool-item-status ${statusClass}">${statusLabel}</span>
-              <button class="keypool-item-del" onclick="KeyPoolPanel.removeKey('${type}', '${k.id}')" title="刪除這把金鑰">✕</button>
+              <button class="keypool-item-del" data-click="KeyPoolPanel.removeKey" data-args="${Utils.escapeHtml(JSON.stringify([type, k.id]))}" title="刪除這把金鑰">✕</button>
             </div>
           `;
         }).join('');
@@ -2983,7 +3008,7 @@
                   <div class="settings-item-status">${item.statusText()}</div>
                 </div>
               </div>
-              <button class="settings-item-del" onclick="SettingsPanel.deleteItem('${item.id}')" ${hasData ? '' : 'disabled'}>刪除</button>
+              <button class="settings-item-del" data-click="SettingsPanel.deleteItem" data-args="${Utils.escapeHtml(JSON.stringify([item.id]))}" ${hasData ? '' : 'disabled'}>刪除</button>
             </div>
           `;
         }).join('');
@@ -3387,15 +3412,15 @@
 
           let actionsHtml = '';
           if (mode === 'merge' && !isLast) {
-            actionsHtml = `<button class="merge" title="與下一句合併" onclick="CardSandbox.mergeWithNext(${card.id})">↓ 合併</button>`;
+            actionsHtml = `<button class="merge" title="與下一句合併" data-click="CardSandbox.mergeWithNext" data-args="${Utils.escapeHtml(JSON.stringify([card.id]))}">↓ 合併</button>`;
           } else if (mode === 'reorder') {
             actionsHtml = `
-              <button class="reorder-btn" title="上移" onclick="CardSandbox.moveUp(${card.id})" ${isFirst ? 'disabled' : ''}>↑</button>
-              <button class="reorder-btn" title="下移" onclick="CardSandbox.moveDown(${card.id})" ${isLast ? 'disabled' : ''}>↓</button>
-              <button class="reorder-btn" title="移至頂層" onclick="CardSandbox.moveToTop(${card.id})" ${isFirst ? 'disabled' : ''}>⤒</button>
+              <button class="reorder-btn" title="上移" data-click="CardSandbox.moveUp" data-args="${Utils.escapeHtml(JSON.stringify([card.id]))}" ${isFirst ? 'disabled' : ''}>↑</button>
+              <button class="reorder-btn" title="下移" data-click="CardSandbox.moveDown" data-args="${Utils.escapeHtml(JSON.stringify([card.id]))}" ${isLast ? 'disabled' : ''}>↓</button>
+              <button class="reorder-btn" title="移至頂層" data-click="CardSandbox.moveToTop" data-args="${Utils.escapeHtml(JSON.stringify([card.id]))}" ${isFirst ? 'disabled' : ''}>⤒</button>
             `;
           } else if (mode === 'edit') {
-            actionsHtml = `<button class="del" title="刪除" onclick="CardSandbox.remove(${card.id})">✕</button>`;
+            actionsHtml = `<button class="del" title="刪除" data-click="CardSandbox.remove" data-args="${Utils.escapeHtml(JSON.stringify([card.id]))}">✕</button>`;
           }
 
           // 勾選模式下顯示順序標號，點擊卡片切換 SelectionPool 勾選狀態
@@ -3406,7 +3431,7 @@
             const orderNum = SelectionPool.getOrderNumber('card', card.id);
             isSelected = orderNum !== null;
             selectBadgeHtml = `<span class="selection-order-badge ${isSelected ? 'selected' : ''}">${isSelected ? orderNum : ''}</span>`;
-            cardOnClick = `onclick="SelectionPool.toggle('card', ${card.id})"`;
+            cardOnClick = `data-click="SelectionPool.toggle" data-args="${Utils.escapeHtml(JSON.stringify(['card', card.id]))}"`;
           }
 
           return `
@@ -3415,7 +3440,7 @@
               <div class="card-text-group">
                 <span class="card-text"
                       ${isEditable ? 'contenteditable="true"' : ''}
-                      ${isEditable ? `onblur="CardSandbox.update(${card.id}, this.innerText)"` : ''}>${Utils.escapeHtml(card.text)}</span>
+                      ${isEditable ? `data-blur="CardSandbox.update" data-args="${Utils.escapeHtml(JSON.stringify([card.id, '$text']))}"` : ''}>${Utils.escapeHtml(card.text)}</span>
                 ${card.translation ? `<div class="card-translation">${Utils.escapeHtml(card.translationLangCode)}: ${Utils.escapeHtml(card.translation)}</div>` : ''}
               </div>
               ${actionsHtml ? `<div class="card-actions-inline">${actionsHtml}</div>` : ''}
@@ -3883,7 +3908,7 @@
 
           return `
             <label class="shared-notes-checkbox-item">
-              <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="SelectionPool.toggle('shared', ${idx})">
+              <input type="checkbox" ${isChecked ? 'checked' : ''} data-change="SelectionPool.toggle" data-args="${Utils.escapeHtml(JSON.stringify(['shared', idx]))}">
               <span class="selection-order-badge ${isChecked ? 'selected' : ''}">${isChecked ? orderNum : ''}</span>
               <div class="shared-notes-checkbox-item-body">
                 <div class="shared-notes-checkbox-item-label">${typeTag}${Utils.escapeHtml(label)}</div>
@@ -4053,6 +4078,7 @@
 
     const SummaryModule = {
       GEMINI_MODEL: 'gemini-3.5-flash',
+      GEMINI_KEY_CHECK_URL: 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1',
       isGenerating: false,
       currentSummary: null,
 
@@ -4165,7 +4191,7 @@
               <span class="pool-order">${i + 1}</span>
               <span class="pool-label">${item.type === 'summary' ? '📝' : ''}${item.hasTranslation ? '🌏' : ''} ${Utils.escapeHtml(item.label)}</span>
               <span class="pool-source">${sourceLabel}</span>
-              <button class="pool-remove" aria-label="移除" onclick="SelectionPool.remove('${item.source}', ${item.id})">✕</button>
+              <button class="pool-remove" aria-label="移除" data-click="SelectionPool.remove" data-args="${Utils.escapeHtml(JSON.stringify([item.source, item.id]))}">✕</button>
             </div>
           `;
         }).join('');
@@ -4648,7 +4674,7 @@
           const matchedPoint = points.find(pt => body.startsWith(stripBullet(Utils.escapeHtml(pt.trim()))));
           if (matchedPoint) {
             const label = Utils.escapeHtml(refMap[matchedPoint]);
-            return `<div class="summary-line">${line} <span class="summary-source-tag" role="button" tabindex="0" data-label="${label}" onclick="SummaryModule.jumpToSource(this.dataset.label)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }" title="點擊查看來源段落">📍${label}</span></div>`;
+            return `<div class="summary-line">${line} <span class="summary-source-tag" role="button" tabindex="0" data-label="${label}" data-click="SummaryModule.jumpToSource" data-args='["$dataset.label"]' title="點擊查看來源段落">📍${label}</span></div>`;
           }
           return `<div class="summary-line">${line}</div>`;
         });
@@ -4877,7 +4903,7 @@
 
         list.innerHTML = this.currentTerms.map((t, i) => `
           <label class="terms-item">
-            <input type="checkbox" ${t.keep ? 'checked' : ''} onchange="SummaryModule.toggleTerm(${i}, this.checked)">
+            <input type="checkbox" ${t.keep ? 'checked' : ''} data-change="SummaryModule.toggleTerm" data-args="${Utils.escapeHtml(JSON.stringify([i, '$checked']))}">
             <span class="terms-item-body">
               <span class="terms-item-term">${Utils.escapeHtml(t.term)}</span>
               ${t.context ? `<span class="terms-item-context">${Utils.escapeHtml(t.context)}</span>` : ''}
@@ -5126,8 +5152,11 @@
     // 即時錄音與檔案上傳共用的 Whisper 呼叫。
     // 錯誤帶 status／retryable 供上傳流程決定是否重試。
     const GroqWhisper = {
+      // 自行部署換成其他 OpenAI 相容的語音辨識伺服器（含自架 Whisper）時，
+      // 改這三個常數，並在 CSP connect-src 加上該伺服器網域
       ENDPOINT: 'https://api.groq.com/openai/v1/audio/transcriptions',
       MODEL: 'whisper-large-v3-turbo',
+      KEY_CHECK_URL: 'https://api.groq.com/openai/v1/models',
 
       async transcribe(blob, filename, userSignal, timeoutMs) {
         const apiKey = KeyPoolManager.getActiveKeyValue('groq');
@@ -6682,6 +6711,43 @@
     // 避免同一份資料存兩處而不同步。
     const NOTEBOOKS_STORAGE_KEY = 'voice_notebooks';
 
+    const SAMPLE_SEEDED_KEY = 'sample_notebook_seeded';
+    // 範例筆記：模擬英文授課＋即時翻譯成中文的成果。內容為原創示範文字。
+    const SAMPLE_NOTEBOOK = {
+      title: '📘 範例：經濟學導論（英文授課）',
+      cards: [
+        { text: "Okay, let's get started. Today we're talking about opportunity cost, which is probably the most important idea in this whole course.",
+          translation: '好，我們開始吧。今天要講機會成本，這大概是整門課最重要的觀念。', translationLangCode: 'zh' },
+        { text: "Opportunity cost is the value of the best alternative you give up when you make a choice. Not all the alternatives, just the best one.",
+          translation: '機會成本是你做選擇時，放棄的「最佳替代方案」的價值。不是所有替代方案，只算最好的那一個。', translationLangCode: 'zh' },
+        { text: "So if you spend tonight studying instead of working a shift that pays eight hundred dollars, the eight hundred is part of the cost of studying.",
+          translation: '所以如果你今晚選擇讀書，而不是去打一份 800 元的工，那 800 元就是讀書成本的一部分。', translationLangCode: 'zh' },
+        { text: "A common mistake is counting sunk costs. Money you already spent and can't get back should not affect your decision now.",
+          translation: '常見的錯誤是把沉沒成本算進去。已經花掉、拿不回來的錢，不應該影響你現在的決定。', translationLangCode: 'zh' },
+        { text: "This is not on the slides, but in my experience it's the number one thing students get wrong on the midterm, so pay attention.",
+          translation: '這個投影片上沒有，但根據我的經驗，這是期中考學生錯最多的地方，請特別注意。', translationLangCode: 'zh' },
+        { text: "For next week, please read chapter two and finish problem set one. It's due Friday before class.",
+          translation: '下週請讀第二章，並完成第一份習題。週五上課前繳交。', translationLangCode: 'zh' }
+      ],
+      summary: {
+        summary: '本堂課介紹經濟學最核心的觀念：機會成本，並提醒期中考常見錯誤。\n' +
+          '・機會成本＝做選擇時放棄的「最佳」替代方案的價值，只算最好的那一個，不是全部加總\n' +
+          '・例子：今晚讀書而不去打 800 元的工，這 800 元就是讀書的成本之一\n' +
+          '・沉沒成本（已花掉、拿不回來的錢）不應影響現在的決定\n' +
+          '・老師特別強調（投影片沒有）：把沉沒成本算進決策，是期中考學生錯最多的地方',
+        actionItems: [
+          { task: '閱讀第二章', owner: null, deadline: '下週上課前' },
+          { task: '完成第一份習題', owner: null, deadline: '週五上課前' }
+        ],
+        mindmapOutline: '# 機會成本\n' +
+          '- 定義\n  - 放棄的最佳替代方案\n  - 只算最好的一個\n' +
+          '- 例子\n  - 讀書 vs 打工 800 元\n' +
+          '- 沉沒成本\n  - 拿不回來的錢\n  - 不影響現在決定\n  - 期中考最常錯\n' +
+          '- 作業\n  - 讀第二章\n  - 習題一週五交',
+        sourceRefs: []
+      }
+    };
+
     const NotebookStore = {
       list: [],
       activeId: null,
@@ -6696,6 +6762,24 @@
           console.warn('讀取筆記清單失敗，從空白開始：', e);
         }
         if (this.list.length === 0) this._migrateLegacy();
+        this._seedSample();
+      },
+
+      // 新使用者第一次開啟時放一本範例筆記，不用金鑰就能看到轉寫、翻譯、
+      // 摘要與心智圖的成果。只放一次：刪掉後不再出現；已有筆記的舊使用者不放。
+      _seedSample() {
+        let seeded = false;
+        try { seeded = localStorage.getItem(SAMPLE_SEEDED_KEY) === '1'; } catch (e) { /* 忽略 */ }
+        if (seeded) return;
+        if (this.list.length === 0) {
+          const nb = this._make(SAMPLE_NOTEBOOK.title, 'record');
+          nb.cards = SAMPLE_NOTEBOOK.cards.map((c, i) => ({ id: i + 1, ...c }));
+          nb.nextId = nb.cards.length + 1;
+          nb.summary = SAMPLE_NOTEBOOK.summary;
+          this.list.push(nb);
+          this.save();
+        }
+        try { localStorage.setItem(SAMPLE_SEEDED_KEY, '1'); } catch (e) { /* 忽略 */ }
       },
 
       // 舊版只有單一份卡片草稿與摘要，轉成第一本筆記；存檔成功才刪舊鍵
@@ -6809,7 +6893,7 @@
         const items = NotebookStore.list.slice().sort((a, b) => b.updatedAt - a.updatedAt);
         document.getElementById('homeEmpty').classList.toggle('hidden', items.length > 0);
         listEl.innerHTML = items.map(nb => `
-          <button class="nb-item ${nb.source === 'upload' ? 'upload' : ''} ${nb.id === NotebookStore.activeId && View.current !== 'home' ? 'active' : ''}" onclick="Notebook.open('${nb.id}')">
+          <button class="nb-item ${nb.source === 'upload' ? 'upload' : ''} ${nb.id === NotebookStore.activeId && View.current !== 'home' ? 'active' : ''}" data-click="Notebook.open" data-args="${Utils.escapeHtml(JSON.stringify([nb.id]))}">
             <span class="nb-icon" aria-hidden="true">${nb.source === 'upload' ? '📁' : '🎙️'}</span>
             <span class="nb-main">
               <span class="nb-title">${Utils.escapeHtml(nb.title)}</span>
@@ -6896,6 +6980,12 @@
         CardSandbox.render();
         EditModeManager.render();
         this.switchTab(this.tab);
+      },
+
+      // 共享筆記頁「用勾選的內容做摘要」：回到筆記並切到摘要分頁
+      summarizeSelected() {
+        View.back();
+        this.switchTab('summary');
       },
 
       switchTab(tab) {
@@ -7012,7 +7102,7 @@
                '<span class="kw-guard">⚠️ 網址要是 <b>console.groq.com</b>。如果畫面出現「Google AI Studio」或「Gemini」就是走錯了——那是另一把摘要用的金鑰，錄音不能用。</span>',
           steps: `
             <li data-icon="🌐"><b>打開 Groq 網站</b>
-              <a class="kw-open" href="https://console.groq.com/keys" target="_blank" rel="noopener" onclick="Utils.openExternal(this.href); return false;">🌐 打開 Groq 申請網頁</a>
+              <a class="kw-open" href="https://console.groq.com/keys" target="_blank" rel="noopener" data-click="Utils.openExternal" data-args='["$href"]'>🌐 打開 Groq 申請網頁</a>
               <span class="kw-sub">會用手機瀏覽器開啟（LINE 裡無法用 Google 登入）。網頁是英文的沒關係，照下面找按鈕就好</span></li>
             <li data-icon="👤"><b>登入 Groq</b>：點 <span class="mock-btn">Continue with Google</span>——這只是借 Google 帳號登入 Groq，<b>不是去 Google 申請</b></li>
             <li data-icon="🔑"><b>建立金鑰</b>：點 <span class="mock-btn">Create API Key</span>，名字隨便打（例如 note），再點 <span class="mock-btn">Submit</span></li>
@@ -7033,14 +7123,14 @@
                '<span class="kw-guard">⚠️ 這把只給 AI 摘要用，<b>錄音用不到</b>。錄音要的是 Groq 語音金鑰（<code>gsk_</code> 開頭）。</span>',
           steps: `
             <li data-icon="🌐"><b>打開 Google AI Studio</b>
-              <a class="kw-open" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" onclick="Utils.openExternal(this.href); return false;">🌐 打開 Google 申請網頁</a>
+              <a class="kw-open" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" data-click="Utils.openExternal" data-args='["$href"]'>🌐 打開 Google 申請網頁</a>
               <span class="kw-sub">會用手機瀏覽器開啟（LINE 裡無法用 Google 登入）。網頁可能是英文的，照下面找按鈕就好</span></li>
             <li data-icon="👤"><b>登入</b>：用你平常的 Google 帳號（跟 Gmail 同一組），第一次可能要先按同意</li>
             <li data-icon="🔑"><b>建立金鑰</b>：點 <span class="mock-btn">Create API key</span>；如果問你要放在哪個專案，選 <span class="mock-btn">Create API key in new project</span></li>
             <li data-icon="📋"><b>複製</b>：點金鑰旁邊的複製圖示
               <span class="mock-key"><code>AQ.Ab8RN6k…</code><span class="mock-btn">⧉</span></span></li>
             <li data-icon="📱"><b>切回 LINE</b>，按下面的 <span class="mock-btn">📋 貼上並完成</span> 就好</li>`,
-          note: '提醒：Google 免費方案的內容可能被用於改善 Google 產品，機密內容建議不要做 AI 摘要。',
+          note: '提醒：Google 免費方案的內容可能被用於改善 Google 產品，機密內容建議不要做 AI 摘要。這個 Google 專案不要開帳單；若需要開，務必在 AI Studio 設定每月金額上限，金鑰萬一外洩也不會被盜刷。',
           placeholder: '貼上 AQ. 或 AIza 開頭的金鑰'
         }
       },
@@ -7123,8 +7213,8 @@
       async _verify(type, value) {
         try {
           const res = type === 'groq'
-            ? await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${value}` } })
-            : await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', { headers: { 'x-goog-api-key': value } });
+            ? await fetch(GroqWhisper.KEY_CHECK_URL, { headers: { Authorization: `Bearer ${value}` } })
+            : await fetch(SummaryModule.GEMINI_KEY_CHECK_URL, { headers: { 'x-goog-api-key': value } });
           if (res.ok) return 'ok';
           if ([400, 401, 403].includes(res.status)) return 'invalid';
           return 'unknown';
@@ -8265,6 +8355,97 @@
         copyToClipboardFallback(fullText);
       }
     }
+
+    // ===== 事件委派 =====
+    // CSP 不放行 'unsafe-inline'，HTML 不能寫 onclick= 等 inline 事件。
+    // 改用 data-click / data-change / data-input / data-blur / data-enter
+    // 指定「物件.方法」，參數放 data-args（JSON 陣列）。
+    // 參數代號：$value $checked $files $text $href $event $dataset.<名稱>
+    // 新增可被呼叫的物件時，要加進 ACTION_TARGETS，否則點了沒反應（console 會報錯）。
+    const ACTION_TARGETS = {
+      CardSandbox, ChatPreview, ClearLocalData, EditModeManager, FileUploadTranscribe,
+      FriendGate, Home, KeyPoolPanel, KeyWizard, LangTranslationGuide, LanguageManager,
+      LiveTranslationGuide, Mindmap, ModalUtil, MoreMenu, NotInLiffGate, Notebook,
+      Onboarding, RecordNotice, RecordScreen, SelectionPool, SettingsPanel, ShareMenu,
+      SharedSheetGuide, SharedSheetNotes, SummaryModule, TranslationManager, Utils, View,
+      openTrustPanel, toggleMeetingRecording
+    };
+
+    const ActionDispatcher = {
+      _resolveArg(arg, el, event) {
+        if (typeof arg !== 'string' || arg[0] !== '$') return arg;
+        if (arg.startsWith('$dataset.')) return el.dataset[arg.slice(9)];
+        switch (arg) {
+          case '$value': return el.value;
+          case '$checked': return el.checked;
+          case '$files': return el.files;
+          case '$text': return el.innerText;
+          case '$href': return el.href;
+          case '$event': return event;
+          default: return arg;
+        }
+      },
+
+      run(el, attr, event) {
+        const path = el.getAttribute(attr);
+        const [objName, method] = path.split('.');
+        const obj = ACTION_TARGETS[objName];
+        const fn = method ? obj && obj[method] : obj;
+        if (typeof fn !== 'function') {
+          console.error(`找不到事件處理函式：${path}（是否忘了加進 ACTION_TARGETS？）`);
+          return;
+        }
+        let args = [];
+        if (el.dataset.args) {
+          try { args = JSON.parse(el.dataset.args); }
+          catch (e) { console.error(`data-args 格式錯誤：${path}`, e); return; }
+        }
+        if (el.tagName === 'A') event.preventDefault();
+        try {
+          const ret = fn.apply(method ? obj : null, args.map(a => this._resolveArg(a, el, event)));
+          if (ret && typeof ret.catch === 'function') {
+            ret.catch(err => console.error(`${path} 執行失敗：`, err));
+          }
+        } catch (err) {
+          console.error(`${path} 執行失敗：`, err);
+        }
+      },
+
+      // 由觸發點往上逐層執行，與原本 inline 事件的冒泡行為一致
+      bubble(event, attr) {
+        for (let el = event.target; el && el !== document; el = el.parentElement) {
+          if (!el.hasAttribute || !el.hasAttribute(attr)) continue;
+          if (el.hasAttribute('data-self-only') && event.target !== el) continue;
+          this.run(el, attr, event);
+          if (event.cancelBubble) break;
+        }
+      },
+
+      init() {
+        document.addEventListener('click', e => this.bubble(e, 'data-click'));
+        document.addEventListener('change', e => this.bubble(e, 'data-change'));
+        document.addEventListener('input', e => this.bubble(e, 'data-input'));
+        // blur 不冒泡，用 focusout 但只看元素本身，維持原本 onblur 的語意
+        document.addEventListener('focusout', e => {
+          if (e.target.hasAttribute && e.target.hasAttribute('data-blur')) this.run(e.target, 'data-blur', e);
+        });
+        document.addEventListener('keydown', e => {
+          const el = e.target;
+          if (!el.hasAttribute) return;
+          if (e.key === 'Enter' && el.hasAttribute('data-enter')) {
+            this.run(el, 'data-enter', e);
+            return;
+          }
+          // 非 <button> 的 role="button" 元素：鍵盤 Enter／Space 視同點擊（無障礙）
+          if ((e.key === 'Enter' || e.key === ' ') && el.getAttribute('role') === 'button'
+              && el.tagName !== 'BUTTON' && el.hasAttribute('data-click')) {
+            e.preventDefault();
+            el.click();
+          }
+        });
+      }
+    };
+    ActionDispatcher.init();
 
     // Service Worker 只是加分項：讓「加到主畫面」可安裝、網路不穩時
     // 仍開得起頁面。LINE 內建瀏覽器或不支援的環境註冊失敗都不影響
